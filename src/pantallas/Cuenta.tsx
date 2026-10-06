@@ -5,6 +5,7 @@ import { useApp } from "../contexto";
 import { Cabeza, Campo } from "../ui";
 import { diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, mesISO, TIPOS_CUENTA } from "../util";
 import { lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
+import { cargarCobros, textoEstado, type EstadoMov } from "../cobros";
 
 type Detalle = {
   saldo: number; tipo: string; nombre: string; limite: number | null; dia_corte: number | null; dia_pago: number | null;
@@ -27,10 +28,11 @@ function cuando(f: string) {
 
 export default function Cuenta() {
   const { id = "" } = useParams();
-  const { uid, otros, yo, aviso } = useApp();
+  const { uid, otros, yo, aviso, familiares } = useApp();
   const [d, setD] = useState<Detalle | null>(null);
   const [movs, setMovs] = useState<Mov[]>([]);
   const [fallo, setFallo] = useState("");
+  const [cobros, setCobros] = useState<Record<string, EstadoMov>>({});
   const [corrigiendo, setCorrigiendo] = useState(false);
   const [manual, setManual] = useState("");
   const nombres = useMemo(() => Object.fromEntries([...otros, ...(yo ? [yo] : [])].map((m) => [m.user_id, m.nombre])), [otros, yo]);
@@ -45,6 +47,7 @@ export default function Cuenta() {
     q = desde ? q.gt("fecha", desde) : q.gte("fecha", mesISO());
     const m = await q.order("fecha", { ascending: false }).order("created_at", { ascending: false });
     setMovs(m.data ?? []);
+    cargarCobros().then((c) => setCobros(c.movs));
   }, [id]);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -76,7 +79,7 @@ export default function Cuenta() {
               <div className="titulo">{l.titulo}</div>
               <div className="detalle">
                 {m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
-                {m.familiar && <span className="etiq">{m.familiar.nombre}</span>}
+                {m.familiar && <EtiqPersona nombre={m.familiar.nombre} e={cobros[m.id]} />}
                 {fechaCorta(m.fecha)}{l.detalle && m.tipo !== "gasto" ? ` · ${l.detalle}` : textoCat(m)}
               </div>
             </div>
@@ -187,7 +190,9 @@ export default function Cuenta() {
             {d.msi!.map((x) => (
               <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
                 <div className="cuerpo"><div className="titulo">{x.descripcion}</div>
-                  <div className="detalle">{x.facturadas} de {x.meses} cobradas · faltan {x.restantes}</div>
+                  <div className="detalle">
+                    {cobros[x.id] && <EtiqPersona nombre={familiares.find((f) => f.id === cobros[x.id].familiar_id)?.nombre ?? "Otra persona"} e={cobros[x.id]} />}
+                    {x.facturadas} de {x.meses} cobradas · faltan {x.restantes}</div>
                   <div className="barra"><span style={{ width: `${(x.facturadas / x.meses) * 100}%` }} /></div></div>
                 <div className="monto">{fmt(x.mensualidad)}<small>al mes</small></div>
               </Link>
@@ -213,4 +218,9 @@ function addDia(f: string) {
 function textoCat(m: Mov) {
   const c = m.categoria ? (m.categoria.padre ? `${m.categoria.padre.nombre} › ${m.categoria.nombre}` : m.categoria.nombre) : "";
   return c && c !== (m.descripcion || m.comercio) ? ` · ${c}` : "";
+}
+
+function EtiqPersona({ nombre, e }: { nombre: string; e?: EstadoMov }) {
+  const est = textoEstado(e);
+  return <span className={"etiq" + (est?.listo ? " verde" : "")}>{nombre}{est ? ` · ${est.t}` : ""}</span>;
 }

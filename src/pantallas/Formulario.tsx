@@ -30,6 +30,7 @@ export default function Formulario() {
   const [descripcion, setDescripcion] = useState("");
   const [familiar, setFamiliar] = useState(qs.get("familiar") ?? "");
   const [meses, setMeses] = useState("");
+  const [cobroCompleto, setCobroCompleto] = useState<"mes" | "completo">("mes");
   const [comp, setComp] = useState<Comp>("no");
   const [valorComp, setValorComp] = useState("");
   const [revisar, setRevisar] = useState(false);
@@ -54,7 +55,7 @@ export default function Formulario() {
       }
       setTipo(m.tipo); setMonto(String(m.monto)); setFecha(m.fecha); setCuenta(m.cuenta_id ?? "");
       setDestino(m.cuenta_destino_id ?? ""); setCategoria(m.categoria_id); setDescripcion(m.descripcion ?? m.comercio ?? "");
-      setFamiliar(m.familiar_id ?? ""); setMeses(m.meses_msi ? String(m.meses_msi) : ""); setRevisar(m.revisar); setEnSaldoInicial(!!m.en_saldo_inicial); setSumarASaldo(!!m.sumar_a_saldo);
+      setFamiliar(m.familiar_id ?? ""); setMeses(m.meses_msi ? String(m.meses_msi) : ""); setCobroCompleto(m.cobro_completo ? "completo" : "mes"); setRevisar(m.revisar); setEnSaldoInicial(!!m.en_saldo_inicial); setSumarASaldo(!!m.sumar_a_saldo);
       const r = (m.repartos ?? [])[0];
       if (r) {
         if (r.modo === "porcentaje" && Number(r.valor) === 50) setComp("mitad");
@@ -86,6 +87,7 @@ export default function Formulario() {
       descripcion: descripcion.trim() || null,
       familiar_id: tipo === "gasto" || tipo === "reembolso" ? (familiar || null) : null,
       meses_msi: tipo === "gasto" && Number(meses) > 1 ? Number(meses) : null,
+      cobro_completo: tipo === "gasto" && Number(meses) > 1 && !!familiar && cobroCompleto === "completo",
       revisar: false,
       en_saldo_inicial: enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial,
       sumar_a_saldo: sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
@@ -236,6 +238,17 @@ export default function Formulario() {
               </Campo>
             </div>
             {Number(meses) > 1 && montoNum > 0 && <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>{Number(meses)} mensualidades de {fmt(montoNum / Number(meses))}. Registra el total de la compra.</p>}
+            {Number(meses) > 1 && familiar && (
+              <>
+                <Segmentos etiqueta="¿Cómo se lo cobras?" valor={cobroCompleto} onCambio={setCobroCompleto} opciones={[
+                  { v: "mes", t: "Por mensualidad" }, { v: "completo", t: "Todo en un pago" }]} />
+                <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>
+                  {cobroCompleto === "completo"
+                    ? `${familiares.find((f) => f.id === familiar)?.nombre ?? "Esta persona"} te debe ${montoNum > 0 ? fmt(montoNum) : "el total"} desde hoy. Tú sigues pagando la tarjeta a meses.`
+                    : "Te debe cada mensualidad conforme te la factura el banco."}
+                </p>
+              </>
+            )}
 
             {otro && !familiar && (
               <>
