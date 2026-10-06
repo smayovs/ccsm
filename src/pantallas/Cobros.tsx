@@ -99,6 +99,7 @@ export default function Cobros() {
                 <div className="fila" style={{ gap: 8, flexWrap: "wrap" }}>
                   {p.total > 0.004 && <a className="boton chico" href={`https://wa.me/?text=${encodeURIComponent(mensaje(p))}`} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>}
                   <Link className="boton chico claro" to={`/nuevo?tipo=reembolso&familiar=${p.id}`}>Registrar pago</Link>
+                  <Link className="boton chico claro" to="/ajustes/familiares">Cambiar nombre</Link>
                 </div>
               </>
             )}
