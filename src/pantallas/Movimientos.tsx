@@ -6,7 +6,7 @@ import { Cabeza, SelectorMes, Segmentos } from "../ui";
 import { fechaLarga, fmt, mesISO, sumarMes, TIPOS_MOV } from "../util";
 
 export const SELECT_MOV = `*, cuenta:cuentas!movimientos_cuenta_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_fkey(nombre),
-  categoria:categorias(nombre, padre:categorias!categorias_padre_id_fkey(nombre)), familiar:familiares(nombre),
+  categoria:categorias!movimientos_categoria_id_fkey(nombre, padre:padre_id(nombre)), familiar:familiares(nombre),
   repartos(user_id, modo, valor, monto, estado, nota, categoria_id)`;
 
 export type Mov = any;
@@ -44,6 +44,7 @@ export default function Movimientos() {
   const [mes, setMes] = useState(mesISO());
   const [movs, setMovs] = useState<Mov[]>([]);
   const [cargando, setCargando] = useState(true);
+  const [fallo, setFallo] = useState("");
   const [q, setQ] = useState("");
   const [filtro, setFiltro] = useState<"todo" | "gasto" | "ingreso" | "compartido" | "otros">("todo");
 
@@ -51,7 +52,7 @@ export default function Movimientos() {
     setCargando(true);
     sb.from("movimientos").select(SELECT_MOV).gte("fecha", mes).lt("fecha", sumarMes(mes, 1))
       .order("fecha", { ascending: false }).order("created_at", { ascending: false })
-      .then(({ data }) => { setMovs(data ?? []); setCargando(false); });
+      .then(({ data, error }) => { setMovs(data ?? []); setFallo(error ? "No se pudieron cargar los movimientos. Revisa tu conexión e intenta de nuevo." : ""); setCargando(false); });
   }, [mes]);
 
   const nombres = useMemo(() => Object.fromEntries([...otros, ...(yo ? [yo] : [])].map((m) => [m.user_id, m.nombre])), [otros, yo]);
@@ -83,7 +84,7 @@ export default function Movimientos() {
         { v: "todo", t: "Todo" }, { v: "gasto", t: "Gastos" }, { v: "ingreso", t: "Ingresos" },
         ...(otros.length ? [{ v: "compartido" as const, t: "Compartidos" }] : []), { v: "otros", t: "Transferencias" },
       ]} />
-      {cargando ? <div className="vacio">Cargando…</div> : grupos.length === 0 ? (
+      {cargando ? <div className="vacio">Cargando…</div> : fallo ? <p className="error" role="alert">{fallo}</p> : grupos.length === 0 ? (
         <div className="lista"><div className="vacio">Nada registrado en este mes. <Link to="/nuevo">Agrega un movimiento</Link>.</div></div>
       ) : grupos.map(([fecha, lista]) => (
         <section key={fecha}>
