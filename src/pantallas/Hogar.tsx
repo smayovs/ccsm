@@ -22,7 +22,7 @@ export function Invitar() {
       ) : (
         <>
           <div className="codigo">{codigo}</div>
-          <p className="nota">Vale 7 días y sirve una vez. Tu pareja entra a la app con su correo, elige "Tengo un código" y lo escribe.</p>
+          <p className="nota">Vale 7 días, sirve una sola vez y anula cualquier código anterior. Tu pareja entra a la app con su correo, elige "Tengo un código" y lo escribe.</p>
           <div className="acciones">
             <a className="boton" href={`https://wa.me/?text=${encodeURIComponent(texto)}`} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>
           </div>
@@ -39,6 +39,7 @@ export default function Hogar() {
   const [balance, setBalance] = useState<{ user_id: string; nombre: string; me_debe: number }[]>([]);
   const [compartidos, setCompartidos] = useState<any[]>([]);
   const [porConfirmar, setPorConfirmar] = useState<any[]>([]);
+  const [esperando, setEsperando] = useState<any[]>([]);
   const [hogarCats, setHogarCats] = useState<any[]>([]);
   const [saldar, setSaldar] = useState<{ user_id: string; monto: string; cuenta: string; yoPago: boolean } | null>(null);
   const [confirmarCuenta, setConfirmarCuenta] = useState<Record<string, string>>({});
@@ -49,12 +50,14 @@ export default function Hogar() {
     const [b, m, l, h] = await Promise.all([
       sb.rpc("balance_hogar"),
       sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").gte("fecha", mes).lt("fecha", sumarMes(mes, 1)).order("fecha", { ascending: false }),
-      sb.from("movimientos").select("*").eq("tipo", "liquidacion").or(`and(liq_para.eq.${uid},cuenta_destino_id.is.null),and(liq_de.eq.${uid},cuenta_id.is.null)`),
+      sb.from("movimientos").select("*").eq("tipo", "liquidacion").or(`liq_para.eq.${uid},liq_de.eq.${uid}`),
       sb.rpc("resumen_hogar", { p_mes: mes }),
     ]);
     setBalance(b.data ?? []);
     setCompartidos((m.data ?? []).filter((x: any) => x.repartos?.length));
-    setPorConfirmar((l.data ?? []).filter((x: any) => x.tipo === "liquidacion" && ((x.liq_para === uid && !x.cuenta_destino_id) || (x.liq_de === uid && !x.cuenta_id))));
+    const liqs = (l.data ?? []).filter((x: any) => x.tipo === "liquidacion");
+    setPorConfirmar(liqs.filter((x: any) => (x.liq_para === uid && !x.cuenta_destino_id) || (x.liq_de === uid && !x.cuenta_id)));
+    setEsperando(liqs.filter((x: any) => x.liq_de === uid && x.creado_por === uid && !x.cuenta_destino_id));
     setHogarCats(h.data ?? []);
   }, [mes, uid]);
 
@@ -123,7 +126,7 @@ export default function Hogar() {
                     </select>
                   </Campo>
                 </div>
-                <p className="nota" style={{ marginTop: -6 }}>No cuenta como gasto ni como ingreso: solo baja el saldo entre ustedes. {b.nombre} indicará en qué cuenta suya salió o entró.</p>
+                <p className="nota" style={{ marginTop: -6 }}>No cuenta como gasto ni como ingreso: solo baja el saldo entre ustedes. {saldar.yoPago ? `Se descuenta cuando ${b.nombre} confirme que lo recibió.` : `Se descuenta de inmediato porque tú lo recibiste.`}</p>
                 <div className="acciones">
                   <button className="boton claro" onClick={() => setSaldar(null)}>Cancelar</button>
                   <button className="boton" onClick={registrarSaldo}>Registrar pago</button>
@@ -156,6 +159,18 @@ export default function Hogar() {
                 </div>
               );
             })}
+          </div>
+        </>
+      )}
+
+      {esperando.length > 0 && (
+        <>
+          <h2>Esperando confirmación</h2>
+          <div className="lista">
+            {esperando.map((l) => (
+              <div className="fila" key={l.id}><div className="cuerpo"><div className="titulo">Le pagaste {fmt(l.monto)} a {nombres[l.liq_para]}</div>
+                <div className="detalle">{fechaCorta(l.fecha)} · se descuenta de lo que debes cuando {nombres[l.liq_para]} lo confirme</div></div></div>
+            ))}
           </div>
         </>
       )}
