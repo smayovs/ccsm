@@ -4,9 +4,11 @@ import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorMes, Segmentos } from "../ui";
 import { fechaLarga, fmt, mesISO, sumarMes, TIPOS_MOV } from "../util";
+import { ArrowLeftRight, HandCoins, Handshake } from "lucide-react";
+import { IconoCategoria } from "../iconos";
 
 export const SELECT_MOV = `*, cuenta:cuentas!movimientos_cuenta_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_fkey(nombre),
-  categoria:categorias!movimientos_categoria_id_fkey(nombre, padre:padre_id(nombre)), familiar:familiares(nombre),
+  categoria:categorias!movimientos_categoria_id_fkey(nombre, icono, padre:padre_id(nombre, icono)), familiar:familiares(nombre),
   repartos(user_id, modo, valor, monto, estado, nota, categoria_id)`;
 
 export type Mov = any;
@@ -95,6 +97,7 @@ export default function Movimientos() {
               const disputa = (m.repartos ?? []).some((r: any) => r.estado === "disputa");
               return (
                 <Link className="fila" key={m.id} to={l.mio || l.miParte ? `/editar/${m.id}` : "#"}>
+                  <IconoMov m={m} />
                   <div className="cuerpo">
                     <div className="titulo">{l.titulo}</div>
                     <div className="detalle">
@@ -117,4 +120,13 @@ export default function Movimientos() {
       ))}
     </>
   );
+}
+
+export function IconoMov({ m }: { m: Mov }) {
+  if (m.tipo === "transferencia") return <span className="ico" aria-hidden="true"><ArrowLeftRight size={20} /></span>;
+  if (m.tipo === "liquidacion") return <span className="ico" aria-hidden="true"><Handshake size={20} /></span>;
+  if (m.tipo === "reembolso") return <span className="ico cuenta-ahorro" aria-hidden="true"><HandCoins size={20} /></span>;
+  const c = m.categoria;
+  if (!c) return <IconoCategoria nombre={m.tipo === "ingreso" ? "Ingreso" : "Otros"} />;
+  return <IconoCategoria nombre={c.padre?.nombre ?? c.nombre} icono={c.padre ? c.padre.icono : c.icono} />;
 }

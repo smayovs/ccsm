@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IconoCuenta } from "../iconos";
 import { useNavigate } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
@@ -114,8 +115,8 @@ export default function Cuentas() {
       <Cabeza titulo="Cuentas" volver accion={<button className="boton chico" onClick={() => setEligiendo(!eligiendo)}>Agregar</button>} />
       {eligiendo && (
         <div className="lista" style={{ marginBottom: 16 }}>
-          <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Asistente: deuda de hoy, corte, pago y compras a meses</div></div><span aria-hidden="true">›</span></button>
-          <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva()); }}><div className="cuerpo"><div className="titulo">Débito, ahorro, efectivo o inversión</div><div className="detalle">Solo nombre y saldo de hoy</div></div><span aria-hidden="true">›</span></button>
+          <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><IconoCuenta tipo="credito" /><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Asistente: deuda de hoy, corte, pago y compras a meses</div></div><span aria-hidden="true">›</span></button>
+          <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva()); }}><IconoCuenta tipo="debito" /><div className="cuerpo"><div className="titulo">Débito, ahorro, efectivo o inversión</div><div className="detalle">Solo nombre y saldo de hoy</div></div><span aria-hidden="true">›</span></button>
         </div>
       )}
       {todas.length === 0 && <p>Agrega tus cuentas con el saldo de hoy: débito, cada tarjeta de crédito y tu cuenta de ahorro.</p>}
@@ -126,6 +127,7 @@ export default function Cuentas() {
             {l.map((c) => (
               <button className="fila" key={c.id} onClick={() => setEdit({ ...c, saldo_inicial: String(c.tipo === "credito" ? Math.abs(Number(c.saldo_inicial)) : c.saldo_inicial), dia_corte: String(c.dia_corte ?? ""),
                 dia_pago: String(c.dia_pago ?? ""), limite_credito: String(c.limite_credito ?? ""), conjunta: c.propietario_id === null })}>
+                <IconoCuenta tipo={c.tipo} conjunta={c.propietario_id === null} />
                 <div className="cuerpo">
                   <div className="titulo">{c.nombre}</div>
                   <div className="detalle">

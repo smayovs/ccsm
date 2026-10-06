@@ -1,54 +1,99 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { CalendarClock, ChevronRight, CreditCard, Repeat } from "lucide-react";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { diasEntre, fmt, hoyISO, mesISO, nombreMes, proximoCobro, TIPOS_CUENTA } from "../util";
+import { diasEntre, fechaCorta, fmt, hoyISO, mesISO, nombreMes, proximoCobro, TIPOS_CUENTA } from "../util";
+import { IconoCategoria, IconoCuenta } from "../iconos";
+import { Anillo, BarrasFlujo, RitmoGasto } from "../graficas";
 
 type Saldo = { id: string; nombre: string; tipo: string; mia: boolean; conjunta: boolean; propietario_nombre: string | null;
   saldo: number; limite_credito: number | null; proximo_pago: string | null; msi_por_facturar: number; activa: boolean };
 type Resumen = { ingresos: number; gastos: number; ahorro: number; presupuesto: number; por_revisar: number; dias_restantes: number | null };
 type CatRes = { categoria_id: string | null; nombre: string; presupuesto: number; gastado: number };
+type Tarjeta = { id: string; falta: number; fecha_pago: string | null; pagado_mes: number; estimado: boolean };
+
+const n = (x: unknown) => Number(x ?? 0);
 
 export default function Inicio() {
-  const { yo, otros, cuentas } = useApp();
+  const { yo, otros, cuentas, categorias } = useApp();
   const [saldos, setSaldos] = useState<Saldo[]>([]);
   const [res, setRes] = useState<Resumen | null>(null);
   const [cats, setCats] = useState<CatRes[]>([]);
+  const [diario, setDiario] = useState<Record<number, number>>({});
+  const [tarjetas, setTarjetas] = useState<Record<string, Tarjeta>>({});
   const [balance, setBalance] = useState<{ nombre: string; me_debe: number }[]>([]);
-  const [proximos, setProximos] = useState<{ t: string; f: string; m: number }[]>([]);
+  const [subs, setSubs] = useState<{ t: string; f: string; m: number }[]>([]);
+  const [todasCats, setTodasCats] = useState(false);
+  const [listo, setListo] = useState(false);
   const mes = mesISO();
+  const hoy = hoyISO();
 
   useEffect(() => {
     Promise.all([
       sb.rpc("saldos_cuentas"), sb.rpc("resumen_mes", { p_mes: mes }), sb.rpc("resumen_categorias", { p_mes: mes }),
       sb.rpc("balance_hogar"), sb.from("suscripciones").select("servicio, monto, frecuencia_meses, fecha_referencia").eq("activa", true),
-    ]).then(([s, r, c, b, su]) => {
-      setSaldos((s.data ?? []) as Saldo[]);
+      sb.rpc("gasto_diario", { p_mes: mes }),
+    ]).then(async ([s, r, c, b, su, g]) => {
+      const lista = (s.data ?? []) as Saldo[];
+      setSaldos(lista);
       setRes(((r.data ?? [])[0] ?? null) as Resumen | null);
       setCats((c.data ?? []) as CatRes[]);
       setBalance((b.data ?? []) as { nombre: string; me_debe: number }[]);
-      const hoy = hoyISO();
-      const lista: { t: string; f: string; m: number }[] = [];
+      const dd: Record<number, number> = {};
+      for (const x of (g.data ?? []) as { dia: string; monto: number }[]) dd[Number(x.dia.slice(8, 10))] = n(x.monto);
+      setDiario(dd);
+      const prox: { t: string; f: string; m: number }[] = [];
       for (const x of (su.data ?? []) as any[]) {
         const f = proximoCobro(x.fecha_referencia, x.frecuencia_meses);
-        if (f && diasEntre(hoy, f) <= 7) lista.push({ t: x.servicio, f, m: x.monto });
+        if (f && diasEntre(hoy, f) <= 7) prox.push({ t: x.servicio, f, m: x.monto });
       }
-      for (const x of (s.data ?? []) as Saldo[]) {
-        if (x.mia && x.tipo === "credito" && x.proximo_pago && diasEntre(hoy, x.proximo_pago) <= 7 && x.saldo < 0)
-          lista.push({ t: `Pago ${x.nombre}`, f: x.proximo_pago, m: -x.saldo });
-      }
-      setProximos(lista.sort((a, b) => a.f.localeCompare(b.f)));
+      setSubs(prox);
+      setListo(true);
+      // Detalle de cada tarjeta propia: pago pendiente del corte y pagos del mes
+      const mias = lista.filter((x) => x.mia && x.activa && x.tipo === "credito");
+      const dets = await Promise.all(mias.map((x) => sb.rpc("detalle_cuenta", { p_cuenta: x.id })));
+      const t: Record<string, Tarjeta> = {};
+      dets.forEach((d, i) => {
+        const v = d.data as any;
+        if (!v) return;
+        t[mias[i].id] = { id: mias[i].id, falta: Math.max(0, n(v.pago_corte) - n(v.pagado_desde_corte)), fecha_pago: v.fecha_pago ?? null,
+          pagado_mes: n(v.mes_entradas) + n(v.mes_ingresos), estimado: v.ultimo_corte ? !v.corte_conocido && !v.pago_manual : false };
+      });
+      setTarjetas(t);
     });
-  }, [mes]);
+  }, [mes, hoy]);
 
-  const presupuesto = res?.presupuesto ?? 0;
-  const gastado = res?.gastos ?? 0;
+  const presupuesto = n(res?.presupuesto);
+  const gastado = n(res?.gastos);
   const dias = res?.dias_restantes ?? 1;
   const totalDias = new Date(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0).getDate();
-  const avanceMes = Math.min(1, (totalDias - dias + 1) / totalDias);
+  const diaHoy = Number(hoy.slice(8, 10));
+  const avanceMes = Math.min(1, diaHoy / totalDias);
   const usado = presupuesto > 0 ? gastado / presupuesto : 0;
-  const puedes = presupuesto > 0 ? Math.max(0, presupuesto - gastado) / Math.max(1, dias) : null;
+  const restante = Math.max(0, presupuesto - gastado);
+  const puedes = presupuesto > 0 ? restante / Math.max(1, dias) : null;
+
   const visibles = saldos.filter((s) => s.activa);
+  const creditos = visibles.filter((s) => s.tipo === "credito" && (s.mia || s.conjunta));
+  const otrasCuentas = visibles.filter((s) => !creditos.includes(s));
+  const tienes = visibles.filter((s) => (s.mia || s.conjunta) && ["debito", "efectivo", "ahorro"].includes(s.tipo)).reduce((a, s) => a + Math.max(0, n(s.saldo)), 0);
+  const porPagarTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.falta, 0);
+  const pagadoTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.pagado_mes, 0);
+  const sobra = tienes - porPagarTarjetas - restante;
+  const hayEstimado = Object.values(tarjetas).some((t) => t.estimado && t.falta > 0);
+
+  const proximos = [
+    ...subs.map((x) => ({ ...x, tipo: "sub" as const })),
+    ...creditos.filter((c) => tarjetas[c.id]?.falta > 0 && tarjetas[c.id].fecha_pago && diasEntre(hoy, tarjetas[c.id].fecha_pago!) <= 10)
+      .map((c) => ({ t: `Pago ${c.nombre}`, f: tarjetas[c.id].fecha_pago!, m: tarjetas[c.id].falta, tipo: "tarjeta" as const })),
+  ].sort((a, b) => a.f.localeCompare(b.f));
+
+  const iconoDe = Object.fromEntries(categorias.map((c) => [c.id, c.icono]));
+  const conGasto = cats.filter((c) => n(c.presupuesto) > 0 || n(c.gastado) > 0)
+    .sort((a, b) => n(b.gastado) - n(a.gastado));
+  const maxCat = Math.max(1, ...conGasto.map((c) => Math.max(n(c.gastado), n(c.presupuesto))));
+  const mesTxt = nombreMes(mes).split(" ")[0];
 
   return (
     <>
@@ -63,105 +108,161 @@ export default function Inicio() {
         <Link className="aviso" to="/ajustes/cuentas"><span><strong>Empieza agregando tus cuentas</strong> con su saldo de hoy: débito, tarjetas y ahorro.</span></Link>
       )}
 
-      <section className="heroe" aria-label="Lo que puedes gastar">
+      <section className="tablero" aria-label="Resumen del mes">
         {puedes !== null ? (
-          <>
-            <div className="etiqueta">Puedes gastar hoy</div>
-            <div className={"cifra" + (presupuesto - gastado < 0 ? " alerta" : "")}>{fmt(puedes, false)}</div>
-            <div className="sub">
-              {presupuesto - gastado >= 0
-                ? `Te quedan ${fmt(presupuesto - gastado, false)} de ${fmt(presupuesto, false)} para ${dias} ${dias === 1 ? "día" : "días"}.`
-                : `Te pasaste ${fmt(gastado - presupuesto, false)} del presupuesto del mes.`}
-            </div>
-            <div className="franja" aria-hidden="true">
-              <div className="riel">
-                <div className={"lleno" + (usado > avanceMes ? " alerta" : "")} style={{ width: `${Math.min(100, usado * 100)}%` }} />
-                <div className="marca" style={{ left: `${avanceMes * 100}%` }} />
+          <div className="tablero-arriba">
+            <Anillo usado={usado} avance={avanceMes} />
+            <div className="tablero-texto">
+              <div className="etiqueta">Puedes gastar hoy</div>
+              <div className={"cifra" + (presupuesto - gastado < 0 ? " alerta" : "")}>{fmt(puedes, false)}</div>
+              <div className="sub">
+                {presupuesto - gastado >= 0
+                  ? <>Te quedan <b>{fmt(restante, false)}</b> de {fmt(presupuesto, false)} para {dias} {dias === 1 ? "día" : "días"}.</>
+                  : <>Te pasaste <b>{fmt(gastado - presupuesto, false)}</b> del presupuesto.</>}
               </div>
-              <div className="leyenda"><span>Gastado {Math.round(usado * 100)}%</span><span>Mes transcurrido {Math.round(avanceMes * 100)}%</span></div>
+              <div className={"ritmo " + (usado > 1 ? "exceso" : usado > avanceMes + 0.05 ? "rapido" : "ok")}>
+                {usado > 1 ? "Presupuesto rebasado" : usado > avanceMes + 0.05 ? "Vas más rápido que el mes" : "Vas a buen ritmo"}
+              </div>
             </div>
-          </>
+          </div>
         ) : (
-          <Link className="aviso" to="/ajustes/categorias"><span><strong>Define tu presupuesto mensual</strong> para saber cuánto puedes gastar cada día.</span></Link>
+          <Link className="tablero-cta" to="/ajustes/categorias"><b>Define tu presupuesto mensual</b> para saber cuánto puedes gastar cada día. <ChevronRight size={18} /></Link>
         )}
+        <div className="tablero-trio">
+          <div><div className="k">Ingresos</div><div className="v pos">{fmt(res?.ingresos, false)}</div></div>
+          <div><div className="k">Gastos</div><div className="v">{fmt(gastado, false)}</div></div>
+          <div><div className="k">Ahorro</div><div className={"v " + (n(res?.ahorro) < 0 ? "neg" : "")}>{fmt(res?.ahorro, false)}</div></div>
+        </div>
       </section>
 
-      <div className="trio">
-        <div><div className="k">Ingresos</div><div className="v positivo">{fmt(res?.ingresos, false)}</div></div>
-        <div><div className="k">Gastos</div><div className="v">{fmt(gastado, false)}</div></div>
-        <div><div className="k">Ahorro</div><div className={"v " + ((res?.ahorro ?? 0) < 0 ? "negativo" : "")}>{fmt(res?.ahorro, false)}</div></div>
-      </div>
-
-      {(res?.por_revisar ?? 0) > 0 && (
+      {n(res?.por_revisar) > 0 && (
         <Link className="aviso rojo" to="/pendientes"><span><strong>{res!.por_revisar} por revisar:</strong> movimientos sin clasificar o partes compartidas sin categoría.</span></Link>
       )}
-
       {otros.length > 0 && balance.map((b) => Math.abs(b.me_debe) >= 0.5 && (
         <Link key={b.nombre} className={"aviso " + (b.me_debe > 0 ? "verde" : "")} to="/hogar">
           <span>{b.me_debe > 0 ? <><strong>{b.nombre} te debe {fmt(b.me_debe)}</strong> de gastos compartidos.</> : <><strong>Le debes {fmt(-b.me_debe)} a {b.nombre}</strong> de gastos compartidos.</>}</span>
         </Link>
       ))}
 
-      <h2>Cuentas</h2>
-      <div className="lista">
-        {visibles.length === 0 && <div className="vacio">Sin cuentas todavía.</div>}
-        {visibles.map((s) => {
-          const disponible = s.tipo === "credito" && s.limite_credito ? s.limite_credito + s.saldo : null;
-          const dueno = s.conjunta ? "Conjunta" : s.mia ? TIPOS_CUENTA[s.tipo] : `De ${s.propietario_nombre}`;
-          const Fila: any = (s.mia || s.conjunta) ? Link : "div";
-          return (
-            <Fila className="fila" key={s.id} to={`/cuenta/${s.id}`}>
-              <div className="cuerpo">
-                <div className="titulo">{s.nombre}</div>
-                <div className="detalle">
-                  {dueno}
-                  {disponible !== null && ` · disponible ${fmt(disponible, false)}`}
-                  {s.mia && s.tipo === "credito" && s.proximo_pago && ` · paga antes del ${new Date(s.proximo_pago + "T12:00:00Z").toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" })}`}
-                </div>
-              </div>
-              <div className={"monto " + (s.saldo < 0 ? "negativo" : "")}>
-                {fmt(s.saldo)}
-                {s.msi_por_facturar > 0 && <small>incluye {fmt(s.msi_por_facturar, false)} de MSI</small>}
-              </div>
-            </Fila>
-          );
-        })}
-      </div>
+      {listo && (
+        <section className="panel">
+          <div className="panel-cabeza"><h2>Tu dinero este mes</h2></div>
+          <div className={"veredicto " + (sobra >= 0 ? "pos" : "neg")}>
+            <div className="k">{sobra >= 0 ? "Te sobra al cubrir todo" : "Te falta para cubrir todo"}</div>
+            <div className="v">{fmt(Math.abs(sobra), false)}</div>
+          </div>
+          <BarrasFlujo tienes={tienes} tarjetas={porPagarTarjetas} porGastar={restante} />
+          <p className="nota">
+            Tienes = débito, efectivo y ahorro. Por cubrir = lo que debes pagar de tus tarjetas en su estado de cuenta actual más lo que te queda de presupuesto.
+            {pagadoTarjetas > 0 && <> Este mes ya pagaste <b>{fmt(pagadoTarjetas, false)}</b> a tus tarjetas.</>}
+            {hayEstimado && <> Algún pago de tarjeta es estimado: corrígelo en el detalle de la tarjeta.</>}
+          </p>
+        </section>
+      )}
 
-      {proximos.length > 0 && (
+      {creditos.length > 0 && (
         <>
-          <h2>Próximos 7 días</h2>
-          <div className="lista">
-            {proximos.map((p, i) => (
-              <div className="fila" key={i}>
-                <div className="cuerpo"><div className="titulo">{p.t}</div>
-                  <div className="detalle">{p.f === hoyISO() ? "Hoy" : `En ${diasEntre(hoyISO(), p.f)} días`}</div></div>
-                <div className="monto">{fmt(p.m)}</div>
-              </div>
-            ))}
+          <h2>Tarjetas</h2>
+          <div className="carrusel">
+            {creditos.map((c) => {
+              const deuda = Math.max(0, -n(c.saldo));
+              const lim = n(c.limite_credito);
+              const t = tarjetas[c.id];
+              const d = t?.fecha_pago ? diasEntre(hoy, t.fecha_pago) : null;
+              return (
+                <Link key={c.id} to={`/cuenta/${c.id}`} className="tarjeta-mini">
+                  <div className="tm-arriba"><IconoCuenta tipo="credito" conjunta={c.conjunta} tam={18} /><span className="tm-nombre">{c.nombre}</span></div>
+                  <div className="tm-k">Debes</div>
+                  <div className="tm-v">{fmt(deuda, false)}</div>
+                  {lim > 0 && (
+                    <>
+                      <div className="barra"><span className={deuda / lim > 0.8 ? "alerta" : ""} style={{ width: `${Math.min(100, (deuda / lim) * 100)}%` }} /></div>
+                      <div className="tm-pie">Disponible {fmt(lim - deuda, false)}</div>
+                    </>
+                  )}
+                  {t && (
+                    <div className={"tm-pago " + (t.falta === 0 ? "ok" : d !== null && d <= 3 ? "urgente" : "")}>
+                      {t.falta === 0 ? "Pago al corriente" : <>Paga {fmt(t.falta, false)}{t.estimado ? "*" : ""}{t.fecha_pago ? ` · ${fechaCorta(t.fecha_pago)}` : ""}</>}
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         </>
       )}
 
-      <h2>Presupuesto por categoría</h2>
+      {presupuesto > 0 && listo && (
+        <section className="panel">
+          <div className="panel-cabeza"><h2>Ritmo de gasto</h2><Link to="/movimientos" className="enlace-chico">Ver movimientos</Link></div>
+          <RitmoGasto diario={diario} dias={totalDias} hoy={diaHoy} presupuesto={presupuesto} mesTxt={mesTxt} />
+        </section>
+      )}
+
+      {conGasto.length > 0 && (
+        <section className="panel">
+          <div className="panel-cabeza"><h2>En qué se va</h2><Link to="/ajustes/categorias" className="enlace-chico">Presupuestos</Link></div>
+          <div className="cats">
+            {(todasCats ? conGasto : conGasto.slice(0, 6)).map((c) => {
+              const g = n(c.gastado), p = n(c.presupuesto);
+              const exceso = p > 0 && g > p;
+              return (
+                <div className="cat" key={c.nombre}>
+                  <IconoCategoria nombre={c.nombre} icono={c.categoria_id ? iconoDe[c.categoria_id] : null} />
+                  <div className="cat-cuerpo">
+                    <div className="cat-linea"><span className="cat-nombre">{c.nombre}</span>
+                      <span className={"cat-monto" + (exceso ? " neg" : "")}>{fmt(g, false)}{p > 0 && <small> / {fmt(p, false)}</small>}</span></div>
+                    <div className="cat-riel">
+                      <span className={exceso ? "alerta" : ""} style={{ width: `${(Math.min(g, p > 0 ? Math.max(g, p) : g) / maxCat) * 100}%` }} />
+                      {p > 0 && <i style={{ left: `${(p / maxCat) * 100}%` }} title="Presupuesto" />}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {conGasto.length > 6 && <button className="boton claro chico ancho" style={{ marginTop: 10 }} onClick={() => setTodasCats(!todasCats)}>{todasCats ? "Ver menos" : `Ver las ${conGasto.length}`}</button>}
+          <p className="nota">La marca vertical es el presupuesto de cada categoría.</p>
+        </section>
+      )}
+
+      {proximos.length > 0 && (
+        <>
+          <h2>Próximos pagos</h2>
+          <div className="lista">
+            {proximos.map((p, i) => {
+              const d = diasEntre(hoy, p.f);
+              return (
+                <div className="fila" key={i}>
+                  <span className="ico" aria-hidden="true">{p.tipo === "sub" ? <Repeat size={20} /> : <CreditCard size={20} />}</span>
+                  <div className="cuerpo"><div className="titulo">{p.t}</div>
+                    <div className="detalle">{d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Venció hace ${-d} días` : `En ${d} días`} · {fechaCorta(p.f)}</div></div>
+                  <div className="monto">{fmt(p.m)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      <h2>Cuentas</h2>
       <div className="lista">
-        {cats.filter((c) => c.presupuesto > 0 || c.gastado > 0).length === 0 && <div className="vacio">Aún no hay gastos este mes.</div>}
-        {cats.filter((c) => c.presupuesto > 0 || c.gastado > 0).map((c) => {
-          const p = c.presupuesto > 0 ? c.gastado / c.presupuesto : 0;
+        {otrasCuentas.length === 0 && <div className="vacio">Sin otras cuentas. <Link to="/ajustes/cuentas">Agregar</Link></div>}
+        {otrasCuentas.map((s) => {
+          const dueno = s.conjunta ? "Conjunta" : s.mia ? TIPOS_CUENTA[s.tipo] : `De ${s.propietario_nombre}`;
+          const Fila: any = s.mia || s.conjunta ? Link : "div";
           return (
-            <div className="fila" key={c.nombre}>
-              <div className="cuerpo">
-                <div className="titulo">{c.nombre}</div>
-                {c.presupuesto > 0 && <div className="barra"><span className={p > 1 ? "alerta" : ""} style={{ width: `${Math.min(100, p * 100)}%` }} /></div>}
-              </div>
-              <div className={"monto " + (p > 1 ? "negativo" : "")}>
-                {fmt(c.gastado, false)}
-                {c.presupuesto > 0 && <small>de {fmt(c.presupuesto, false)}</small>}
-              </div>
-            </div>
+            <Fila className="fila" key={s.id} to={`/cuenta/${s.id}`}>
+              <IconoCuenta tipo={s.tipo} conjunta={s.conjunta} />
+              <div className="cuerpo"><div className="titulo">{s.nombre}</div><div className="detalle">{dueno}</div></div>
+              <div className={"monto " + (n(s.saldo) < 0 ? "negativo" : "")}>{fmt(s.saldo)}</div>
+            </Fila>
           );
         })}
       </div>
+      {subs.length === 0 && proximos.length === 0 && (
+        <p className="nota" style={{ display: "flex", gap: 6, alignItems: "center" }}><CalendarClock size={16} /> Sin pagos en los próximos días.</p>
+      )}
     </>
   );
 }

@@ -9,7 +9,7 @@ export type Cuenta = {
 };
 export type Categoria = {
   id: string; nombre: string; tipo: "gasto" | "ingreso"; padre_id: string | null; propietario_id: string | null;
-  presupuesto_mensual: number; orden: number; archivada: boolean;
+  presupuesto_mensual: number; orden: number; archivada: boolean; icono?: string | null;
 };
 export type Familiar = { id: string; nombre: string; activo: boolean };
 export type Miembro = { user_id: string; nombre: string; rol: string; hogar_id: string; color: string | null };

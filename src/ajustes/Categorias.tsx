@@ -3,6 +3,7 @@ import { sb } from "../supabase";
 import { useApp, type Categoria } from "../contexto";
 import { Cabeza, Segmentos } from "../ui";
 import { errorTexto, fmt, limpiarMonto } from "../util";
+import { IconoCategoria, nombreIcono, SelectorIcono } from "../iconos";
 
 export default function Categorias() {
   const { uid, categorias, recargar, aviso } = useApp();
@@ -47,7 +48,7 @@ export default function Categorias() {
         opciones={[{ v: "gasto", t: "Mis gastos" }, { v: "ingreso", t: "Mis ingresos" }, { v: "hogar", t: "Hogar" }]} />
       {tipo === "gasto" && (
         <p className="nota" style={{ marginTop: -4 }}>
-          Presupuesto mensual {delHogar ? "del hogar" : "personal"}: <strong className="num">{fmt(total, false)}</strong>. Escribe el monto de cada categoría; se guarda al salir del campo.
+          Presupuesto mensual {delHogar ? "del hogar" : "personal"}: <strong className="num">{fmt(total, false)}</strong>. Escribe el monto de cada categoría; se guarda al salir del campo. Toca una categoría para cambiar su icono.
         </p>
       )}
       <div className="lista" style={{ marginTop: 12 }}>
@@ -57,6 +58,7 @@ export default function Categorias() {
           return (
             <div key={p.id} style={{ borderTop: "1px solid var(--linea)" }}>
               <div className="fila" style={{ borderTop: 0 }}>
+                <IconoCategoria nombre={p.nombre} icono={p.icono} />
                 <button className="cuerpo" style={{ background: "none", border: 0, textAlign: "left", padding: 0, cursor: "pointer" }} onClick={() => setAbierta(open ? null : p.id)} aria-expanded={open}>
                   <div className="titulo">{p.archivada && <span className="etiq">Archivada</span>}{delHogar ? p.nombre.replace(/^Hogar: /, "") : p.nombre}</div>
                   <div className="detalle">{subs.length ? subs.map((s) => s.nombre).join(", ") : "Sin subcategorías"}</div>
@@ -69,6 +71,9 @@ export default function Categorias() {
               </div>
               {open && (
                 <div style={{ padding: "0 14px 14px" }}>
+                  <div className="sub" style={{ marginBottom: 6 }}>Icono</div>
+                  <SelectorIcono valor={nombreIcono(p.nombre, p.icono)} onCambio={(v) => act(p.id, { icono: v })} />
+                  <div className="sub" style={{ margin: "14px 0 2px" }}>Subcategorías</div>
                   {subs.map((s) => (
                     <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
                       <span style={{ flex: 1 }}>{s.archivada && <span className="etiq">Archivada</span>}{s.nombre}</span>

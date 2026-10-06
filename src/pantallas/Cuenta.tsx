@@ -4,7 +4,7 @@ import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, Campo } from "../ui";
 import { diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, mesISO, TIPOS_CUENTA } from "../util";
-import { lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
+import { IconoMov, lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
 import { cargarCobros, textoEstado, type EstadoMov } from "../cobros";
 
 type Detalle = {
@@ -75,6 +75,7 @@ export default function Cuenta() {
         const entra = m.cuenta_destino_id === id || ["ingreso", "reembolso"].includes(m.tipo);
         return (
           <Link className="fila" key={m.id} to={`/editar/${m.id}`}>
+            <IconoMov m={m} />
             <div className="cuerpo">
               <div className="titulo">{l.titulo}</div>
               <div className="detalle">
