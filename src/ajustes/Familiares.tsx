@@ -21,8 +21,8 @@ export default function Familiares() {
   }
   return (
     <>
-      <Cabeza titulo="Familiares" volver />
-      <p className="nota" style={{ marginTop: -8 }}>Personas a las que les compras con tus tarjetas y luego les cobras. Tu pareja no va aquí: lo suyo se maneja con gastos compartidos.</p>
+      <Cabeza titulo="Personas" volver />
+      <p className="nota" style={{ marginTop: -8 }}>Familiares, amigos o cualquier persona a la que le compres o prestes con tus tarjetas o tu dinero. Lo suyo no cuenta en tu presupuesto y se va a Cobros. Tu pareja no va aquí: lo de ustedes se maneja con gastos compartidos.</p>
       <div className="lista" style={{ marginTop: 14 }}>
         {familiares.map((f) => (
           <div className="fila" key={f.id}>
@@ -32,7 +32,7 @@ export default function Familiares() {
         ))}
       </div>
       <form onSubmit={agregar} style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <input className="buscador" style={{ margin: 0, flex: 1 }} placeholder="Nombre (ej. Hermana)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        <input className="buscador" style={{ margin: 0, flex: 1 }} placeholder="Nombre (ej. Hermana, Luis del trabajo)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
         <button className="boton chico">Agregar</button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}

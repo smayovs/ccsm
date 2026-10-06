@@ -32,6 +32,7 @@ export default function Formulario() {
   const [valorComp, setValorComp] = useState("");
   const [revisar, setRevisar] = useState(false);
   const [enSaldoInicial, setEnSaldoInicial] = useState(false);
+  const [sumarASaldo, setSumarASaldo] = useState(false);
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
@@ -51,7 +52,7 @@ export default function Formulario() {
       }
       setTipo(m.tipo); setMonto(String(m.monto)); setFecha(m.fecha); setCuenta(m.cuenta_id ?? "");
       setDestino(m.cuenta_destino_id ?? ""); setCategoria(m.categoria_id); setDescripcion(m.descripcion ?? m.comercio ?? "");
-      setFamiliar(m.familiar_id ?? ""); setMeses(m.meses_msi ? String(m.meses_msi) : ""); setRevisar(m.revisar); setEnSaldoInicial(!!m.en_saldo_inicial);
+      setFamiliar(m.familiar_id ?? ""); setMeses(m.meses_msi ? String(m.meses_msi) : ""); setRevisar(m.revisar); setEnSaldoInicial(!!m.en_saldo_inicial); setSumarASaldo(!!m.sumar_a_saldo);
       const r = (m.repartos ?? [])[0];
       if (r) {
         if (r.modo === "porcentaje" && Number(r.valor) === 50) setComp("mitad");
@@ -85,6 +86,7 @@ export default function Formulario() {
       meses_msi: tipo === "gasto" && Number(meses) > 1 ? Number(meses) : null,
       revisar: false,
       en_saldo_inicial: enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial,
+      sumar_a_saldo: sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
     };
     let movId = id;
     if (id) {
@@ -196,7 +198,10 @@ export default function Formulario() {
         )}
 
         {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && (
-          <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>Esta fecha es anterior al alta de {cuentaSel.nombre}: cuenta en tu presupuesto, pero no mueve su saldo (ya estaba incluido).</p>
+          <>
+            <p className="nota" style={{ marginTop: -6, marginBottom: 8 }}>Esta fecha es anterior al alta de {cuentaSel.nombre} ({new Date(cuentaSel.fecha_saldo_inicial + "T12:00:00Z").toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" })}). Si la deuda o saldo que capturaste ese día ya lo incluía, déjalo así; si no, márcalo para sumarlo.</p>
+            <label className="casilla"><input type="checkbox" checked={sumarASaldo} onChange={(e) => setSumarASaldo(e.target.checked)} /> No estaba incluido: súmalo al saldo de {cuentaSel.nombre}</label>
+          </>
         )}
         {cuentaSel && fecha === cuentaSel.fecha_saldo_inicial && tipo !== "transferencia" && (
           <label className="casilla"><input type="checkbox" checked={enSaldoInicial} onChange={(e) => setEnSaldoInicial(e.target.checked)} /> Ya estaba incluido en el saldo con que diste de alta {cuentaSel.nombre}</label>
@@ -215,7 +220,7 @@ export default function Formulario() {
         {tipo === "gasto" && (
           <>
             <div className="dos">
-              <Campo etiqueta="¿Para quién?" ayuda="Si es de un familiar, no cuenta en tu presupuesto y se va a Cobros.">
+              <Campo etiqueta="¿Para quién?" ayuda="Si es de otra persona, se carga a tu cuenta igual, no cuenta en tu presupuesto y se va a Cobros.">
                 <select value={familiar} onChange={(e) => setFamiliar(e.target.value)}>
                   <option value="">Para mí</option>
                   {familiares.filter((f) => f.activo).map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}

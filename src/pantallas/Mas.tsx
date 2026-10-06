@@ -8,7 +8,7 @@ import { SELECT_MOV, textoCategoria } from "./Movimientos";
 const grupos: { t: string; items: [string, string, string][] }[] = [
   { t: "Seguimiento", items: [
     ["/pendientes", "Pendientes", "Lo que entró sin clasificar y los repartos en disputa"],
-    ["/cobros", "Cobros a familiares", "Lo que te deben tu papá, tu mamá y otros"],
+    ["/cobros", "Cobros", "Lo que te deben las personas a las que les compras o prestas"],
     ["/msi", "Compras a meses", "Mensualidades, lo que falta por facturar y proyección"],
     ["/suscripciones", "Suscripciones", "Cargos recurrentes y próximos cobros"],
   ] },
@@ -16,7 +16,7 @@ const grupos: { t: string; items: [string, string, string][] }[] = [
     ["/ajustes/cuentas", "Cuentas", "Saldos iniciales, tarjetas, visibilidad y cuenta conjunta"],
     ["/ajustes/categorias", "Categorías y presupuesto", "Tus categorías, las del hogar y el monto mensual"],
     ["/ajustes/reglas", "Reglas de Apple Pay", "Comercio → categoría y reparto automático"],
-    ["/ajustes/familiares", "Familiares", "Personas a las que les compras"],
+    ["/ajustes/familiares", "Personas", "A quién le compras o prestas: familia, amigos, otros"],
     ["/ajustes/llaves", "Atajos del iPhone", "Llave personal y dirección para tus atajos"],
     ["/ajustes/perfil", "Perfil y hogar", "Tu nombre, invitar a tu pareja, cerrar sesión"],
   ] },

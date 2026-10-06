@@ -40,7 +40,7 @@ export default function Bienvenida() {
         <button className="boton ancho" disabled={ocupado}>{modo === "crear" ? "Crear hogar" : "Unirme"}</button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}
-      <p className="nota" style={{ marginTop: 18 }}>Se crean tus categorías, reglas para Apple Pay y la lista de familiares. Todo se puede editar después.</p>
+      <p className="nota" style={{ marginTop: 18 }}>Se crean tus categorías, reglas para Apple Pay y la lista de personas a las que les cobras. Todo se puede editar después.</p>
     </div>
   );
 }
