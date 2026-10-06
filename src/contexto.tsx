@@ -16,6 +16,8 @@ export type Miembro = { user_id: string; nombre: string; rol: string; hogar_id: 
 
 type Ctx = {
   session: Session | null;
+  recuperando: boolean;
+  terminarRecuperacion: () => void;
   uid: string;
   yo: Miembro | null;
   otros: Miembro[];
@@ -32,6 +34,7 @@ export const useApp = () => useContext(C);
 
 export function Proveedor({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [recuperando, setRecuperando] = useState(false);
   const [inicio, setInicio] = useState(false);
   const [yo, setYo] = useState<Miembro | null>(null);
   const [otros, setOtros] = useState<Miembro[]>([]);
@@ -42,8 +45,17 @@ export function Proveedor({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    sb.auth.getSession().then(({ data }) => { setSession(data.session); setInicio(true); });
-    const { data } = sb.auth.onAuthStateChange((_e, s) => setSession(s));
+    const limpiarUrl = () => {
+      // los enlaces de los correos regresan con los datos de sesión en la URL; se quitan una vez leídos
+      if (/access_token|error_description|type=/.test(location.hash)) history.replaceState(null, "", location.pathname + "#/");
+    };
+    if (/type=recovery/.test(location.hash)) setRecuperando(true);
+    sb.auth.getSession().then(({ data }) => { setSession(data.session); setInicio(true); limpiarUrl(); });
+    const { data } = sb.auth.onAuthStateChange((e, s) => {
+      setSession(s);
+      if (e === "PASSWORD_RECOVERY") setRecuperando(true);
+      limpiarUrl();
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
@@ -74,7 +86,7 @@ export function Proveedor({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <C.Provider value={{ session, uid, yo, otros, cuentas, categorias, familiares, listo: inicio && listo, recargar, aviso }}>
+    <C.Provider value={{ session, recuperando, terminarRecuperacion: () => setRecuperando(false), uid, yo, otros, cuentas, categorias, familiares, listo: inicio && listo, recargar, aviso }}>
       {children}
       {toast && <div className="toast" role="status">{toast}</div>}
     </C.Provider>

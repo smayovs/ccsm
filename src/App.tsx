@@ -3,7 +3,7 @@ import { NavLink, Route, Routes } from "react-router-dom";
 import { useApp } from "./contexto";
 import { sb } from "./supabase";
 import { Icono } from "./ui";
-import Acceso from "./pantallas/Acceso";
+import Acceso, { NuevaContrasena } from "./pantallas/Acceso";
 import Bienvenida from "./pantallas/Bienvenida";
 import Inicio from "./pantallas/Inicio";
 import Movimientos from "./pantallas/Movimientos";
@@ -22,7 +22,7 @@ import Llaves from "./ajustes/Llaves";
 import Perfil from "./ajustes/Perfil";
 
 export default function App() {
-  const { session, yo, listo, uid } = useApp();
+  const { session, yo, listo, uid, recuperando } = useApp();
   const [pendientes, setPendientes] = useState(0);
 
   useEffect(() => {
@@ -32,6 +32,7 @@ export default function App() {
 
   if (!listo) return <div className="cargando">Cargando…</div>;
   if (!session) return <Acceso />;
+  if (recuperando) return <NuevaContrasena />;
   if (!yo) return <Bienvenida />;
 
   return (
