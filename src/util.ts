@@ -60,3 +60,15 @@ export const errorTexto = (e: any) => {
   if (m.includes("violates foreign key") && m.includes("movimientos")) return "Tiene movimientos registrados: desactívala en lugar de borrarla.";
   return m;
 };
+
+// Limpia lo que se escribe en un campo de dinero sin borrar el punto decimal.
+// Acepta coma como decimal (teclados con región distinta) y quita separadores de miles al pegar "8,450.30".
+export function limpiarMonto(v: string) {
+  let s = v.replace(/[^\d.,]/g, "");
+  if (s.includes(".")) s = s.replace(/,/g, "");
+  else if (/,\d{0,2}$/.test(s) && (s.match(/,/g) ?? []).length === 1) s = s.replace(",", ".");
+  else s = s.replace(/,/g, "");
+  const i = s.indexOf(".");
+  if (i >= 0) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, "").slice(0, 2);
+  return s;
+}

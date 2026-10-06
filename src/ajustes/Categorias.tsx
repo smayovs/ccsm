@@ -2,7 +2,7 @@ import { useState } from "react";
 import { sb } from "../supabase";
 import { useApp, type Categoria } from "../contexto";
 import { Cabeza, Segmentos } from "../ui";
-import { errorTexto, fmt } from "../util";
+import { errorTexto, fmt, limpiarMonto } from "../util";
 
 export default function Categorias() {
   const { uid, categorias, recargar, aviso } = useApp();
@@ -64,7 +64,7 @@ export default function Categorias() {
                 {tipo === "gasto" && (
                   <input aria-label={`Presupuesto de ${p.nombre}`} inputMode="decimal" defaultValue={Number(p.presupuesto_mensual) || ""} placeholder="$0"
                     style={{ width: 96, textAlign: "right", padding: "8px 10px", border: "1px solid var(--linea)", borderRadius: 9, background: "var(--fondo)", fontSize: 16 }}
-                    onBlur={(e) => { const v = Number(e.target.value.replace(/[^\d.]/g, "")) || 0; if (v !== Number(p.presupuesto_mensual)) act(p.id, { presupuesto_mensual: v }); }} />
+                    onBlur={(e) => { const v = Number(limpiarMonto(e.target.value)) || 0; if (v !== Number(p.presupuesto_mensual)) act(p.id, { presupuesto_mensual: v }); }} />
                 )}
               </div>
               {open && (

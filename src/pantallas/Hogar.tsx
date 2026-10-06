@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, Campo, SelectorMes } from "../ui";
-import { errorTexto, fechaCorta, fmt, hoyISO, mesISO, sumarMes } from "../util";
+import { errorTexto, fechaCorta, fmt, hoyISO, mesISO, sumarMes, limpiarMonto } from "../util";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 
 export function Invitar() {
@@ -119,7 +119,7 @@ export default function Hogar() {
             {abierto && saldar && (
               <div style={{ marginTop: 14 }}>
                 <div className="dos">
-                  <Campo etiqueta="Monto"><input inputMode="decimal" value={saldar.monto} onChange={(e) => setSaldar({ ...saldar, monto: e.target.value })} /></Campo>
+                  <Campo etiqueta="Monto"><input inputMode="decimal" value={saldar.monto} onChange={(e) => setSaldar({ ...saldar, monto: limpiarMonto(e.target.value) })} /></Campo>
                   <Campo etiqueta={saldar.yoPago ? "Pagué desde" : "Lo recibí en"}>
                     <select value={saldar.cuenta} onChange={(e) => setSaldar({ ...saldar, cuenta: e.target.value })}>
                       {mias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}

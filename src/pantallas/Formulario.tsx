@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, Campo, Segmentos, SelectorCategoria } from "../ui";
-import { errorTexto, fechaLarga, fmt, hoyISO } from "../util";
+import { errorTexto, fechaLarga, fmt, hoyISO, limpiarMonto } from "../util";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 
 type Tipo = "gasto" | "ingreso" | "transferencia" | "reembolso";
@@ -164,7 +164,7 @@ export default function Formulario() {
       <form onSubmit={guardar}>
         <Segmentos etiqueta="Tipo" valor={tipo} onCambio={setTipo} opciones={tiposOp} />
         <Campo etiqueta="Monto">
-          <input className="monto-grande" inputMode="decimal" placeholder="$0" value={monto} onChange={(e) => setMonto(e.target.value)} autoFocus={!id} />
+          <input className="monto-grande" inputMode="decimal" placeholder="$0" value={monto} onChange={(e) => setMonto(limpiarMonto(e.target.value))} autoFocus={!id} />
         </Campo>
         <div className="dos">
           <Campo etiqueta={tipo === "transferencia" ? "Desde" : tipo === "gasto" ? "Pagué con" : "Entró a"}>
@@ -238,7 +238,7 @@ export default function Formulario() {
                 ]} />
                 {(comp === "pct" || comp === "monto") && (
                   <Campo etiqueta={comp === "pct" ? `Porcentaje que le toca a ${otro.nombre}` : `Monto que le toca a ${otro.nombre}`}>
-                    <input inputMode="decimal" value={valorComp} onChange={(e) => setValorComp(e.target.value.replace(/[^\d.]/g, ""))} placeholder={comp === "pct" ? "40" : "$0"} />
+                    <input inputMode="decimal" value={valorComp} onChange={(e) => setValorComp(limpiarMonto(e.target.value))} placeholder={comp === "pct" ? "40" : "$0"} />
                   </Campo>
                 )}
                 {comp !== "no" && montoNum > 0 && (

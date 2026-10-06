@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { sb } from "../supabase";
 import { useApp, nombreCategoria } from "../contexto";
 import { Cabeza, Campo, SelectorCategoria } from "../ui";
-import { diasEntre, errorTexto, fechaCorta, fmt, hoyISO, proximoCobro } from "../util";
+import { diasEntre, errorTexto, fechaCorta, fmt, hoyISO, proximoCobro, limpiarMonto } from "../util";
 
 const FREC: Record<number, string> = { 1: "Mensual", 2: "Bimestral", 3: "Trimestral", 6: "Semestral", 12: "Anual" };
 const vacia = { id: "", servicio: "", monto: "", frecuencia_meses: 1, cuenta_id: "", categoria_id: null as string | null, fecha_referencia: hoyISO(), palabra_clave: "", activa: true, delHogar: false };
@@ -42,7 +42,7 @@ export default function Suscripciones() {
       <form onSubmit={guardar}>
         <Campo etiqueta="Servicio"><input value={edit.servicio} onChange={(e) => setEdit({ ...edit, servicio: e.target.value })} placeholder="Netflix" /></Campo>
         <div className="dos">
-          <Campo etiqueta="Monto por cobro"><input inputMode="decimal" value={edit.monto} onChange={(e) => setEdit({ ...edit, monto: e.target.value })} /></Campo>
+          <Campo etiqueta="Monto por cobro"><input inputMode="decimal" value={edit.monto} onChange={(e) => setEdit({ ...edit, monto: limpiarMonto(e.target.value) })} /></Campo>
           <Campo etiqueta="Frecuencia">
             <select value={edit.frecuencia_meses} onChange={(e) => setEdit({ ...edit, frecuencia_meses: Number(e.target.value) })}>
               {Object.entries(FREC).map(([v, t]) => <option key={v} value={v}>{t}</option>)}

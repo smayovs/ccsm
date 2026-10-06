@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
 import { Cabeza, Campo } from "../ui";
-import { errorTexto, fmt, hoyISO, mesISO, sumarMes } from "../util";
+import { errorTexto, fmt, hoyISO, mesISO, sumarMes, limpiarMonto } from "../util";
 
 // Fecha de compra equivalente a "llevo n mensualidades facturadas" según el día de corte
 export function fechaParaFacturadas(corte: number | null, n: number) {
@@ -35,7 +35,7 @@ export function ListaMsi({ filas, onCambio }: { filas: MsiFila[]; onCambio: (f: 
           <div key={i} className="lista" style={{ padding: "14px 14px 2px", marginBottom: 12 }}>
             <Campo etiqueta="¿Qué compraste?"><input value={f.descripcion} onChange={(e) => set(i, "descripcion", e.target.value)} placeholder="Refrigerador" /></Campo>
             <div className="dos">
-              <Campo etiqueta="Monto total de la compra"><input inputMode="decimal" value={f.monto} onChange={(e) => set(i, "monto", e.target.value.replace(/[^\d.]/g, ""))} placeholder="$12,000" /></Campo>
+              <Campo etiqueta="Monto total de la compra"><input inputMode="decimal" value={f.monto} onChange={(e) => set(i, "monto", limpiarMonto(e.target.value))} placeholder="$12,000" /></Campo>
               <Campo etiqueta="Meses">
                 <select value={f.meses} onChange={(e) => set(i, "meses", e.target.value)}>
                   {[3, 6, 9, 10, 12, 13, 15, 18, 20, 24, 36, 48].map((n) => <option key={n} value={n}>{n} meses</option>)}
@@ -136,7 +136,7 @@ export default function NuevaTarjeta() {
             <Campo etiqueta="Día de corte"><input inputMode="numeric" value={corte} onChange={(e) => setCorte(e.target.value.replace(/\D/g, ""))} placeholder="10" /></Campo>
             <Campo etiqueta="Día límite de pago"><input inputMode="numeric" value={pago} onChange={(e) => setPago(e.target.value.replace(/\D/g, ""))} placeholder="30" /></Campo>
           </div>
-          <Campo etiqueta="Límite de crédito"><input inputMode="decimal" value={limite} onChange={(e) => setLimite(e.target.value.replace(/[^\d.]/g, ""))} placeholder="$30,000" /></Campo>
+          <Campo etiqueta="Límite de crédito"><input inputMode="decimal" value={limite} onChange={(e) => setLimite(limpiarMonto(e.target.value))} placeholder="$30,000" /></Campo>
           <p className="nota">Los encuentras en tu estado de cuenta o en la app del banco.</p>
         </>
       )}
@@ -145,10 +145,10 @@ export default function NuevaTarjeta() {
         <>
           <p style={{ marginTop: 0 }}>Abre la app de tu banco y copia estos dos datos tal como aparecen hoy:</p>
           <Campo etiqueta="Saldo actual" ayuda="Lo que debes sin contar meses sin intereses. Suele llamarse “Saldo actual”, “Saldo al día” o “Deuda actual”.">
-            <input className="monto-grande" inputMode="decimal" value={saldoActual} onChange={(e) => setSaldoActual(e.target.value.replace(/[^\d.]/g, ""))} placeholder="$0" />
+            <input className="monto-grande" inputMode="decimal" value={saldoActual} onChange={(e) => setSaldoActual(limpiarMonto(e.target.value))} placeholder="$0" />
           </Campo>
           <Campo etiqueta="Saldo de meses sin intereses" ayuda="Lo que falta por facturar de tus compras a meses. Suele llamarse “Saldo MSI” o “Saldo de promociones”. Si no tienes, déjalo vacío.">
-            <input inputMode="decimal" value={saldoMsi} onChange={(e) => setSaldoMsi(e.target.value.replace(/[^\d.]/g, ""))} placeholder="$0" />
+            <input inputMode="decimal" value={saldoMsi} onChange={(e) => setSaldoMsi(limpiarMonto(e.target.value))} placeholder="$0" />
           </Campo>
           <div className="trio" style={{ gridTemplateColumns: disponible !== null ? "1fr 1fr" : "1fr" }}>
             <div><div className="k">Deuda total hoy</div><div className="v negativo">{fmt(deuda)}</div></div>

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
 import { Cabeza, Campo } from "../ui";
-import { errorTexto, hoyISO, TIPOS_CUENTA, VISIBILIDAD } from "../util";
+import { errorTexto, hoyISO, TIPOS_CUENTA, VISIBILIDAD, limpiarMonto } from "../util";
 
 type Edit = Omit<Cuenta, "saldo_inicial" | "dia_corte" | "dia_pago" | "limite_credito"> & {
   saldo_inicial: string; dia_corte: string; dia_pago: string; limite_credito: string; conjunta: boolean;
@@ -64,8 +64,8 @@ export default function Cuentas() {
             </Campo>
             <div className="dos">
               <Campo etiqueta={credito ? "Deuda total al darla de alta" : "Saldo"} ayuda={credito ? "Saldo actual + saldo de MSI, en positivo. Las compras a meses se registran aparte en Más › Compras a meses." : undefined}>
-                <input inputMode="decimal" value={credito ? String(Math.abs(Number(edit.saldo_inicial || 0)) || "") : edit.saldo_inicial}
-                  onChange={(e) => setEdit({ ...edit, saldo_inicial: e.target.value })} />
+                <input inputMode="decimal" value={edit.saldo_inicial}
+                  onChange={(e) => setEdit({ ...edit, saldo_inicial: credito ? limpiarMonto(e.target.value) : e.target.value.replace(/[^\d.,-]/g, "").replace(",", ".") })} />
               </Campo>
               <Campo etiqueta="Al día" ayuda="Solo cuentan movimientos desde esta fecha."><input type="date" value={edit.fecha_saldo_inicial} onChange={(e) => setEdit({ ...edit, fecha_saldo_inicial: e.target.value })} /></Campo>
             </div>
@@ -75,7 +75,7 @@ export default function Cuentas() {
                   <Campo etiqueta="Día de corte"><input inputMode="numeric" value={edit.dia_corte} onChange={(e) => setEdit({ ...edit, dia_corte: e.target.value.replace(/\D/g, "") })} placeholder="10" /></Campo>
                   <Campo etiqueta="Día límite de pago"><input inputMode="numeric" value={edit.dia_pago} onChange={(e) => setEdit({ ...edit, dia_pago: e.target.value.replace(/\D/g, "") })} placeholder="30" /></Campo>
                 </div>
-                <Campo etiqueta="Límite de crédito"><input inputMode="decimal" value={edit.limite_credito} onChange={(e) => setEdit({ ...edit, limite_credito: e.target.value })} /></Campo>
+                <Campo etiqueta="Límite de crédito"><input inputMode="decimal" value={edit.limite_credito} onChange={(e) => setEdit({ ...edit, limite_credito: limpiarMonto(e.target.value) })} /></Campo>
               </>
             )}
             <Campo etiqueta="Nombre en Wallet" ayuda="Una palabra del nombre de la tarjeta en Wallet (ej. LikeU). Así Apple Pay sabe a qué cuenta cargar.">
@@ -124,7 +124,7 @@ export default function Cuentas() {
           <h2>{t}</h2>
           <div className="lista">
             {l.map((c) => (
-              <button className="fila" key={c.id} onClick={() => setEdit({ ...c, saldo_inicial: String(c.saldo_inicial), dia_corte: String(c.dia_corte ?? ""),
+              <button className="fila" key={c.id} onClick={() => setEdit({ ...c, saldo_inicial: String(c.tipo === "credito" ? Math.abs(Number(c.saldo_inicial)) : c.saldo_inicial), dia_corte: String(c.dia_corte ?? ""),
                 dia_pago: String(c.dia_pago ?? ""), limite_credito: String(c.limite_credito ?? ""), conjunta: c.propietario_id === null })}>
                 <div className="cuerpo">
                   <div className="titulo">{c.nombre}</div>
