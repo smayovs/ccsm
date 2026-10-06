@@ -31,6 +31,7 @@ export default function Formulario() {
   const [comp, setComp] = useState<Comp>("no");
   const [valorComp, setValorComp] = useState("");
   const [revisar, setRevisar] = useState(false);
+  const [enSaldoInicial, setEnSaldoInicial] = useState(false);
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
@@ -50,7 +51,7 @@ export default function Formulario() {
       }
       setTipo(m.tipo); setMonto(String(m.monto)); setFecha(m.fecha); setCuenta(m.cuenta_id ?? "");
       setDestino(m.cuenta_destino_id ?? ""); setCategoria(m.categoria_id); setDescripcion(m.descripcion ?? m.comercio ?? "");
-      setFamiliar(m.familiar_id ?? ""); setMeses(m.meses_msi ? String(m.meses_msi) : ""); setRevisar(m.revisar);
+      setFamiliar(m.familiar_id ?? ""); setMeses(m.meses_msi ? String(m.meses_msi) : ""); setRevisar(m.revisar); setEnSaldoInicial(!!m.en_saldo_inicial);
       const r = (m.repartos ?? [])[0];
       if (r) {
         if (r.modo === "porcentaje" && Number(r.valor) === 50) setComp("mitad");
@@ -63,6 +64,7 @@ export default function Formulario() {
   }, [id, uid]);
 
   const montoNum = Number(String(monto).replace(/[^\d.]/g, ""));
+  const cuentaSel = cuentas.find((c) => c.id === cuenta);
   const parteOtro = comp === "mitad" ? montoNum / 2 : comp === "todo" ? montoNum
     : comp === "pct" ? montoNum * Number(valorComp || 0) / 100 : comp === "monto" ? Number(valorComp || 0) : 0;
 
@@ -82,6 +84,7 @@ export default function Formulario() {
       familiar_id: tipo === "gasto" || tipo === "reembolso" ? (familiar || null) : null,
       meses_msi: tipo === "gasto" && Number(meses) > 1 ? Number(meses) : null,
       revisar: false,
+      en_saldo_inicial: enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial,
     };
     let movId = id;
     if (id) {
@@ -192,6 +195,12 @@ export default function Formulario() {
           <SelectorCategoria cats={categorias} tipo={tipo} valor={categoria} onCambio={setCategoria} uid={uid} incluirHogar={tipo === "gasto"} />
         )}
 
+        {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && (
+          <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>Esta fecha es anterior al alta de {cuentaSel.nombre}: cuenta en tu presupuesto, pero no mueve su saldo (ya estaba incluido).</p>
+        )}
+        {cuentaSel && fecha === cuentaSel.fecha_saldo_inicial && tipo !== "transferencia" && (
+          <label className="casilla"><input type="checkbox" checked={enSaldoInicial} onChange={(e) => setEnSaldoInicial(e.target.checked)} /> Ya estaba incluido en el saldo con que diste de alta {cuentaSel.nombre}</label>
+        )}
         <Campo etiqueta="Descripción"><input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder={tipo === "gasto" ? "Comercio o nota" : ""} /></Campo>
 
         {tipo === "reembolso" && (

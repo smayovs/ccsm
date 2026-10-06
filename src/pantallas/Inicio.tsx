@@ -120,7 +120,7 @@ export default function Inicio() {
               </div>
               <div className={"monto " + (s.saldo < 0 ? "negativo" : "")}>
                 {fmt(s.saldo)}
-                {s.msi_por_facturar > 0 && <small>+ {fmt(s.msi_por_facturar, false)} MSI</small>}
+                {s.msi_por_facturar > 0 && <small>incluye {fmt(s.msi_por_facturar, false)} de MSI</small>}
               </div>
             </div>
           );

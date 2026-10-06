@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
 import { Cabeza, Campo } from "../ui";
@@ -13,6 +14,8 @@ export default function Cuentas() {
   const [todas, setTodas] = useState<Cuenta[]>([]);
   const [edit, setEdit] = useState<Edit | null>(null);
   const [error, setError] = useState("");
+  const [eligiendo, setEligiendo] = useState(false);
+  const nav = useNavigate();
   const cargar = () => sb.from("cuentas").select("*").order("orden").order("nombre").then(({ data }) => setTodas((data ?? []) as Cuenta[]));
   useEffect(() => { cargar(); }, []);
 
@@ -56,11 +59,11 @@ export default function Cuentas() {
             <Campo etiqueta="Nombre"><input value={edit.nombre} onChange={(e) => setEdit({ ...edit, nombre: e.target.value })} placeholder="TDC Santander LikeU" /></Campo>
             <Campo etiqueta="Tipo">
               <select value={edit.tipo} onChange={(e) => setEdit({ ...edit, tipo: e.target.value })}>
-                {Object.entries(TIPOS_CUENTA).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                {Object.entries(TIPOS_CUENTA).filter(([v]) => edit.id || v !== "credito").map(([v, t]) => <option key={v} value={v}>{t}</option>)}
               </select>
             </Campo>
             <div className="dos">
-              <Campo etiqueta={credito ? "Lo que debes" : "Saldo"} ayuda={credito ? "Escríbelo en positivo; se guarda como deuda." : undefined}>
+              <Campo etiqueta={credito ? "Deuda total al darla de alta" : "Saldo"} ayuda={credito ? "Saldo actual + saldo de MSI, en positivo. Las compras a meses se registran aparte en Más › Compras a meses." : undefined}>
                 <input inputMode="decimal" value={credito ? String(Math.abs(Number(edit.saldo_inicial || 0)) || "") : edit.saldo_inicial}
                   onChange={(e) => setEdit({ ...edit, saldo_inicial: e.target.value })} />
               </Campo>
@@ -108,7 +111,13 @@ export default function Cuentas() {
   ];
   return (
     <>
-      <Cabeza titulo="Cuentas" volver accion={<button className="boton chico" onClick={() => setEdit(nueva())}>Agregar</button>} />
+      <Cabeza titulo="Cuentas" volver accion={<button className="boton chico" onClick={() => setEligiendo(!eligiendo)}>Agregar</button>} />
+      {eligiendo && (
+        <div className="lista" style={{ marginBottom: 16 }}>
+          <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Asistente: deuda de hoy, corte, pago y compras a meses</div></div><span aria-hidden="true">›</span></button>
+          <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva()); }}><div className="cuerpo"><div className="titulo">Débito, ahorro, efectivo o inversión</div><div className="detalle">Solo nombre y saldo de hoy</div></div><span aria-hidden="true">›</span></button>
+        </div>
+      )}
       {todas.length === 0 && <p>Agrega tus cuentas con el saldo de hoy: débito, cada tarjeta de crédito y tu cuenta de ahorro.</p>}
       {grupos.map(([t, l]) => l.length > 0 && (
         <section key={t}>
