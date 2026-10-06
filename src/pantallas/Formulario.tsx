@@ -22,8 +22,10 @@ export default function Formulario() {
   const [tipo, setTipo] = useState<Tipo>((qs.get("tipo") as Tipo) || "gasto");
   const [monto, setMonto] = useState("");
   const [fecha, setFecha] = useState(hoyISO());
-  const [cuenta, setCuenta] = useState(activas[0]?.id ?? "");
-  const [destino, setDestino] = useState("");
+  const [cuenta, setCuenta] = useState(qs.get("cuenta") ?? (qs.get("destino")
+    ? (activas.find((a) => a.id !== qs.get("destino") && a.tipo !== "credito") ?? activas.find((a) => a.id !== qs.get("destino")))?.id
+    : activas[0]?.id) ?? "");
+  const [destino, setDestino] = useState(qs.get("destino") ?? "");
   const [categoria, setCategoria] = useState<string | null>(null);
   const [descripcion, setDescripcion] = useState("");
   const [familiar, setFamiliar] = useState(qs.get("familiar") ?? "");

@@ -81,7 +81,7 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.15rem; margin: 
 button.fila, a.fila { cursor: pointer; }
 button.fila:active, a.fila:active { background: var(--ciruela-suave); }
 .fila .cuerpo { flex: 1; min-width: 0; }
-.fila .titulo { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fila .titulo { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fila .detalle { font-size: 0.82rem; color: var(--tinta-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fila .monto { font-family: var(--display); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
 .fila .monto small { display: block; font-family: var(--texto); font-weight: 400; font-size: 0.75rem; color: var(--tinta-2); }
@@ -159,3 +159,14 @@ button.fila:active, a.fila:active { background: var(--ciruela-suave); }
 .cargando { min-height: 60dvh; display: grid; place-items: center; color: var(--tinta-2); }
 details.plegable summary { cursor: pointer; list-style: none; }
 details.plegable summary::-webkit-details-marker { display: none; }
+
+/* Detalle de cuenta */
+.tarjeta-pago { background: var(--ciruela-suave); border-radius: var(--radio); padding: 14px 16px; }
+.tarjeta-pago.listo { background: var(--sereno-suave); }
+.tarjeta-pago.vencido { background: var(--oxido-suave); }
+.tarjeta-pago .etiqueta { font-size: 0.85rem; color: var(--tinta-2); }
+.tarjeta-pago .cifra-media { font-family: var(--display); font-weight: 700; font-size: 2.1rem; letter-spacing: -0.02em; margin: 2px 0 4px; font-variant-numeric: tabular-nums; }
+.tarjeta-pago .sub { font-size: 0.88rem; color: var(--tinta-2); }
+.tarjeta-pago .acciones { margin-top: 12px; }
+button.enlace { background: none; border: 0; padding: 0; color: var(--ciruela); font: inherit; text-decoration: underline; cursor: pointer; }
+.tarjeta-pago + h2, .lista .fila .cuerpo strong { white-space: normal; }

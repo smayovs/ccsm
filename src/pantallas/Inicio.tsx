@@ -108,8 +108,9 @@ export default function Inicio() {
         {visibles.map((s) => {
           const disponible = s.tipo === "credito" && s.limite_credito ? s.limite_credito + s.saldo : null;
           const dueno = s.conjunta ? "Conjunta" : s.mia ? TIPOS_CUENTA[s.tipo] : `De ${s.propietario_nombre}`;
+          const Fila: any = (s.mia || s.conjunta) ? Link : "div";
           return (
-            <div className="fila" key={s.id}>
+            <Fila className="fila" key={s.id} to={`/cuenta/${s.id}`}>
               <div className="cuerpo">
                 <div className="titulo">{s.nombre}</div>
                 <div className="detalle">
@@ -122,7 +123,7 @@ export default function Inicio() {
                 {fmt(s.saldo)}
                 {s.msi_por_facturar > 0 && <small>incluye {fmt(s.msi_por_facturar, false)} de MSI</small>}
               </div>
-            </div>
+            </Fila>
           );
         })}
       </div>

@@ -11,6 +11,7 @@ import Formulario from "./pantallas/Formulario";
 import Hogar from "./pantallas/Hogar";
 import Pendientes from "./pantallas/Pendientes";
 import Mas from "./pantallas/Mas";
+import Cuenta from "./pantallas/Cuenta";
 import Cobros from "./pantallas/Cobros";
 import Msi from "./pantallas/Msi";
 import Suscripciones from "./pantallas/Suscripciones";
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/hogar" element={<Hogar />} />
           <Route path="/pendientes" element={<Pendientes onCambio={setPendientes} />} />
           <Route path="/mas" element={<Mas />} />
+          <Route path="/cuenta/:id" element={<Cuenta />} />
           <Route path="/cobros" element={<Cobros />} />
           <Route path="/msi" element={<Msi />} />
           <Route path="/suscripciones" element={<Suscripciones />} />
