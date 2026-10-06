@@ -52,6 +52,7 @@ export default function Mas() {
       <div className="lista">
         <button className="fila" onClick={exportar}><div className="cuerpo"><div className="titulo">Descargar mis movimientos</div><div className="detalle">Archivo CSV que abre en Excel o Google Sheets</div></div></button>
       </div>
+      <p className="nota" style={{ textAlign: "center", marginTop: 24 }}>Versión {__VERSION__} UTC</p>
     </>
   );
 }

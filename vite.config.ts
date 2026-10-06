@@ -3,12 +3,16 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 // Publicada en https://smayovs.github.io/ccsm/
+const VERSION = new Date().toISOString().slice(0, 16).replace("T", " ");
+
 export default defineConfig({
+  define: { __VERSION__: JSON.stringify(VERSION) },
   base: "/ccsm/",
   plugins: [
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      injectRegister: false,
       includeAssets: ["icono.svg", "apple-touch-icon.png"],
       manifest: {
         name: "CCSM — Finanzas para dos",
@@ -25,7 +29,7 @@ export default defineConfig({
           { src: "icono-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
         ]
       },
-      workbox: { navigateFallback: "/ccsm/index.html", globPatterns: ["**/*.{js,css,html,svg,png,woff2}"] }
+      workbox: { cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true, navigateFallback: "/ccsm/index.html", globPatterns: ["**/*.{js,css,html,svg,png,woff2}"] }
     })
   ]
 });
