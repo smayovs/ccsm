@@ -96,6 +96,7 @@ export default function Cuenta() {
           <div className="etiqueta">{TIPOS_CUENTA[d.tipo] ?? "Cuenta"} · saldo</div>
           <div className={"cifra" + (n(d.saldo) < 0 ? " alerta" : "")}>{fmt(d.saldo, false)}</div>
         </section>
+      <div className="acciones" style={{ marginTop: 12 }}><Link className="boton" to={`/nuevo?cuenta=${id}`}>+ Registrar movimiento en {d.nombre}</Link></div>
         <div className="trio">
           <div><div className="k">Entró este mes</div><div className="v positivo">{fmt(entradas, false)}</div></div>
           <div><div className="k">Gastos</div><div className="v">{fmt(d.mes_gastos, false)}</div></div>
@@ -132,6 +133,7 @@ export default function Cuenta() {
           </div>
         )}
       </section>
+      <div className="acciones" style={{ marginTop: 12 }}><Link className="boton" to={`/nuevo?cuenta=${id}`}>+ Registrar movimiento en {d.nombre}</Link></div>
 
       <h2>Tu pago</h2>
       <div className={"tarjeta-pago" + (vencido ? " vencido" : falta === 0 ? " listo" : "")}>
