@@ -8,7 +8,7 @@ import { ArrowLeftRight, HandCoins, Handshake } from "lucide-react";
 import { IconoCategoria } from "../iconos";
 
 export const SELECT_MOV = `*, cuenta:cuentas!movimientos_cuenta_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_fkey(nombre),
-  categoria:categorias!movimientos_categoria_id_fkey(nombre, icono, padre:padre_id(nombre, icono)), familiar:familiares(nombre),
+  categoria:categorias!movimientos_categoria_id_fkey(nombre, icono, padre:padre_id(nombre, icono)), familiar:familiares!movimientos_familiar_id_fkey(nombre),
   repartos(user_id, modo, valor, monto, estado, nota, categoria_id), partes:partes_personas(familiar_id, monto)`;
 
 export type Mov = any;
