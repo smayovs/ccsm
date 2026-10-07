@@ -33,8 +33,6 @@ export default function Cuenta() {
   const [movs, setMovs] = useState<Mov[]>([]);
   const [fallo, setFallo] = useState("");
   const [cobros, setCobros] = useState<Record<string, EstadoMov[]>>({});
-  const [corrigiendo, setCorrigiendo] = useState(false);
-  const [manual, setManual] = useState("");
   const nombres = useMemo(() => Object.fromEntries([...otros, ...(yo ? [yo] : [])].map((m) => [m.user_id, m.nombre])), [otros, yo]);
 
   const cargar = useCallback(async () => {
@@ -52,12 +50,7 @@ export default function Cuenta() {
 
   useEffect(() => { cargar(); }, [cargar]);
 
-  async function guardarManual() {
-    if (!d?.ultimo_corte) return;
-    const { error } = await sb.from("cuentas").update({ pago_corte_manual: Number(manual) || 0, pago_corte_de: d.ultimo_corte }).eq("id", id);
-    if (error) return setFallo(errorTexto(error));
-    setCorrigiendo(false); aviso("Pago actualizado"); cargar();
-  }
+
 
   if (fallo && !d) return (<><Cabeza titulo="Cuenta" volver /><p className="error" role="alert">{fallo}</p></>);
   if (!d) return (<><Cabeza titulo="Cuenta" volver /><div className="vacio">Cargando…</div></>);
@@ -146,26 +139,9 @@ export default function Cuenta() {
             : <>Para no generar intereses · paga antes del {fechaLarga(d.fecha_pago!)} ({cuando(d.fecha_pago!)})</>}
         </div>
         {pagado > 0 && falta > 0 && <div className="sub">Ya abonaste {fmt(pagado)} de {fmt(pagoCorte)}.</div>}
-        {estimado && !corrigiendo && (
-          <p className="nota" style={{ marginBottom: 0 }}>
-            Es un estimado: registraste la tarjeta después de este corte. <button className="enlace" onClick={() => { setManual(pagoCorte ? pagoCorte.toFixed(2) : ""); setCorrigiendo(true); }}>Corregir con mi estado de cuenta</button>
-          </p>
-        )}
-        {d.pago_manual && !corrigiendo && (
-          <p className="nota" style={{ marginBottom: 0 }}>Tomado de tu estado de cuenta. <button className="enlace" onClick={() => { setManual(pagoCorte.toFixed(2)); setCorrigiendo(true); }}>Cambiar</button></p>
-        )}
-        {corrigiendo && (
-          <div style={{ marginTop: 12 }}>
-            <Campo etiqueta="Pago para no generar intereses" ayuda="Lo que dice tu estado de cuenta de este corte. Los pagos que registres desde ahora se descuentan de aquí.">
-              <input inputMode="decimal" value={manual} onChange={(e) => setManual(limpiarMonto(e.target.value))} placeholder="$0" autoFocus />
-            </Campo>
-            <div className="acciones">
-              <button className="boton claro" onClick={() => setCorrigiendo(false)}>Cancelar</button>
-              <button className="boton" onClick={guardarManual}>Guardar</button>
-            </div>
-          </div>
-        )}
-        {falta > 0 && !corrigiendo && (
+        {estimado && <p className="nota" style={{ marginBottom: 0 }}>Es un estimado: registraste la tarjeta después de este corte. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link></p>}
+        {d.pago_manual && <p className="nota" style={{ marginBottom: 0 }}>Tomado de tu estado de cuenta.</p>}
+        {falta > 0 && (
           <div className="acciones"><Link className="boton" to={`/nuevo?tipo=transferencia&destino=${id}`}>Registrar pago</Link></div>
         )}
       </div>
@@ -206,6 +182,7 @@ export default function Cuenta() {
       <h2>Movimientos desde el corte</h2>
       {lista}
       {fallo && <p className="error" role="alert">{fallo}</p>}
+      <div className="acciones"><Link className="boton claro" to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link></div>
       <p className="nota">Corte día {d.dia_corte} · pago día {d.dia_pago}. <Link to="/ajustes/cuentas">Editar tarjeta</Link></p>
     </>
   );

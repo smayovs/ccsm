@@ -1,33 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
-import { Cabeza, Campo } from "../ui";
+import { Cabeza } from "../ui";
 import { useApp } from "../contexto";
-import { ListaMsi, guardarMsiExistentes, type MsiFila } from "../ajustes/NuevaTarjeta";
-import { errorTexto } from "../util";
 import { fmt, mesCorto, mesISO, sumarMes } from "../util";
 
 export default function Msi() {
   const [lista, setLista] = useState<any[]>([]);
   const [verLiquidadas, setVerLiquidadas] = useState(false);
-  const { cuentas, aviso } = useApp();
+  const { cuentas } = useApp();
   const tarjetas = cuentas.filter((c) => c.tipo === "credito" && c.activa);
-  const [agregando, setAgregando] = useState(false);
-  const [tarjeta, setTarjeta] = useState("");
-  const [nuevas, setNuevas] = useState<MsiFila[]>([{ descripcion: "", monto: "", meses: "12", facturadas: "0" }]);
-  const [error, setError] = useState("");
   const cargar = () => sb.rpc("msi_detalle").then(({ data }) => setLista(data ?? []));
   useEffect(() => { cargar(); }, []);
-
-  async function guardarExistentes() {
-    setError("");
-    const c = tarjetas.find((t) => t.id === (tarjeta || tarjetas[0]?.id));
-    if (!c) return setError("Primero agrega la tarjeta en Cuentas.");
-    const e = await guardarMsiExistentes(c, nuevas);
-    if (e) return setError(errorTexto(e));
-    aviso("Compras a meses agregadas"); setAgregando(false);
-    setNuevas([{ descripcion: "", monto: "", meses: "12", facturadas: "0" }]); cargar();
-  }
 
   const mes = mesISO();
   const activas = lista.filter((x) => x.estado === "Activa");
@@ -60,26 +44,13 @@ export default function Msi() {
       <p className="nota">Cada mensualidad cuenta en el mes de corte de tu tarjeta; por eso importa el día de corte en Cuentas.</p>
 
       <h2>Compras</h2>
-      {!agregando ? (
-        <div className="acciones" style={{ marginTop: 0, marginBottom: 12 }}>
-          <button className="boton claro" onClick={() => setAgregando(true)}>Agregar compras a meses que ya traías</button>
+      <div className="aviso" style={{ marginTop: 0, marginBottom: 12, display: "block" }}>
+        <span><b>¿Compras a meses que ya traías?</b> Captúralas como vienen en tu estado de cuenta (mensualidad y “pago N de M”) desde
+          <b> Cuadrar con mi estado de cuenta</b> de cada tarjeta:</span>
+        <div className="chips" style={{ marginTop: 8, marginBottom: 0 }}>
+          {tarjetas.map((t) => <Link key={t.id} className="boton chico claro" to={`/ajustes/tarjeta/${t.id}/cuadrar`}>{t.nombre}</Link>)}
         </div>
-      ) : (
-        <div style={{ marginBottom: 16 }}>
-          <p className="nota" style={{ marginTop: 0 }}>Para compras que ya estaban en tu tarjeta cuando la diste de alta: no vuelven a sumarse a la deuda. Las compras nuevas a meses regístralas como gasto normal eligiendo los meses.</p>
-          <Campo etiqueta="Tarjeta">
-            <select value={tarjeta || tarjetas[0]?.id || ""} onChange={(e) => setTarjeta(e.target.value)}>
-              {tarjetas.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
-            </select>
-          </Campo>
-          <ListaMsi filas={nuevas} onCambio={setNuevas} />
-          <div className="acciones">
-            <button className="boton claro" onClick={() => setAgregando(false)}>Cancelar</button>
-            <button className="boton" onClick={guardarExistentes}>Guardar</button>
-          </div>
-          {error && <p className="error" role="alert">{error}</p>}
-        </div>
-      )}
+      </div>
       <div className="lista">
         {visibles.length === 0 && <div className="vacio">Sin compras a meses. Al registrar un gasto elige “Meses sin intereses”.</div>}
         {visibles.map((x) => (

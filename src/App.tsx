@@ -22,6 +22,7 @@ import Reglas from "./ajustes/Reglas";
 import Familiares from "./ajustes/Familiares";
 import Llaves from "./ajustes/Llaves";
 import Perfil from "./ajustes/Perfil";
+import CuadrarTarjeta from "./ajustes/CuadrarTarjeta";
 import NuevaTarjeta from "./ajustes/NuevaTarjeta";
 
 export default function App() {
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="/ajustes/familiares" element={<Familiares />} />
           <Route path="/ajustes/llaves" element={<Llaves />} />
           <Route path="/ajustes/perfil" element={<Perfil />} />
+          <Route path="/ajustes/tarjeta/:id/cuadrar" element={<CuadrarTarjeta />} />
           <Route path="/ajustes/tarjeta-nueva" element={<NuevaTarjeta />} />
           <Route path="*" element={<Inicio />} />
         </Routes>

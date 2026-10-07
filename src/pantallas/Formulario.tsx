@@ -265,7 +265,7 @@ export default function Formulario() {
             </div>
             {Number(meses) > 1 && montoNum > 0 && <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>{Number(meses)} mensualidades de {fmt(montoNum / Number(meses))}. Registra el total de la compra.</p>}
             {Number(meses) > 1 && cuentaSel?.tipo === "credito" && fecha < cuentaSel.fecha_saldo_inicial && !id && (
-              <p className="aviso" style={{ marginTop: -4, marginBottom: 14 }}>Esta compra es de antes de que dieras de alta {cuentaSel.nombre}. Si ya pagaste alguna mensualidad, regístrala en <b>Más › Meses sin intereses › Agregar compras a meses que ya traías</b>; ahí indicas cuántas llevas pagadas y el pago de tu tarjeta sale correcto.</p>
+              <p className="aviso" style={{ marginTop: -4, marginBottom: 14 }}>Esta compra es de antes de que dieras de alta {cuentaSel.nombre}. Si ya pagaste alguna mensualidad, captúrala mejor en <b>{cuentaSel.nombre} › Cuadrar con mi estado de cuenta</b>, con la mensualidad y el “pago N de M”; así la deuda y el pago de tu tarjeta salen correctos.</p>
             )}
             {dividir && (
               <div className="caja-dividir">

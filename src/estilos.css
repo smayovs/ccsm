@@ -332,3 +332,4 @@ h2 { font-size: 1.05rem; }
 .total-filtro { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 14px; border-radius: var(--radio); background: var(--ciruela-suave); margin-bottom: 4px; font-size: 0.9rem; }
 .total-filtro b { font-family: var(--display); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
 .lista + .tablero, .cabeza + .tablero { margin-top: 16px; }
+.tres { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; }
