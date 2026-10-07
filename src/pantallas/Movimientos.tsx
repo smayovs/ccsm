@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorMes, Segmentos } from "../ui";
-import { cobroEnMes, fechaLarga, fmt, hoyISO, mesISO, sumarMes, TIPOS_MOV } from "../util";
+import { cobroEnMes, fechaCorta, fechaLarga, fmt, hoyISO, mesISO, sumarMes, TIPOS_MOV } from "../util";
 import { ArrowLeftRight, CalendarClock, HandCoins, Handshake } from "lucide-react";
 import { IconoCategoria } from "../iconos";
 
@@ -46,6 +46,7 @@ export default function Movimientos() {
   const { uid, otros, yo, cuentas } = useApp();
   const [cuentaFiltro, setCuentaFiltro] = useState("");
   const [subs, setSubs] = useState<any[]>([]);
+  const [msiPrevias, setMsiPrevias] = useState<Mov[]>([]);
   const [mes, setMes] = useState(mesISO());
   const [movs, setMovs] = useState<Mov[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -58,6 +59,9 @@ export default function Movimientos() {
     sb.from("movimientos").select(SELECT_MOV).gte("fecha", mes).lt("fecha", sumarMes(mes, 1))
       .order("fecha", { ascending: false }).order("created_at", { ascending: false })
       .then(({ data, error }) => { setMovs(data ?? []); setFallo(error ? "No se pudieron cargar los movimientos. Revisa tu conexión e intenta de nuevo." : ""); setCargando(false); });
+    // Compras a meses de meses anteriores cuya mensualidad cae en este mes
+    sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").not("meses_msi", "is", null).lt("fecha", mes).gte("fecha", sumarMes(mes, -47))
+      .then(({ data }) => setMsiPrevias(data ?? []));
   }, [mes]);
   useEffect(() => {
     sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id, palabra_clave, categoria_id").eq("activa", true)
@@ -79,7 +83,17 @@ export default function Movimientos() {
 
   const nombres = useMemo(() => Object.fromEntries([...otros, ...(yo ? [yo] : [])].map((m) => [m.user_id, m.nombre])), [otros, yo]);
 
-  const filtrados = [...movs, ...programadas].sort((a, b) => b.fecha.localeCompare(a.fecha)).filter((m) => {
+  // Cada compra a meses se muestra como mensualidad: la 1 en su mes y las siguientes en los meses que siguen
+  const [my, mm] = mes.split("-").map(Number);
+  const ultimoDia = new Date(Date.UTC(my, mm, 0)).getUTCDate();
+  const cuotas: Mov[] = msiPrevias.flatMap((m) => {
+    const [y, mo, d] = m.fecha.split("-").map(Number);
+    const k = (my - y) * 12 + (mm - mo) + 1;
+    if (k < 2 || k > m.meses_msi) return [];
+    return [{ ...m, id: `${m.id}-${k}`, movId: m.id, msiK: k, fecha: `${mes.slice(0, 8)}${String(Math.min(d, ultimoDia)).padStart(2, "0")}` }];
+  });
+  const propios = movs.map((m) => (m.meses_msi && m.tipo === "gasto" ? { ...m, movId: m.id, msiK: 1 } : m));
+  const filtrados = [...propios, ...cuotas, ...programadas].sort((a, b) => b.fecha.localeCompare(a.fecha)).filter((m) => {
     if (cuentaFiltro && m.cuenta_id !== cuentaFiltro && m.cuenta_destino_id !== cuentaFiltro) return false;
     if (filtro === "gasto" && m.tipo !== "gasto") return false;
     if (filtro === "ingreso" && !["ingreso", "reembolso"].includes(m.tipo)) return false;
@@ -130,21 +144,22 @@ export default function Movimientos() {
                 </Link>
               );
               const l = lineaMov(m, uid, nombres);
+              if (m.msiK) l.monto = l.monto / m.meses_msi;
               const disputa = (m.repartos ?? []).some((r: any) => r.estado === "disputa");
               return (
-                <Link className="fila" key={m.id} to={l.mio || l.miParte ? `/editar/${m.id}` : "#"}>
+                <Link className={"fila" + (m.msiK > 1 ? " cuota" : "")} key={m.id} to={l.mio || l.miParte ? `/editar/${m.movId ?? m.id}` : "#"}>
                   <IconoMov m={m} />
                   <div className="cuerpo">
                     <div className="titulo">{l.titulo}</div>
                     <div className="detalle">
                       {m.revisar && <span className="etiq roja">Por revisar</span>}
                       {disputa && <span className="etiq roja">En disputa</span>}
-                      {m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
+                      {m.msiK ? <span className="etiq">Mensualidad {m.msiK} de {m.meses_msi}</span> : m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
                       {subDe(m) && <span className="etiq">Suscripción</span>}
                       {(m.repartos?.length > 0) && <span className="etiq verde">Compartido</span>}
                       {(m.partes?.length > 0) && <span className="etiq">Dividido</span>}
                       {m.familiar && <span className="etiq">{m.familiar.nombre}</span>}
-                      {l.nota || l.detalle}
+                      {m.msiK ? `Compra de ${fmt(m.monto)}${m.msiK > 1 ? ` del ${fechaCorta(m.fecha_compra ?? msiPrevias.find((x) => x.id === m.movId)?.fecha ?? m.fecha)}` : ""}${m.cuenta?.nombre ? ` · ${m.cuenta.nombre}` : ""}` : (l.nota || l.detalle)}
                     </div>
                   </div>
                   <div className={"monto " + (l.signo > 0 ? "positivo" : "")}>
