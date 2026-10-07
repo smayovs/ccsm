@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../contexto";
 import { Cabeza } from "../ui";
 import { errorTexto, fmt } from "../util";
-import { aplicarSaldos, BloqueSaldos, cargarMensualidades, deudaTotal, faltante, ListaMensualidades, saldosVacios, type FilaMsi, type Saldos } from "./saldosTarjeta";
+import { aplicarSaldos, filasInvalidas, BloqueSaldos, cargarMensualidades, deudaTotal, faltante, ListaMensualidades, saldosVacios, type FilaMsi, type Saldos } from "./saldosTarjeta";
 
 // Deja una tarjeta existente exactamente como dice tu estado de cuenta de hoy
 export default function CuadrarTarjeta() {
@@ -28,7 +28,7 @@ export default function CuadrarTarjeta() {
 
   async function guardar() {
     setError("");
-    if (!(Number(s.saldoBanco) > 0)) return setError("Escribe el saldo que te muestra el banco.");
+    if (s.saldoBanco === "" || Number(s.saldoBanco) < 0) return setError("Escribe el saldo que te muestra el banco (puede ser 0).");
     setOcupado(true);
     const e = await aplicarSaldos({ id: c!.id, dia_corte: c!.dia_corte! }, filas, s, originales);
     setOcupado(false);

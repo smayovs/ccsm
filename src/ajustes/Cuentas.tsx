@@ -3,7 +3,7 @@ import { IconoCuenta } from "../iconos";
 import { useNavigate } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
-import { Cabeza, Campo } from "../ui";
+import { Cabeza, Campo, useUnaVez } from "../ui";
 import { errorTexto, hoyISO, TIPOS_CUENTA, VISIBILIDAD, limpiarMonto } from "../util";
 
 type Edit = Omit<Cuenta, "saldo_inicial" | "dia_corte" | "dia_pago" | "limite_credito"> & {
@@ -17,6 +17,7 @@ export default function Cuentas() {
   const [error, setError] = useState("");
   const [eligiendo, setEligiendo] = useState(false);
   const [ordenando, setOrdenando] = useState(false);
+  const unaVez = useUnaVez();
   const nav = useNavigate();
   const cargar = () => sb.from("cuentas").select("*").order("orden").order("nombre").then(({ data }) => setTodas((data ?? []) as Cuenta[]));
   useEffect(() => { cargar(); }, []);
@@ -45,6 +46,7 @@ export default function Cuentas() {
   }
   async function borrar() {
     if (!edit?.id) return;
+    if (!window.confirm(`¿Borrar ${edit.nombre}? Si tiene movimientos, mejor márcala como inactiva.`)) return;
     const { error } = await sb.from("cuentas").delete().eq("id", edit.id);
     if (error) return setError(errorTexto(error));
     aviso("Cuenta borrada"); setEdit(null); cargar(); recargar();
@@ -57,7 +59,7 @@ export default function Cuentas() {
       <>
         <Cabeza titulo={edit.id ? "Editar cuenta" : "Nueva cuenta"} />
         {deOtro ? <p>Esta cuenta es de tu pareja; solo ella puede editarla.</p> : (
-          <form onSubmit={guardar}>
+          <form onSubmit={(e) => { e.preventDefault(); unaVez(guardar)(e); }}>
             <Campo etiqueta="Nombre"><input value={edit.nombre} onChange={(e) => setEdit({ ...edit, nombre: e.target.value })} placeholder="TDC Santander LikeU" /></Campo>
             <Campo etiqueta="Tipo">
               <select value={edit.tipo} onChange={(e) => setEdit({ ...edit, tipo: e.target.value })}>
@@ -67,7 +69,7 @@ export default function Cuentas() {
             <div className="dos">
               <Campo etiqueta={credito ? "Deuda total al darla de alta" : "Saldo"} ayuda={credito ? "Saldo actual + saldo de MSI, en positivo. Las compras a meses se registran aparte en Más › Compras a meses." : undefined}>
                 <input inputMode="decimal" value={edit.saldo_inicial}
-                  onChange={(e) => setEdit({ ...edit, saldo_inicial: credito ? limpiarMonto(e.target.value) : e.target.value.replace(/[^\d.,-]/g, "").replace(",", ".") })} />
+                  onChange={(e) => setEdit({ ...edit, saldo_inicial: credito ? limpiarMonto(e.target.value) : (e.target.value.trim().startsWith("-") ? "-" : "") + limpiarMonto(e.target.value) })} />
               </Campo>
               <Campo etiqueta="Al día" ayuda="Solo cuentan movimientos desde esta fecha."><input type="date" value={edit.fecha_saldo_inicial} onChange={(e) => setEdit({ ...edit, fecha_saldo_inicial: e.target.value })} /></Campo>
             </div>

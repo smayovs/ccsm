@@ -24,6 +24,7 @@ export default function Reglas() {
     setPalabra(""); setPct(""); aviso("Regla agregada"); cargar();
   }
   async function borrar(id: string) {
+    if (!window.confirm("¿Borrar esta regla?")) return;
     const { error } = await sb.from("reglas").delete().eq("id", id);
     if (error) return setError(errorTexto(error));
     cargar();

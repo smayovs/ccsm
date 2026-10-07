@@ -56,13 +56,15 @@ export default function Cobros() {
             {abierto === p.id && (
               <>
                 {p.cargos.map((c) => (
-                  <Link className="fila" key={c.id} to={`/editar/${c.mov}`}>
+                  <div className="fila" key={c.id}>
                     <button type="button" className="check" role="checkbox" aria-checked={false} aria-label={`Marcar ${c.texto} como pagado`}
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); marcar(c.id, true); }} />
+                      onClick={() => marcar(c.id, true)} />
+                    <Link className="fila-enlace" to={`/editar/${c.mov}`}>
                     <div className="cuerpo"><div className="titulo">{c.texto}</div>
                       <div className="detalle">{c.id.split("|").length === 3 ? mesCorto(c.fecha) : fechaCorta(c.fecha)}{c.pendiente < c.monto ? ` · abonado ${fmt(c.monto - c.pendiente)}` : ""}</div></div>
                     <div className="monto">{fmt(c.pendiente)}</div>
                   </Link>
+                  </div>
                 ))}
                 {p.marcados.length > 0 && (
                   <button className="fila" onClick={() => setVerMarcados(verMarcados === p.id ? null : p.id)} aria-expanded={verMarcados === p.id}>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useApp } from "./contexto";
 import { sb } from "./supabase";
 import { Icono } from "./ui";
@@ -45,8 +45,8 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Inicio />} />
           <Route path="/movimientos" element={<Movimientos />} />
-          <Route path="/nuevo" element={<Formulario />} />
-          <Route path="/editar/:id" element={<Formulario />} />
+          <Route path="/nuevo" element={<FormularioNuevo />} />
+          <Route path="/editar/:id" element={<FormularioNuevo />} />
           <Route path="/hogar" element={<Hogar />} />
           <Route path="/pendientes" element={<Pendientes onCambio={setPendientes} />} />
           <Route path="/mas" element={<Mas />} />
@@ -77,4 +77,10 @@ export default function App() {
       </nav>
     </>
   );
+}
+
+// Cada apertura del formulario empieza limpia (evita que "+" herede los datos de un movimiento que estabas editando)
+function FormularioNuevo() {
+  const loc = useLocation();
+  return <Formulario key={loc.key + loc.pathname + loc.search} />;
 }

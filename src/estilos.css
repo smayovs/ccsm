@@ -333,3 +333,10 @@ h2 { font-size: 1.05rem; }
 .total-filtro b { font-family: var(--display); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
 .lista + .tablero, .cabeza + .tablero { margin-top: 16px; }
 .tres { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; }
+.fila-enlace { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; text-decoration: none; color: inherit; }
+/* Casilla con área de toque de 44px */
+.check { width: 44px; height: 44px; margin: -9px -6px -9px -9px; border: 0; background: none; display: grid; place-items: center; }
+.check::before { content: ""; grid-area: 1 / 1; width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--linea); background: var(--superficie); box-sizing: border-box; }
+.check[aria-checked="true"] { background: none; }
+.check[aria-checked="true"]::before { background: var(--sereno); border-color: var(--sereno); }
+.check[aria-checked="true"]::after { grid-area: 1 / 1; }

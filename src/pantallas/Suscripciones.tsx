@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { sb } from "../supabase";
 import { useApp, nombreCategoria } from "../contexto";
-import { Cabeza, Campo, SelectorCategoria } from "../ui";
+import { Cabeza, Campo, SelectorCategoria, useUnaVez } from "../ui";
 import { diasEntre, errorTexto, fechaCorta, fmt, hoyISO, proximoCobro, limpiarMonto } from "../util";
 import { divisionVacia, partesDe, SelectorDivision, type Division } from "../division";
 
@@ -12,6 +12,7 @@ export default function Suscripciones() {
   const { uid, cuentas, categorias, otros, aviso, familiares } = useApp();
   const [partes, setPartes] = useState<Record<string, { familiar_id: string; monto: number }[]>>({});
   const [div, setDiv] = useState<Division>(divisionVacia);
+  const unaVez = useUnaVez();
   const [lista, setLista] = useState<any[]>([]);
   const [edit, setEdit] = useState<typeof vacia | null>(null);
   const [error, setError] = useState("");
@@ -71,6 +72,7 @@ export default function Suscripciones() {
     aviso(ps.length ? "Cobro registrado y dividido" : "Cobro registrado"); setEdit(null);
   }
   async function borrar(id: string) {
+    if (!window.confirm("¿Borrar esta suscripción? Los cobros ya registrados se conservan.")) return;
     const { error } = await sb.from("suscripciones").delete().eq("id", id);
     if (error) return setError(errorTexto(error));
     setEdit(null); cargar();
@@ -83,7 +85,7 @@ export default function Suscripciones() {
   if (edit) return (
     <>
       <Cabeza titulo={edit.id ? "Editar suscripción" : "Nueva suscripción"} />
-      <form onSubmit={guardar}>
+      <form onSubmit={(e) => { e.preventDefault(); unaVez(guardar)(e); }}>
         <Campo etiqueta="Servicio"><input value={edit.servicio} onChange={(e) => setEdit({ ...edit, servicio: e.target.value })} placeholder="Netflix" /></Campo>
         <div className="dos">
           <Campo etiqueta="Monto por cobro"><input inputMode="decimal" value={edit.monto} onChange={(e) => setEdit({ ...edit, monto: limpiarMonto(e.target.value) })} /></Campo>
@@ -116,7 +118,7 @@ export default function Suscripciones() {
         </div>
         {edit.id && (
           <div className="acciones">
-            <button type="button" className="boton claro" onClick={registrarCobro}>Registrar el cobro de hoy</button>
+            <button type="button" className="boton claro" onClick={unaVez(registrarCobro)}>Registrar el cobro de hoy</button>
           </div>
         )}
         {edit.id && <p className="nota">Úsalo solo si el cargo no llegó por tu atajo de Apple Pay, para no registrarlo dos veces.</p>}

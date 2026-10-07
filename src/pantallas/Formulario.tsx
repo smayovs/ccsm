@@ -91,7 +91,7 @@ export default function Formulario() {
     if (!cuenta) return setError("Elige la cuenta.");
     if (tipo === "transferencia" && (!destino || destino === cuenta)) return setError("Elige una cuenta destino distinta.");
     if (tipo === "reembolso" && !familiar) return setError("Elige quién te pagó.");
-    if (comp !== "no" && parteOtro > montoNum) return setError("La parte de tu pareja no puede ser mayor que el gasto.");
+    if (comp !== "no" && !familiarReal && parteOtro > montoNum) return setError("La parte de tu pareja no puede ser mayor que el gasto.");
     if (tipo === "gasto" && dividir) {
       if (!seleccion.length) return setError("Elige con quién se divide el gasto.");
       if (partes.some((x) => !(x.monto > 0))) return setError("Escribe la parte de cada persona.");
@@ -110,8 +110,20 @@ export default function Formulario() {
       en_saldo_inicial: enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial,
       sumar_a_saldo: sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
     };
+    // Si el gasto pasa a ser de otra persona (o deja de ser gasto), no se comparte con tu pareja
+    const compEf = tipo !== "gasto" || familiarReal ? "no" : comp;
+    const conPartes = tipo === "gasto" && dividir;
     let movId = id;
     if (id) {
+      // Primero se quita lo que ya no aplica, para que el cambio de tipo o de persona no choque con repartos viejos
+      if (compEf === "no") {
+        const r = await sb.from("repartos").delete().eq("movimiento_id", id);
+        if (r.error) { setOcupado(false); return setError(errorTexto(r.error)); }
+      }
+      if (!conPartes) {
+        const r = await sb.from("partes_personas").delete().eq("movimiento_id", id);
+        if (r.error) { setOcupado(false); return setError(errorTexto(r.error)); }
+      }
       const { error } = await sb.from("movimientos").update(fila).eq("id", id);
       if (error) { setOcupado(false); return setError(errorTexto(error)); }
     } else {
@@ -120,22 +132,25 @@ export default function Formulario() {
       if (error) { setOcupado(false); return setError(errorTexto(error)); }
       movId = data.id;
     }
-    if (movId && (id || (tipo === "gasto" && dividir))) {
-      if (id) await sb.from("partes_personas").delete().eq("movimiento_id", movId);
-      if (tipo === "gasto" && dividir) {
-        const { error } = await sb.from("partes_personas").insert(partes.map((x) => ({ movimiento_id: movId, ...x })));
-        if (error) { setOcupado(false); return setError(errorTexto(error)); }
+    // Si algo falla después de crear el movimiento, se abre en modo edición para no duplicarlo al reintentar
+    const fallaParcial = (e: any) => {
+      setOcupado(false);
+      if (!id) { aviso("Se guardó el movimiento, pero faltó una parte: " + errorTexto(e)); nav(`/editar/${movId}`, { replace: true }); return; }
+      setError(errorTexto(e));
+    };
+    if (movId && conPartes) {
+      if (id) {
+        const r = await sb.from("partes_personas").delete().eq("movimiento_id", movId);
+        if (r.error) return fallaParcial(r.error);
       }
+      const { error } = await sb.from("partes_personas").insert(partes.map((x) => ({ movimiento_id: movId, ...x })));
+      if (error) return fallaParcial(error);
     }
-    if (otro && movId) {
-      if (tipo === "gasto" && comp !== "no") {
-        const r = comp === "mitad" ? { modo: "porcentaje", valor: 50 } : comp === "todo" ? { modo: "porcentaje", valor: 100 }
-          : comp === "pct" ? { modo: "porcentaje", valor: Number(valorComp) } : { modo: "monto", valor: Number(valorComp) };
-        const { error } = await sb.from("repartos").upsert({ movimiento_id: movId, user_id: otro.user_id, ...r }, { onConflict: "movimiento_id,user_id" });
-        if (error) { setOcupado(false); return setError(errorTexto(error)); }
-      } else if (id) {
-        await sb.from("repartos").delete().eq("movimiento_id", movId);
-      }
+    if (otro && movId && compEf !== "no") {
+      const r = compEf === "mitad" ? { modo: "porcentaje", valor: 50 } : compEf === "todo" ? { modo: "porcentaje", valor: 100 }
+        : compEf === "pct" ? { modo: "porcentaje", valor: Number(valorComp) } : { modo: "monto", valor: Number(valorComp) };
+      const { error } = await sb.from("repartos").upsert({ movimiento_id: movId, user_id: otro.user_id, ...r }, { onConflict: "movimiento_id,user_id" });
+      if (error) return fallaParcial(error);
     }
     setOcupado(false);
     aviso(id ? "Cambios guardados" : "Movimiento guardado");

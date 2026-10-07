@@ -30,7 +30,8 @@ export function fechaParaPago(corte: number, n: number, hoy = hoyISO()) {
 }
 
 // ---------- Lista de compras a meses capturada como en el estado de cuenta ----------
-export type FilaMsi = { id?: string; descripcion: string; mensualidad: string; n: string; m: string; fecha?: string; monto?: number };
+export type FilaMsi = { id?: string; descripcion: string; mensualidad: string; n: string; m: string; fecha?: string; monto?: number;
+  orig?: { descripcion: string; mensualidad: string; n: string; m: string } };
 export const filaNueva = (): FilaMsi => ({ descripcion: "", mensualidad: "", n: "1", m: "12" });
 export const faltante = (f: FilaMsi) => {
   const men = Number(f.mensualidad) || 0, n = Math.min(Number(f.n) || 0, Number(f.m) || 0), m = Number(f.m) || 0;
@@ -55,7 +56,10 @@ export function ListaMensualidades({ filas, onCambio }: { filas: FilaMsi[]; onCa
                 : <>Compra de {fmt(Number(f.mensualidad) * Number(f.m))} · te faltan {Number(f.m) - Number(f.n)} pagos ({fmt(faltante(f))})</>}
             </p>
           )}
-          <button type="button" className="boton chico peligro" style={{ marginBottom: 10 }} onClick={() => onCambio(filas.filter((_, j) => j !== i))}>Quitar</button>
+          <button type="button" className="boton chico peligro" style={{ marginBottom: 10 }} onClick={() => {
+            if (f.id && !window.confirm(`¿Quitar "${f.descripcion || "esta compra"}"? Se borra de tus movimientos.`)) return;
+            onCambio(filas.filter((_, j) => j !== i));
+          }}>Quitar</button>
         </div>
       ))}
       <button type="button" className="boton claro ancho" onClick={() => onCambio([...filas, filaNueva()])}>
@@ -102,47 +106,49 @@ export function BloqueSaldos({ s, onCambio, filas, limite, corte }: { s: Saldos;
 }
 
 // ---------- Guardar: deja la tarjeta exactamente como dice tu estado de cuenta ----------
+export function filasInvalidas(filas: FilaMsi[]) {
+  return filas.filter((f) => (f.id || Number(f.mensualidad) > 0) &&
+    (!(Number(f.mensualidad) > 0) || !(Number(f.m) >= 2) || Number(f.n) > Number(f.m) || f.n === ""));
+}
+
 export async function aplicarSaldos(cuenta: { id: string; dia_corte: number }, filas: FilaMsi[], s: Saldos, existentes: FilaMsi[]) {
   const hoy = hoyISO();
   const corte = cuenta.dia_corte;
-  const validas = filas.filter((f) => Number(f.mensualidad) > 0 && Number(f.m) > 1 && Number(f.n) <= Number(f.m));
-  // 1) Compras a meses: actualizar, crear o quitar
-  for (const f of validas) {
-    const m = Number(f.m), n = Math.max(0, Number(f.n) || 0);
-    const monto = Math.round(Number(f.mensualidad) * m * 100) / 100;
-    const cambios: any = { monto, meses_msi: m, descripcion: f.descripcion.trim() || "Compra a meses", en_saldo_inicial: true, sumar_a_saldo: false };
-    if (f.id) {
-      if (!f.fecha || facturadas(f.fecha, corte, m, hoy) !== n) cambios.fecha = fechaParaPago(corte, n, hoy);
-      const { error } = await sb.from("movimientos").update(cambios).eq("id", f.id);
-      if (error) return error;
-    } else {
-      const { error } = await sb.from("movimientos").insert({ ...cambios, tipo: "gasto", cuenta_id: cuenta.id, fecha: fechaParaPago(corte, n, hoy), origen: "Saldo inicial" });
-      if (error) return error;
+  if (filasInvalidas(filas).length) return { message: "Revisa las compras a meses: falta la mensualidad o el pago número es mayor que el total." };
+  const validas = filas.filter((f) => Number(f.mensualidad) > 0);
+  // 1) Solo se mandan los cambios reales; lo que no tocaste se queda igual
+  const cambios = validas.map((f): Record<string, unknown> => {
+    const m = Number(f.m), n = Number(f.n), men = Number(f.mensualidad);
+    const c: Record<string, unknown> = { meses: m };
+    if (!f.id || !f.orig) {
+      return { meses: m, monto: Math.round(men * m * 100) / 100, fecha: fechaParaPago(corte, n, hoy), descripcion: f.descripcion.trim() || "Compra a meses" };
     }
-  }
-  const quitadas = existentes.filter((e) => e.id && !validas.some((f) => f.id === e.id));
+    if (f.mensualidad !== f.orig.mensualidad || f.m !== f.orig.m) c.monto = Math.round(men * m * 100) / 100;
+    if (f.n !== f.orig.n || f.m !== f.orig.m) c.fecha = fechaParaPago(corte, n, hoy);
+    if (f.descripcion.trim() !== f.orig.descripcion.trim()) c.descripcion = f.descripcion.trim();
+    return { id: f.id, ...c };
+  });
+  // 2) Quitar solo lo que marcaste para quitar (con confirmación en pantalla)
+  const quitadas = existentes.filter((e) => e.id && !filas.some((f) => f.id === e.id));
   for (const q of quitadas) {
     const { error } = await sb.from("movimientos").delete().eq("id", q.id!);
     if (error) return error;
   }
-  // 2) Lo registrado hasta hoy ya está dentro del saldo que capturaste
-  const { error: e1 } = await sb.from("movimientos").update({ en_saldo_inicial: true, sumar_a_saldo: false })
-    .eq("cuenta_id", cuenta.id).in("tipo", ["gasto", "ingreso", "reembolso"]).lte("fecha", hoy);
-  if (e1) return e1;
-  // 3) Saldo de hoy y pago del estado de cuenta
-  const { error: e2 } = await sb.from("cuentas").update({
-    saldo_inicial: -deudaTotal(s, validas), fecha_saldo_inicial: hoy,
-    pago_corte_manual: s.yaPagado ? 0 : Number(s.pago) || null, pago_corte_de: s.yaPagado || s.pago ? ultimoCorte(corte, hoy) : null,
-  }).eq("id", cuenta.id);
-  return e2;
+  // 3) Todo lo demás en un solo paso en el servidor
+  const { error } = await sb.rpc("cuadrar_tarjeta", {
+    p_cuenta: cuenta.id, p_cambios: cambios, p_deuda: Math.round(deudaTotal(s, validas) * 100) / 100,
+    p_pago: s.yaPagado ? 0 : s.pago !== "" ? Number(s.pago) : null, p_corte: ultimoCorte(corte, hoy),
+  });
+  return error;
 }
 
 // Carga las compras a meses activas de una tarjeta en el formato del estado de cuenta
 export async function cargarMensualidades(cuentaId: string, corte: number): Promise<FilaMsi[]> {
   const { data } = await sb.from("movimientos").select("id, fecha, descripcion, comercio, monto, meses_msi")
     .eq("cuenta_id", cuentaId).eq("tipo", "gasto").not("meses_msi", "is", null).order("fecha");
-  return ((data ?? []) as any[]).map((x) => ({
-    id: x.id, fecha: x.fecha, monto: Number(x.monto), descripcion: x.descripcion || x.comercio || "",
-    mensualidad: String(Math.round((Number(x.monto) / x.meses_msi) * 100) / 100), m: String(x.meses_msi), n: String(facturadas(x.fecha, corte, x.meses_msi)),
-  })).filter((f) => Number(f.n) < Number(f.m));
+  return ((data ?? []) as any[]).map((x) => {
+    const v = { descripcion: x.descripcion || x.comercio || "", mensualidad: String(Math.round((Number(x.monto) / x.meses_msi) * 100) / 100),
+      m: String(x.meses_msi), n: String(facturadas(x.fecha, corte, x.meses_msi)) };
+    return { id: x.id, fecha: x.fecha, monto: Number(x.monto), ...v, orig: { ...v } };
+  }).filter((f) => Number(f.n) < Number(f.m));
 }

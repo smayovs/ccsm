@@ -86,18 +86,26 @@ export default function Movimientos() {
   // Cada compra a meses se muestra como mensualidad: la 1 en su mes y las siguientes en los meses que siguen
   const [my, mm] = mes.split("-").map(Number);
   const ultimoDia = new Date(Date.UTC(my, mm, 0)).getUTCDate();
-  const cuotas: Mov[] = msiPrevias.flatMap((m) => {
+  // Mensualidad k de una compra a meses en este mes, según el día de corte de su tarjeta (igual que el banco y el resto de la app)
+  const corteDe = (cid: string | null) => cuentas.find((c) => c.id === cid)?.dia_corte ?? 31;
+  const kEnMes = (m: Mov) => {
     const [y, mo, d] = m.fecha.split("-").map(Number);
-    const k = (my - y) * 12 + (mm - mo) + 1;
-    if (k < 2 || k > m.meses_msi) return [];
+    const ult = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+    const desfase = d <= Math.min(corteDe(m.cuenta_id), ult) ? 0 : 1;
+    return (my - y) * 12 + (mm - mo) - desfase + 1;
+  };
+  const cuotas: Mov[] = msiPrevias.flatMap((m) => {
+    const d = Number(m.fecha.slice(8, 10));
+    const k = kEnMes(m);
+    if (k < 1 || k > m.meses_msi) return [];
     return [{ ...m, id: `${m.id}-${k}`, movId: m.id, msiK: k, fecha: `${mes.slice(0, 8)}${String(Math.min(d, ultimoDia)).padStart(2, "0")}` }];
   });
-  const propios = movs.map((m) => (m.meses_msi && m.tipo === "gasto" ? { ...m, movId: m.id, msiK: 1 } : m));
+  const propios = movs.map((m) => (m.meses_msi && m.tipo === "gasto" ? { ...m, movId: m.id, msiK: kEnMes(m), compra: true } : m));
   const filtrados = [...propios, ...cuotas, ...programadas].sort((a, b) => b.fecha.localeCompare(a.fecha)).filter((m) => {
     if (cuentaFiltro && m.cuenta_id !== cuentaFiltro && m.cuenta_destino_id !== cuentaFiltro) return false;
     const esSub = m.programada || !!subDe(m);
-    if (filtro === "gasto" && (m.tipo !== "gasto" || m.msiK || esSub)) return false;
-    if (filtro === "mensualidad" && !m.msiK) return false;
+    if (filtro === "gasto" && (m.tipo !== "gasto" || m.movId || esSub)) return false;
+    if (filtro === "mensualidad" && !(m.msiK >= 1)) return false;
     if (filtro === "suscripcion" && !esSub) return false;
     if (filtro === "ingreso" && !["ingreso", "reembolso"].includes(m.tipo)) return false;
     if (filtro === "compartido" && !(m.repartos?.length)) return false;
@@ -110,6 +118,8 @@ export default function Movimientos() {
   });
 
   const hoy = hoyISO();
+  // Lo mismo que se ve en cada fila: tu parte y, si es a meses, la mensualidad
+  const montoMostrado = (m: Mov) => { const v = lineaMov(m, uid, nombres).monto; return m.movId ? v / m.meses_msi : v; };
   const grupos: [string, Mov[]][] = [];
   for (const m of filtrados) {
     const g = grupos.find((x) => x[0] === m.fecha);
@@ -132,7 +142,7 @@ export default function Movimientos() {
       {["gasto", "mensualidad", "suscripcion"].includes(filtro) && grupos.length > 0 && (
         <div className="total-filtro">
           <span>{filtro === "mensualidad" ? "Mensualidades del mes" : filtro === "suscripcion" ? "Suscripciones del mes" : "Gastos del mes"}{filtro === "suscripcion" && programadas.length ? " (incluye programadas)" : ""}</span>
-          <b>{fmt(filtrados.reduce((a, m) => a + (m.tipo === "gasto" ? Number(m.monto) / (m.msiK ? m.meses_msi : 1) : 0), 0))}</b>
+          <b>{fmt(filtrados.reduce((a, m) => a + (m.tipo === "gasto" && !(m.movId && m.msiK < 1) ? montoMostrado(m) : 0), 0))}</b>
         </div>
       )}
       {cargando ? <div className="vacio">Cargando…</div> : fallo ? <p className="error" role="alert">{fallo}</p> : grupos.length === 0 ? (
@@ -153,28 +163,31 @@ export default function Movimientos() {
                 </Link>
               );
               const l = lineaMov(m, uid, nombres);
-              if (m.msiK) l.monto = l.monto / m.meses_msi;
+              if (m.movId) l.monto = l.monto / m.meses_msi;
+              const editable = m.tipo !== "liquidacion" && (l.mio || l.miParte);
+              const Fila: any = editable ? Link : "div";
               const disputa = (m.repartos ?? []).some((r: any) => r.estado === "disputa");
               return (
-                <Link className={"fila" + (m.msiK > 1 ? " cuota" : "")} key={m.id} to={l.mio || l.miParte ? `/editar/${m.movId ?? m.id}` : "#"}>
+                <Fila className={"fila" + (m.movId && !m.compra ? " cuota" : "")} key={m.id} {...(editable ? { to: `/editar/${m.movId ?? m.id}` } : {})}>
                   <IconoMov m={m} />
                   <div className="cuerpo">
                     <div className="titulo">{l.titulo}</div>
                     <div className="detalle">
                       {m.revisar && <span className="etiq roja">Por revisar</span>}
                       {disputa && <span className="etiq roja">En disputa</span>}
-                      {m.msiK ? <span className="etiq">Mensualidad {m.msiK} de {m.meses_msi}</span> : m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
+                      {m.movId ? (m.msiK >= 1 ? <span className="etiq">Mensualidad {m.msiK} de {m.meses_msi}</span>
+                        : <span className="etiq">{m.meses_msi} MSI · 1ª mensualidad el próximo mes</span>) : null}
                       {subDe(m) && <span className="etiq">Suscripción</span>}
                       {(m.repartos?.length > 0) && <span className="etiq verde">Compartido</span>}
                       {(m.partes?.length > 0) && <span className="etiq">Dividido</span>}
                       {m.familiar && <span className="etiq">{m.familiar.nombre}</span>}
-                      {m.msiK ? `Compra de ${fmt(m.monto)}${m.msiK > 1 ? ` del ${fechaCorta(m.fecha_compra ?? msiPrevias.find((x) => x.id === m.movId)?.fecha ?? m.fecha)}` : ""}${m.cuenta?.nombre ? ` · ${m.cuenta.nombre}` : ""}` : (l.nota || l.detalle)}
+                      {m.movId ? `Compra de ${fmt(m.monto)}${!m.compra ? ` del ${fechaCorta(msiPrevias.find((x) => x.id === m.movId)?.fecha ?? m.fecha)}` : ""}${m.cuenta?.nombre ? ` · ${m.cuenta.nombre}` : ""}` : (l.nota || l.detalle)}
                     </div>
                   </div>
                   <div className={"monto " + (l.signo > 0 ? "positivo" : "")}>
                     {l.signo > 0 ? "+" : l.signo < 0 ? "−" : ""}{fmt(l.monto)}
                   </div>
-                </Link>
+                </Fila>
               );
             })}
           </div>

@@ -41,10 +41,10 @@ export default function Cuenta() {
     const det = r.data as Detalle;
     setD(det);
     const desde = det.tipo === "credito" && det.ultimo_corte ? det.ultimo_corte : null;
-    let q = sb.from("movimientos").select(SELECT_MOV).or(`cuenta_id.eq.${id},cuenta_destino_id.eq.${id}`).eq("en_saldo_inicial", false);
+    let q = sb.from("movimientos").select(SELECT_MOV).or(`cuenta_id.eq.${id},cuenta_destino_id.eq.${id}`);
     q = desde ? q.gt("fecha", desde) : q.gte("fecha", mesISO());
     const m = await q.order("fecha", { ascending: false }).order("created_at", { ascending: false });
-    setMovs(m.data ?? []);
+    setMovs((m.data ?? []).filter((x: any) => x.origen !== "Saldo inicial"));
     cargarCobros().then((c) => setCobros(c.movs));
   }, [id]);
 
@@ -66,19 +66,22 @@ export default function Cuenta() {
       {movs.map((m) => {
         const l = lineaMov(m, uid, nombres);
         const entra = m.cuenta_destino_id === id || ["ingreso", "reembolso"].includes(m.tipo);
+        const editable = m.tipo !== "liquidacion" && (l.mio || l.miParte);
+        const Fila: any = editable ? Link : "div";
         return (
-          <Link className="fila" key={m.id} to={`/editar/${m.id}`}>
+          <Fila className="fila" key={m.id} {...(editable ? { to: `/editar/${m.id}` } : {})}>
             <IconoMov m={m} />
             <div className="cuerpo">
               <div className="titulo">{l.titulo}</div>
               <div className="detalle">
                 {m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
+                {m.en_saldo_inicial && <span className="etiq">Ya en el saldo</span>}
                 {(cobros[m.id] ?? []).map((e) => <EtiqPersona key={e.familiar_id} nombre={familiares.find((f) => f.id === e.familiar_id)?.nombre ?? "Otra persona"} e={e} />)}
                 {fechaCorta(m.fecha)}{l.detalle && m.tipo !== "gasto" ? ` · ${l.detalle}` : textoCat(m)}
               </div>
             </div>
             <div className={"monto " + (entra ? "positivo" : "")}>{entra ? "+" : "−"}{fmt(m.monto)}</div>
-          </Link>
+          </Fila>
         );
       })}
     </div>

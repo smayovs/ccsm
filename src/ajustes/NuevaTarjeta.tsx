@@ -4,7 +4,7 @@ import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, Campo } from "../ui";
 import { errorTexto, fmt, hoyISO, limpiarMonto } from "../util";
-import { aplicarSaldos, BloqueSaldos, deudaTotal, faltante, ListaMensualidades, saldosVacios, type FilaMsi, type Saldos } from "./saldosTarjeta";
+import { aplicarSaldos, filasInvalidas, BloqueSaldos, deudaTotal, faltante, ListaMensualidades, saldosVacios, type FilaMsi, type Saldos } from "./saldosTarjeta";
 
 export default function NuevaTarjeta() {
   const { uid, cuentas, recargar, aviso } = useApp();
@@ -19,6 +19,7 @@ export default function NuevaTarjeta() {
   const [s, setS] = useState<Saldos>(saldosVacios);
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState(false);
+  const [creada, setCreada] = useState<{ id: string; dia_corte: number } | null>(null);
   const deuda = deudaTotal(s, msi);
 
   function siguiente() {
@@ -28,21 +29,26 @@ export default function NuevaTarjeta() {
       const c = Number(corte), p = Number(pago);
       if (!(c >= 1 && c <= 31) || !(p >= 1 && p <= 31)) return setError("Escribe el día de corte y el día límite de pago (1 a 31).");
     }
-    if (paso === 2 && msi.some((f) => Number(f.mensualidad) > 0 && Number(f.n) > Number(f.m))) return setError("Revisa: el pago número no puede ser mayor que el total de meses.");
+    if (paso === 2 && filasInvalidas(msi).length) return setError("Revisa las compras a meses: falta la mensualidad o el pago número es mayor que el total.");
     setPaso(paso + 1);
   }
 
   async function guardar() {
     setError(""); setOcupado(true);
-    const { data, error } = await sb.from("cuentas").insert({
+    // Si un intento anterior ya creó la tarjeta, solo se reintentan los saldos (no se duplica)
+    let data = creada;
+    if (!data) {
+    const r = await sb.from("cuentas").insert({
       propietario_id: uid, nombre: nombre.trim(), tipo: "credito", saldo_inicial: 0, fecha_saldo_inicial: hoyISO(),
       dia_corte: Number(corte), dia_pago: Number(pago), limite_credito: Number(limite) || null,
       nombre_wallet: wallet.trim() || null, visibilidad: "privada", orden: cuentas.length,
     }).select("id, dia_corte").single();
-    if (error) { setOcupado(false); return setError(errorTexto(error)); }
+    if (r.error) { setOcupado(false); return setError(errorTexto(r.error)); }
+    data = r.data as { id: string; dia_corte: number }; setCreada(data);
+    }
     const e2 = await aplicarSaldos({ id: data.id, dia_corte: data.dia_corte }, msi, s, []);
     setOcupado(false);
-    if (e2) return setError("La tarjeta se guardó, pero faltó parte de los saldos: " + errorTexto(e2) + ". Termínala en el detalle de la tarjeta › Cuadrar.");
+    if (e2) return setError("La tarjeta se creó, pero no se guardaron sus saldos: " + errorTexto(e2) + ". Toca Guardar otra vez para reintentar.");
     await recargar();
     aviso("Tarjeta agregada");
     setPaso(5);

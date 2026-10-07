@@ -53,7 +53,7 @@ export default function Inicio() {
       setSubs(prox);
       setListo(true);
       // Detalle de cada tarjeta propia: pago pendiente del corte y pagos del mes
-      const mias = lista.filter((x) => x.mia && x.activa && x.tipo === "credito");
+      const mias = lista.filter((x) => (x.mia || x.conjunta) && x.activa && x.tipo === "credito");
       const dets = await Promise.all(mias.map((x) => sb.rpc("detalle_cuenta", { p_cuenta: x.id })));
       const t: Record<string, Tarjeta> = {};
       dets.forEach((d, i) => {
@@ -128,7 +128,7 @@ export default function Inicio() {
                 <Link className="fila" key={i} to={p.tipo === "sub" ? "/suscripciones" : `/cuenta/${p.id}`}>
                   <span className="ico" aria-hidden="true">{p.tipo === "sub" ? <Repeat size={20} /> : <CreditCard size={20} />}</span>
                   <div className="cuerpo"><div className="titulo">{p.t}</div>
-                    <div className="detalle">{d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Venció hace ${-d} días` : `En ${d} días`} · {fechaCorta(p.f)}</div></div>
+                    <div className="detalle">{d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : `En ${d} días`} · {fechaCorta(p.f)}</div></div>
                   <div className={"monto" + (d <= 3 ? " negativo" : "")}>{fmt(p.m)}</div>
                 </Link>
               );

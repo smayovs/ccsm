@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useCallback, useRef, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { nombreMes, sumarMes } from "./util";
 import type { Categoria } from "./contexto";
@@ -92,3 +92,13 @@ export const Icono = {
   hogar: () => <svg viewBox="0 0 24 24" {...trazo}><circle cx="9" cy="12" r="5" /><circle cx="15" cy="12" r="5" /></svg>,
   menu: () => <svg viewBox="0 0 24 24" {...trazo}><circle cx="5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="19" cy="12" r="1.3" /></svg>,
 };
+
+// Evita que un doble toque ejecute dos veces una acción que guarda dinero
+export function useUnaVez() {
+  const enCurso = useRef(false);
+  return useCallback(<A extends unknown[]>(fn: (...a: A) => unknown) => async (...a: A) => {
+    if (enCurso.current) return;
+    enCurso.current = true;
+    try { await fn(...a); } finally { enCurso.current = false; }
+  }, []);
+}

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, Campo, SelectorMes } from "../ui";
+import { Cabeza, Campo, SelectorMes, useUnaVez } from "../ui";
 import { errorTexto, fechaCorta, fmt, hoyISO, mesISO, sumarMes, limpiarMonto } from "../util";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 
@@ -45,6 +45,7 @@ export default function Hogar() {
   const [confirmarCuenta, setConfirmarCuenta] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const mias = cuentas.filter((c) => c.activa);
+  const unaVez = useUnaVez();
 
   const cargar = useCallback(async () => {
     const [b, m, l, h] = await Promise.all([
@@ -129,7 +130,7 @@ export default function Hogar() {
                 <p className="nota" style={{ marginTop: -6 }}>No cuenta como gasto ni como ingreso: solo baja el saldo entre ustedes. {saldar.yoPago ? `Se descuenta cuando ${b.nombre} confirme que lo recibió.` : `Se descuenta de inmediato porque tú lo recibiste.`}</p>
                 <div className="acciones">
                   <button className="boton claro" onClick={() => setSaldar(null)}>Cancelar</button>
-                  <button className="boton" onClick={registrarSaldo}>Registrar pago</button>
+                  <button className="boton" onClick={unaVez(registrarSaldo)}>Registrar pago</button>
                 </div>
               </div>
             )}
@@ -154,7 +155,7 @@ export default function Hogar() {
                       <option value="">Elige cuenta…</option>
                       {mias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </select>
-                    <button className="boton chico" onClick={() => confirmar(l.id)}>Confirmar</button>
+                    <button className="boton chico" onClick={unaVez(() => confirmar(l.id))}>Confirmar</button>
                   </div>
                 </div>
               );
