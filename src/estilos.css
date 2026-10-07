@@ -303,3 +303,5 @@ h2 { font-size: 1.05rem; }
 .chips button:disabled { opacity: 0.5; }
 .caja-dividir .lista { box-shadow: none; }
 .monto-chico { width: 110px; text-align: right; padding: 8px 10px; border: 1px solid var(--linea); border-radius: 9px; background: var(--fondo); font-size: 16px; font-family: var(--display); font-weight: 700; }
+.fila.programada { opacity: 0.72; }
+.fila.programada .ico { background: var(--ambar-suave); color: var(--ambar); }

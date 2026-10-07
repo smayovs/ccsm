@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorMes, Segmentos } from "../ui";
-import { fechaLarga, fmt, mesISO, sumarMes, TIPOS_MOV } from "../util";
-import { ArrowLeftRight, HandCoins, Handshake } from "lucide-react";
+import { cobroEnMes, fechaLarga, fmt, hoyISO, mesISO, sumarMes, TIPOS_MOV } from "../util";
+import { ArrowLeftRight, CalendarClock, HandCoins, Handshake } from "lucide-react";
 import { IconoCategoria } from "../iconos";
 
 export const SELECT_MOV = `*, cuenta:cuentas!movimientos_cuenta_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_fkey(nombre),
@@ -43,7 +43,9 @@ export function lineaMov(m: Mov, uid: string, nombres: Record<string, string>) {
 }
 
 export default function Movimientos() {
-  const { uid, otros, yo } = useApp();
+  const { uid, otros, yo, cuentas } = useApp();
+  const [cuentaFiltro, setCuentaFiltro] = useState("");
+  const [subs, setSubs] = useState<any[]>([]);
   const [mes, setMes] = useState(mesISO());
   const [movs, setMovs] = useState<Mov[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -57,10 +59,28 @@ export default function Movimientos() {
       .order("fecha", { ascending: false }).order("created_at", { ascending: false })
       .then(({ data, error }) => { setMovs(data ?? []); setFallo(error ? "No se pudieron cargar los movimientos. Revisa tu conexión e intenta de nuevo." : ""); setCargando(false); });
   }, [mes]);
+  useEffect(() => {
+    sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id, palabra_clave, categoria_id").eq("activa", true)
+      .then(({ data }) => setSubs(data ?? []));
+  }, []);
+
+  // ¿Este movimiento es el cargo de una suscripción?
+  const subDe = (m: Mov) => m.tipo === "gasto" ? subs.find((s) => {
+    const t = `${m.comercio ?? ""} ${m.descripcion ?? ""}`.toUpperCase();
+    return (s.palabra_clave && t.includes(String(s.palabra_clave).toUpperCase())) || (m.descripcion ?? "").trim().toLowerCase() === String(s.servicio).trim().toLowerCase();
+  }) : undefined;
+  // Cargos de suscripciones que tocan este mes y todavía no se registran
+  const programadas: Mov[] = mes < mesISO() ? [] : subs.flatMap((s) => {
+    const f = cobroEnMes(s.fecha_referencia, s.frecuencia_meses, mes);
+    if (!f || movs.some((m) => subDe(m)?.id === s.id)) return [];
+    return [{ id: `sub-${s.id}`, programada: true, fecha: f, tipo: "gasto", monto: s.monto, descripcion: s.servicio, cuenta_id: s.cuenta_id,
+      cuenta: { nombre: cuentas.find((c) => c.id === s.cuenta_id)?.nombre }, repartos: [] }];
+  });
 
   const nombres = useMemo(() => Object.fromEntries([...otros, ...(yo ? [yo] : [])].map((m) => [m.user_id, m.nombre])), [otros, yo]);
 
-  const filtrados = movs.filter((m) => {
+  const filtrados = [...movs, ...programadas].sort((a, b) => b.fecha.localeCompare(a.fecha)).filter((m) => {
+    if (cuentaFiltro && m.cuenta_id !== cuentaFiltro && m.cuenta_destino_id !== cuentaFiltro) return false;
     if (filtro === "gasto" && m.tipo !== "gasto") return false;
     if (filtro === "ingreso" && !["ingreso", "reembolso"].includes(m.tipo)) return false;
     if (filtro === "compartido" && !(m.repartos?.length)) return false;
@@ -72,6 +92,7 @@ export default function Movimientos() {
     return true;
   });
 
+  const hoy = hoyISO();
   const grupos: [string, Mov[]][] = [];
   for (const m of filtrados) {
     const g = grupos.find((x) => x[0] === m.fecha);
@@ -83,17 +104,31 @@ export default function Movimientos() {
       <Cabeza titulo="Movimientos" />
       <SelectorMes mes={mes} onCambio={setMes} />
       <input className="buscador" type="search" placeholder="Buscar comercio, categoría, cuenta…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <select className="buscador" aria-label="Cuenta" value={cuentaFiltro} onChange={(e) => setCuentaFiltro(e.target.value)}>
+        <option value="">Todas las cuentas</option>
+        {cuentas.filter((c) => c.activa || c.id === cuentaFiltro).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+      </select>
       <Segmentos etiqueta="Filtrar" valor={filtro} onCambio={setFiltro} opciones={[
         { v: "todo", t: "Todo" }, { v: "gasto", t: "Gastos" }, { v: "ingreso", t: "Ingresos" },
         ...(otros.length ? [{ v: "compartido" as const, t: "Compartidos" }] : []), { v: "otros", t: "Transferencias" },
       ]} />
       {cargando ? <div className="vacio">Cargando…</div> : fallo ? <p className="error" role="alert">{fallo}</p> : grupos.length === 0 ? (
-        <div className="lista"><div className="vacio">Nada registrado en este mes. <Link to="/nuevo">Agrega un movimiento</Link>.</div></div>
+        <div className="lista"><div className="vacio">{cuentaFiltro ? "Nada en esta cuenta este mes." : "Nada registrado en este mes."} <Link to="/nuevo">Agrega un movimiento</Link>.</div></div>
       ) : grupos.map(([fecha, lista]) => (
         <section key={fecha}>
           <div className="fecha-grupo">{fechaLarga(fecha)}</div>
           <div className="lista">
             {lista.map((m) => {
+              if (m.programada) return (
+                <Link className="fila programada" key={m.id} to="/suscripciones">
+                  <span className="ico" aria-hidden="true"><CalendarClock size={20} /></span>
+                  <div className="cuerpo">
+                    <div className="titulo">{m.descripcion}</div>
+                    <div className="detalle"><span className="etiq">Programada</span>Suscripción{m.cuenta?.nombre ? ` · ${m.cuenta.nombre}` : ""}{m.fecha < hoy ? " · no ha llegado" : ""}</div>
+                  </div>
+                  <div className="monto">−{fmt(m.monto)}</div>
+                </Link>
+              );
               const l = lineaMov(m, uid, nombres);
               const disputa = (m.repartos ?? []).some((r: any) => r.estado === "disputa");
               return (
@@ -105,6 +140,7 @@ export default function Movimientos() {
                       {m.revisar && <span className="etiq roja">Por revisar</span>}
                       {disputa && <span className="etiq roja">En disputa</span>}
                       {m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
+                      {subDe(m) && <span className="etiq">Suscripción</span>}
                       {(m.repartos?.length > 0) && <span className="etiq verde">Compartido</span>}
                       {(m.partes?.length > 0) && <span className="etiq">Dividido</span>}
                       {m.familiar && <span className="etiq">{m.familiar.nombre}</span>}

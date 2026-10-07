@@ -72,3 +72,14 @@ export function limpiarMonto(v: string) {
   if (i >= 0) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, "").slice(0, 2);
   return s;
 }
+
+// Fecha en que cae un cargo recurrente dentro de un mes dado (YYYY-MM-01), o null si ese mes no toca
+export function cobroEnMes(fechaRef: string | null, frecuencia: number, mes: string): string | null {
+  if (!fechaRef || !(frecuencia > 0)) return null;
+  const [ry, rm, rd] = fechaRef.split("-").map(Number);
+  const [my, mm] = mes.split("-").map(Number);
+  const dif = (my - ry) * 12 + (mm - rm);
+  if (((dif % frecuencia) + frecuencia) % frecuencia !== 0) return null;
+  const ultimo = new Date(Date.UTC(my, mm, 0)).getUTCDate();
+  return `${mes.slice(0, 8)}${String(Math.min(rd, ultimo)).padStart(2, "0")}`;
+}
