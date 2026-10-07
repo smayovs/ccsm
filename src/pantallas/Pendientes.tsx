@@ -64,7 +64,7 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
       {sinCat.length > 0 && (
         <>
           <h2>Tu parte sin categoría</h2>
-          <p className="nota" style={{ marginTop: -4, marginBottom: 8 }}>Gastos compartidos contigo cuya categoría no existe en tu lista. Elige dónde cuentan en tu presupuesto.</p>
+          <p className="nota" style={{ marginTop: -4, marginBottom: 8 }}>Gastos compartidos contigo cuya categoría no existe en tu lista. Elige en qué categoría cuentan.</p>
           {sinCat.map((r) => (
             <div key={r.movimiento_id} className="lista" style={{ padding: "12px 14px 0", marginBottom: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>

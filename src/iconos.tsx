@@ -48,7 +48,7 @@ export function IconoCategoria({ nombre, icono, tam = 20 }: { nombre: string; ic
 }
 
 const POR_TIPO: Record<string, LucideIcon> = {
-  debito: Landmark, credito: CreditCard, ahorro: PiggyBank, efectivo: Banknote, inversion: TrendingUp,
+  debito: Landmark, credito: CreditCard, ahorro: PiggyBank, efectivo: Banknote, inversion: TrendingUp, prestamo: HandCoins,
 };
 
 export function IconoCuenta({ tipo, conjunta = false, tam = 20 }: { tipo: string; conjunta?: boolean; tam?: number }) {

@@ -55,7 +55,7 @@ export default function CuadrarTarjeta() {
         {paso === 1 ? <button className="boton" onClick={() => setPaso(2)}>Siguiente</button>
           : <button className="boton" onClick={guardar} disabled={ocupado}>{ocupado ? "Guardando…" : `Guardar · deuda ${fmt(deudaTotal(s, filas), false)}`}</button>}
       </div>
-      {paso === 2 && <p className="nota">Al guardar, la deuda de {c.nombre} queda en esta cifra a partir de hoy. Tus compras ya registradas se conservan en tu historial y presupuesto, pero ya no se vuelven a sumar a la deuda.</p>}
+      {paso === 2 && <p className="nota">Al guardar, la deuda de {c.nombre} queda en esta cifra a partir de hoy. Tus compras ya registradas se conservan en tu historial y tus gastos, pero ya no se vuelven a sumar a la deuda.</p>}
     </>
   );
 }

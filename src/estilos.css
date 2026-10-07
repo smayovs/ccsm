@@ -350,3 +350,29 @@ h2 { font-size: 1.05rem; }
 .rg-abajo select + select { flex: 1; }
 .rg-abajo .boton { flex: none; min-width: 42px; }
 .rg-abajo select + select { flex: 0 0 112px; }
+
+/* Mensualidades mes a mes */
+.tabla-msi { padding: 6px 14px; }
+.tm-fila { display: grid; grid-template-columns: 58px 1fr 84px 84px; align-items: center; gap: 8px; padding: 6px 0; }
+.tm-fila .num { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+.tm-cabeza { font-size: 0.75rem; color: var(--tinta-2); border-bottom: 1px solid var(--linea); }
+.tm-cabeza span:nth-child(n+3) { text-align: right; }
+.barra.doble { display: flex; margin-top: 0; height: 10px; }
+.barra.doble > span { border-radius: 0; }
+.barra.doble > span.otros, .punto-serie.otros { background: var(--sereno); }
+.punto-serie:not([class*=" "]) { background: var(--ciruela); }
+.tenue { color: var(--tinta-2); font-weight: 400 !important; }
+
+/* Categorías con subcategorías */
+.cat-grupo { display: flex; flex-direction: column; gap: 6px; }
+.cat.tocable, .subcat.tocable { border: 0; background: transparent; font: inherit; color: inherit; text-align: left; width: 100%; padding: 4px 6px; margin: -4px -6px; border-radius: var(--radio-chico); cursor: pointer; }
+.cat.tocable { width: calc(100% + 12px); }
+.cat.activa, .subcat.activa { background: var(--ciruela-suave); }
+.subcats { margin-left: 46px; display: flex; flex-direction: column; gap: 6px; padding-left: 10px; border-left: 2px solid var(--linea); }
+.subcat { display: block; }
+.subcat.tocable { width: calc(100% + 12px); }
+.sub-nombre { color: var(--tinta-2); font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sub-monto { font-variant-numeric: tabular-nums; font-size: 0.84rem; font-weight: 600; white-space: nowrap; }
+.cat-riel.fino { height: 4px; margin-top: 3px; }
+.cat-riel.fino span { background: var(--heroe-tinta-2); }
+.ico.cuenta-prestamo { background: var(--oxido-suave); color: var(--oxido); }

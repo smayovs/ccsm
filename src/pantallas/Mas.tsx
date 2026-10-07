@@ -15,7 +15,7 @@ const grupos: { t: string; items: [string, string, string][] }[] = [
   ] },
   { t: "Ajustes", items: [
     ["/ajustes/cuentas", "Cuentas", "Saldos iniciales, tarjetas, visibilidad y cuenta conjunta"],
-    ["/ajustes/categorias", "Categorías y presupuesto", "Tus categorías, las del hogar y el monto mensual"],
+    ["/ajustes/categorias", "Categorías", "Tus categorías, subcategorías e iconos, y las del hogar"],
     ["/ajustes/reglas", "Reglas de Apple Pay", "Comercio → categoría y reparto automático"],
     ["/ajustes/familiares", "Personas", "A quién le compras o prestas: familia, amigos, otros"],
     ["/ajustes/llaves", "Atajos del iPhone", "Llave personal y dirección para tus atajos"],

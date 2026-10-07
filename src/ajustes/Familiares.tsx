@@ -30,7 +30,7 @@ export default function Familiares() {
   return (
     <>
       <Cabeza titulo="Personas" volver />
-      <p className="nota" style={{ marginTop: -8 }}>Si cambias un nombre, se actualiza en todos sus gastos y cobros. Familiares, amigos o cualquier persona a la que le compres o prestes con tus tarjetas o tu dinero. Lo suyo no cuenta en tu presupuesto y se va a Cobros. Tu pareja no va aquí: lo de ustedes se maneja con gastos compartidos.</p>
+      <p className="nota" style={{ marginTop: -8 }}>Si cambias un nombre, se actualiza en todos sus gastos y cobros. Familiares, amigos o cualquier persona a la que le compres o prestes con tus tarjetas o tu dinero. Lo suyo no cuenta en tus gastos y se va a Cobros. Tu pareja no va aquí: lo de ustedes se maneja con gastos compartidos.</p>
       <div className="lista" style={{ marginTop: 14 }}>
         {familiares.map((f) => (
           editando === f.id ? (

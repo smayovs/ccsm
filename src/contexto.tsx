@@ -5,7 +5,7 @@ import { sb } from "./supabase";
 export type Cuenta = {
   id: string; nombre: string; tipo: string; propietario_id: string | null; saldo_inicial: number;
   fecha_saldo_inicial: string; dia_corte: number | null; dia_pago: number | null; limite_credito: number | null;
-  nombre_wallet: string | null; visibilidad: string; activa: boolean; orden: number;
+  nombre_wallet: string | null; visibilidad: string; activa: boolean; orden: number; pago_mensual?: number | null;
 };
 export type Categoria = {
   id: string; nombre: string; tipo: "gasto" | "ingreso"; padre_id: string | null; propietario_id: string | null;

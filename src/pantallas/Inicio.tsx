@@ -1,46 +1,53 @@
 import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarClock, ChevronRight, CreditCard, Repeat } from "lucide-react";
+import { CalendarClock, CreditCard, HandCoins, Repeat } from "lucide-react";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { diasEntre, fechaCorta, fmt, hoyISO, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
-import { IconoCategoria, IconoCuenta } from "../iconos";
-import { Anillo, BarrasFlujo, BarrasMes, RitmoGasto } from "../graficas";
+import { IconoCuenta } from "../iconos";
+import { BarrasFlujo, BarrasMes, RitmoGasto } from "../graficas";
+import { agruparCategorias, DesgloseCategorias, FilaCat } from "../desglose";
+import { cargarMsi, CompraMsi, proyeccionMsi } from "../msi";
 
 type Saldo = { id: string; nombre: string; tipo: string; mia: boolean; conjunta: boolean; propietario_nombre: string | null;
-  saldo: number; limite_credito: number | null; proximo_pago: string | null; msi_por_facturar: number; activa: boolean };
-type Resumen = { ingresos: number; gastos: number; ahorro: number; presupuesto: number; por_revisar: number; dias_restantes: number | null };
-type CatRes = { categoria_id: string | null; nombre: string; presupuesto: number; gastado: number };
+  saldo: number; limite_credito: number | null; proximo_pago: string | null; dia_pago: number | null; msi_por_facturar: number; activa: boolean };
+type Resumen = { ingresos: number; gastos: number; ahorro: number; por_revisar: number; dias_restantes: number | null };
 type Tarjeta = { id: string; falta: number; fecha_pago: string | null; pagado_mes: number; estimado: boolean };
 
 const n = (x: unknown) => Number(x ?? 0);
 
 export default function Inicio() {
-  const { yo, otros, cuentas, categorias } = useApp();
+  const { yo, otros, cuentas } = useApp();
   const [saldos, setSaldos] = useState<Saldo[]>([]);
   const [res, setRes] = useState<Resumen | null>(null);
-  const [cats, setCats] = useState<CatRes[]>([]);
+  const [cats, setCats] = useState<FilaCat[]>([]);
+  const [abonosPrestamo, setAbonosPrestamo] = useState<Record<string, number>>({});
   const [diario, setDiario] = useState<Record<number, number>>({});
   const [tarjetas, setTarjetas] = useState<Record<string, Tarjeta>>({});
   const [balance, setBalance] = useState<{ nombre: string; me_debe: number }[]>([]);
   const [subs, setSubs] = useState<{ t: string; f: string; m: number }[]>([]);
   const [todasCats, setTodasCats] = useState(false);
   const [listo, setListo] = useState(false);
-  const [msi, setMsi] = useState<any[]>([]);
+  const [msi, setMsi] = useState<CompraMsi[]>([]);
   const mes = mesISO();
   const hoy = hoyISO();
 
   useEffect(() => {
     Promise.all([
-      sb.rpc("saldos_cuentas"), sb.rpc("resumen_mes", { p_mes: mes }), sb.rpc("resumen_categorias", { p_mes: mes }),
+      sb.rpc("saldos_cuentas"), sb.rpc("resumen_mes", { p_mes: mes }), sb.rpc("gastos_detalle", { p_desde: mes, p_hasta: sumarMes(mes, 1) }),
       sb.rpc("balance_hogar"), sb.from("suscripciones").select("servicio, monto, frecuencia_meses, fecha_referencia").eq("activa", true),
-      sb.rpc("gasto_diario", { p_mes: mes }), sb.rpc("msi_detalle"),
-    ]).then(async ([s, r, c, b, su, g, md]) => {
-      setMsi(((md.data ?? []) as any[]).filter((x) => x.estado === "Activa"));
+      sb.rpc("gasto_diario", { p_mes: mes }), cargarMsi(),
+      sb.from("movimientos").select("cuenta_destino_id, monto, cuenta_destino:cuentas!movimientos_cuenta_destino_id_fkey(tipo)")
+        .in("tipo", ["transferencia", "liquidacion"]).gte("fecha", mes).not("cuenta_destino_id", "is", null),
+    ]).then(async ([s, r, c, b, su, g, md, ab]) => {
+      setMsi(md.filter((x) => x.estado === "Activa"));
+      const abonos: Record<string, number> = {};
+      for (const x of (ab.data ?? []) as any[]) if (x.cuenta_destino?.tipo === "prestamo") abonos[x.cuenta_destino_id] = (abonos[x.cuenta_destino_id] ?? 0) + n(x.monto);
+      setAbonosPrestamo(abonos);
       const lista = (s.data ?? []) as Saldo[];
       setSaldos(lista);
       setRes(((r.data ?? [])[0] ?? null) as Resumen | null);
-      setCats((c.data ?? []) as CatRes[]);
+      setCats(((c.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) })));
       setBalance((b.data ?? []) as { nombre: string; me_debe: number }[]);
       const dd: Record<number, number> = {};
       for (const x of (g.data ?? []) as { dia: string; monto: number }[]) dd[Number(x.dia.slice(8, 10))] = n(x.monto);
@@ -66,44 +73,43 @@ export default function Inicio() {
     });
   }, [mes, hoy]);
 
-  const presupuesto = n(res?.presupuesto);
   const gastado = n(res?.gastos);
-  const dias = res?.dias_restantes ?? 1;
   const totalDias = new Date(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0).getDate();
   const diaHoy = Number(hoy.slice(8, 10));
-  const avanceMes = Math.min(1, diaHoy / totalDias);
-  const usado = presupuesto > 0 ? gastado / presupuesto : 0;
-  const restante = Math.max(0, presupuesto - gastado);
-  const puedes = presupuesto > 0 ? restante / Math.max(1, dias) : null;
+  const proyCierre = diaHoy >= 3 ? (gastado / diaHoy) * totalDias : null;
 
   const visibles = saldos.filter((s) => s.activa);
   const creditos = visibles.filter((s) => s.tipo === "credito" && (s.mia || s.conjunta));
-  const ordenTipo = ["debito", "ahorro", "efectivo", "inversion", "credito"];
+  const prestamos = visibles.filter((s) => s.tipo === "prestamo" && (s.mia || s.conjunta));
+  const pagoMensual = Object.fromEntries(cuentas.map((c) => [c.id, n(c.pago_mensual)]));
+  // Pago del préstamo que falta este mes (pago mensual menos lo que ya abonaste)
+  const faltaPrestamo = (id: string) => Math.max(0, Math.min(pagoMensual[id], -n(saldos.find((x) => x.id === id)?.saldo)) - (abonosPrestamo[id] ?? 0));
+  const ordenTipo = ["debito", "ahorro", "efectivo", "inversion", "prestamo", "credito"];
   const otrasCuentas = visibles.filter((s) => !creditos.includes(s))
     .sort((a, b) => Number(!(a.mia || a.conjunta)) - Number(!(b.mia || b.conjunta)) || ordenTipo.indexOf(a.tipo) - ordenTipo.indexOf(b.tipo));
   const tienes = visibles.filter((s) => (s.mia || s.conjunta) && ["debito", "efectivo", "ahorro"].includes(s.tipo)).reduce((a, s) => a + Math.max(0, n(s.saldo)), 0);
   const porPagarTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.falta, 0);
   const pagadoTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.pagado_mes, 0);
-  const sobra = tienes - porPagarTarjetas - restante;
+  const porPagarPrestamos = prestamos.reduce((a, p) => a + faltaPrestamo(p.id), 0);
+  const sobra = tienes - porPagarTarjetas - porPagarPrestamos;
 
   const proximos = [
     ...subs.map((x) => ({ ...x, id: "", tipo: "sub" as const })),
     ...creditos.filter((c) => tarjetas[c.id]?.falta > 0 && tarjetas[c.id].fecha_pago && diasEntre(hoy, tarjetas[c.id].fecha_pago!) <= 10)
       .map((c) => ({ id: c.id, t: `Pago ${c.nombre}`, f: tarjetas[c.id].fecha_pago!, m: tarjetas[c.id].falta, tipo: "tarjeta" as const })),
+    ...prestamos.filter((p) => faltaPrestamo(p.id) > 0 && p.proximo_pago && diasEntre(hoy, p.proximo_pago) <= 10)
+      .map((p) => ({ id: p.id, t: `Pago ${p.nombre}`, f: p.proximo_pago!, m: faltaPrestamo(p.id), tipo: "prestamo" as const })),
   ].sort((a, b) => a.f.localeCompare(b.f));
 
-  const iconoDe = Object.fromEntries(categorias.map((c) => [c.id, c.icono]));
-  const conGasto = cats.filter((c) => n(c.presupuesto) > 0 || n(c.gastado) > 0)
-    .sort((a, b) => n(b.gastado) - n(a.gastado));
-  const maxCat = Math.max(1, ...conGasto.map((c) => Math.max(n(c.gastado), n(c.presupuesto))));
+  const grupos = agruparCategorias(cats);
   const mesTxt = nombreMes(mes).split(" ")[0];
   // Mensualidades: cuánto pagas de compras a meses cada mes (según el corte de cada tarjeta)
   const mesCap = (m: string) => { const t = nombreMes(m).split(" ")[0]; return t[0].toUpperCase() + t.slice(1); };
-  const proyMsi = Array.from({ length: 12 }, (_, k) => sumarMes(mes, k)).map((m) => ({
-    mes: m, etiqueta: mesCap(m), monto: msi.filter((x) => x.primer_mes <= m && x.ultimo_mes >= m).reduce((a, x) => a + n(x.mensualidad), 0),
-  }));
+  const proyMsi = proyeccionMsi(msi, mes, 12).map((p) => ({ ...p, etiqueta: mesCap(p.mes), monto: p.total }));
   const msiHoy = proyMsi[0]?.monto ?? 0;
-  const deOtros = msi.filter((x) => x.familiar && x.primer_mes <= mes && x.ultimo_mes >= mes).reduce((a, x) => a + n(x.mensualidad), 0);
+  const deOtros = proyMsi[0]?.otros ?? 0;
+  const debesMsi = msi.reduce((a, x) => a + x.por_facturar, 0);
+  const teDebenMsi = msi.reduce((a, x) => a + x.por_facturar * x.fraccionOtros, 0);
   const baja = proyMsi.find((p) => p.monto < msiHoy - 0.5);
   const porTarjeta = Object.entries(msi.filter((x) => x.primer_mes <= mes && x.ultimo_mes >= mes)
     .reduce((acc: Record<string, number>, x) => { acc[x.cuenta ?? "Sin tarjeta"] = (acc[x.cuenta ?? "Sin tarjeta"] ?? 0) + n(x.mensualidad); return acc; }, {}))
@@ -126,7 +132,7 @@ export default function Inicio() {
               const d = diasEntre(hoy, p.f);
               return (
                 <Link className="fila" key={i} to={p.tipo === "sub" ? "/suscripciones" : `/cuenta/${p.id}`}>
-                  <span className="ico" aria-hidden="true">{p.tipo === "sub" ? <Repeat size={20} /> : <CreditCard size={20} />}</span>
+                  <span className="ico" aria-hidden="true">{p.tipo === "sub" ? <Repeat size={20} /> : p.tipo === "prestamo" ? <HandCoins size={20} /> : <CreditCard size={20} />}</span>
                   <div className="cuerpo"><div className="titulo">{p.t}</div>
                     <div className="detalle">{d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : `En ${d} días`} · {fechaCorta(p.f)}</div></div>
                   <div className={"monto" + (d <= 3 ? " negativo" : "")}>{fmt(p.m)}</div>
@@ -142,25 +148,11 @@ export default function Inicio() {
       )}
 
       <section className="tablero" aria-label="Resumen del mes">
-        {puedes !== null ? (
-          <div className="tablero-arriba">
-            <Anillo usado={usado} avance={avanceMes} />
-            <div className="tablero-texto">
-              <div className="etiqueta">Puedes gastar hoy</div>
-              <div className={"cifra" + (presupuesto - gastado < 0 ? " alerta" : "")}>{fmt(puedes, false)}</div>
-              <div className="sub">
-                {presupuesto - gastado >= 0
-                  ? <>Te quedan <b>{fmt(restante, false)}</b> de {fmt(presupuesto, false)} para {dias} {dias === 1 ? "día" : "días"}.</>
-                  : <>Te pasaste <b>{fmt(gastado - presupuesto, false)}</b> del presupuesto.</>}
-              </div>
-              <div className={"ritmo " + (usado > 1 ? "exceso" : usado > avanceMes + 0.05 ? "rapido" : "ok")}>
-                {usado > 1 ? "Presupuesto rebasado" : usado > avanceMes + 0.05 ? "Vas más rápido que el mes" : "Vas a buen ritmo"}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <Link className="tablero-cta" to="/ajustes/categorias"><b>Define tu presupuesto mensual</b> para saber cuánto puedes gastar cada día. <ChevronRight size={18} /></Link>
-        )}
+        <div className="tablero-texto">
+          <div className="etiqueta">Llevas gastado en {mesTxt}</div>
+          <div className="cifra">{fmt(gastado, false)}</div>
+          {proyCierre !== null && <div className="sub">A este ritmo cerrarías el mes en <b>{fmt(proyCierre, false)}</b>.</div>}
+        </div>
         <div className="tablero-trio">
           <div><div className="k">Ingresos</div><div className="v pos">{fmt(res?.ingresos, false)}</div></div>
           <div><div className="k">Gastos</div><div className="v">{fmt(gastado, false)}</div></div>
@@ -184,7 +176,7 @@ export default function Inicio() {
             <div className="k">{sobra >= 0 ? "Te sobra al cubrir todo" : "Te falta para cubrir todo"}</div>
             <div className="v">{fmt(Math.abs(sobra), false)}</div>
           </div>
-          <BarrasFlujo tienes={tienes} tarjetas={porPagarTarjetas} porGastar={restante} />
+          <BarrasFlujo tienes={tienes} tarjetas={porPagarTarjetas} porGastar={porPagarPrestamos} />
           {pagadoTarjetas > 0 && <p className="nota">Este mes ya pagaste <b>{fmt(pagadoTarjetas, false)}</b> a tus tarjetas.</p>}
         </section>
       )}
@@ -223,8 +215,8 @@ export default function Inicio() {
           <div className="panel-cabeza"><h2>Mensualidades</h2><Link to="/msi" className="enlace-chico">Ver detalle</Link></div>
           <div className="stats" style={{ borderTop: 0, marginTop: 0, paddingTop: 0, marginBottom: 10 }}>
             <div><div className="k">Este mes</div><div className="v">{fmt(msiHoy, false)}</div></div>
-            <div><div className="k">Compras activas</div><div className="v">{msi.length}</div></div>
-            <div><div className="k">Por pagar</div><div className="v">{fmt(msi.reduce((a, x) => a + n(x.por_facturar), 0), false)}</div></div>
+            <div><div className="k">Debes en total</div><div className="v">{fmt(debesMsi, false)}</div></div>
+            <div><div className="k">De eso te deben</div><div className="v positivo">{fmt(teDebenMsi, false)}</div></div>
           </div>
           <BarrasMes datos={proyMsi} promedio={0} proyeccion serie="Mensualidades" />
           <div className="msi-tarjetas">
@@ -232,42 +224,23 @@ export default function Inicio() {
           </div>
           <p className="nota">
             {baja ? <>En {baja.etiqueta.toLowerCase()} bajan a <b>{fmt(baja.monto, false)}</b> al terminar algunas compras.</> : "Sin cambios en los próximos 12 meses."}
-            {deOtros > 0 && <> De este mes, <b>{fmt(deOtros, false)}</b> son de compras que te pagan otras personas.</>}
+            {deOtros > 0.5 && <> De este mes, <b>{fmt(deOtros, false)}</b> son la parte de otras personas.</>}
           </p>
         </section>
       )}
 
-      {presupuesto > 0 && listo && (
+      {listo && gastado > 0 && (
         <section className="panel">
           <div className="panel-cabeza"><h2>Ritmo de gasto</h2><Link to="/movimientos" className="enlace-chico">Ver movimientos</Link></div>
-          <RitmoGasto diario={diario} dias={totalDias} hoy={diaHoy} presupuesto={presupuesto} mesTxt={mesTxt} />
+          <RitmoGasto diario={diario} dias={totalDias} hoy={diaHoy} presupuesto={0} mesTxt={mesTxt} />
         </section>
       )}
 
-      {conGasto.length > 0 && (
+      {grupos.length > 0 && (
         <section className="panel">
           <div className="panel-cabeza"><h2>En qué se va</h2><Link to="/analisis" className="enlace-chico">Análisis</Link></div>
-          <div className="cats">
-            {(todasCats ? conGasto : conGasto.slice(0, 6)).map((c) => {
-              const g = n(c.gastado), p = n(c.presupuesto);
-              const exceso = p > 0 && g > p;
-              return (
-                <div className="cat" key={c.nombre}>
-                  <IconoCategoria nombre={c.nombre} icono={c.categoria_id ? iconoDe[c.categoria_id] : null} />
-                  <div className="cat-cuerpo">
-                    <div className="cat-linea"><span className="cat-nombre">{c.nombre}</span>
-                      <span className={"cat-monto" + (exceso ? " neg" : "")}>{fmt(g, false)}{p > 0 && <small> / {fmt(p, false)}</small>}</span></div>
-                    <div className="cat-riel">
-                      <span className={exceso ? "alerta" : ""} style={{ width: `${(Math.min(g, p > 0 ? Math.max(g, p) : g) / maxCat) * 100}%` }} />
-                      {p > 0 && <i style={{ left: `${(p / maxCat) * 100}%` }} title="Presupuesto" />}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          {conGasto.length > 6 && <button className="boton claro chico ancho" style={{ marginTop: 10 }} onClick={() => setTodasCats(!todasCats)}>{todasCats ? "Ver menos" : `Ver las ${conGasto.length}`}</button>}
-          <p className="nota">La marca vertical es el presupuesto de cada categoría.</p>
+          <DesgloseCategorias cats={todasCats ? grupos : grupos.slice(0, 6)} total={grupos.reduce((a, c) => a + c.total, 0)} />
+          {grupos.length > 6 && <button className="boton claro chico ancho" style={{ marginTop: 12 }} onClick={() => setTodasCats(!todasCats)}>{todasCats ? "Ver menos" : `Ver las ${grupos.length} categorías`}</button>}
         </section>
       )}
 
@@ -280,11 +253,13 @@ export default function Inicio() {
           const Fila: any = s.mia || s.conjunta ? Link : "div";
           return (
             <Fragment key={s.id}>
-            {nuevoGrupo && <div className="subgrupo">{s.mia || s.conjunta ? ({ debito: "Débito", ahorro: "Ahorro", efectivo: "Efectivo", inversion: "Inversión", credito: "Crédito" } as Record<string, string>)[s.tipo] ?? "Otras" : "De tu pareja"}</div>}
+            {nuevoGrupo && <div className="subgrupo">{s.mia || s.conjunta ? ({ debito: "Débito", ahorro: "Ahorro", efectivo: "Efectivo", inversion: "Inversión", prestamo: "Deudas y préstamos", credito: "Crédito" } as Record<string, string>)[s.tipo] ?? "Otras" : "De tu pareja"}</div>}
             <Fila className="fila" to={`/cuenta/${s.id}`}>
               <IconoCuenta tipo={s.tipo} conjunta={s.conjunta} />
-              <div className="cuerpo"><div className="titulo">{s.nombre}</div><div className="detalle">{dueno}</div></div>
-              <div className={"monto " + (n(s.saldo) < 0 ? "negativo" : "")}>{fmt(s.saldo)}</div>
+              <div className="cuerpo"><div className="titulo">{s.nombre}</div><div className="detalle">
+                {s.tipo === "prestamo" && pagoMensual[s.id] > 0 ? (faltaPrestamo(s.id) > 0 ? `Pago ${fmt(faltaPrestamo(s.id), false)}${s.proximo_pago ? ` · ${fechaCorta(s.proximo_pago)}` : ""}` : "Pago del mes cubierto") : dueno}</div></div>
+              {s.tipo === "prestamo" ? <div className="monto">{fmt(Math.max(0, -n(s.saldo)), false)}<small>debes</small></div>
+                : <div className={"monto " + (n(s.saldo) < 0 ? "negativo" : "")}>{fmt(s.saldo)}</div>}
             </Fila>
             </Fragment>
           );

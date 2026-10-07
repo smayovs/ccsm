@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, Campo } from "../ui";
-import { diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, mesISO, TIPOS_CUENTA } from "../util";
+import { diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, mesISO, sumarMes, TIPOS_CUENTA } from "../util";
 import { IconoMov, lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
 import { cargarCobros, textoEstado, type EstadoMov } from "../cobros";
 
@@ -28,7 +28,7 @@ function cuando(f: string) {
 
 export default function Cuenta() {
   const { id = "" } = useParams();
-  const { uid, otros, yo, aviso, familiares } = useApp();
+  const { uid, otros, yo, aviso, familiares, cuentas } = useApp();
   const [d, setD] = useState<Detalle | null>(null);
   const [movs, setMovs] = useState<Mov[]>([]);
   const [fallo, setFallo] = useState("");
@@ -86,6 +86,38 @@ export default function Cuenta() {
       })}
     </div>
   );
+
+  if (d.tipo === "prestamo") {
+    const pm = n(cuentas.find((c) => c.id === id)?.pago_mensual);
+    const abonado = n(d.mes_entradas) + n(d.mes_ingresos);
+    const falta = Math.max(0, Math.min(pm, deuda) - abonado);
+    const dp = n((d as any).dia_pago);
+    const fPago = dp ? (() => { const h = hoyISO(); const ud = (m: string) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).getUTCDate();
+      const f = (m: string) => `${m.slice(0, 8)}${String(Math.min(dp, ud(m))).padStart(2, "0")}`;
+      return f(mesISO(h)) >= h ? f(mesISO(h)) : f(sumarMes(mesISO(h), 1)); })() : null;
+    return (
+      <>
+        <Cabeza titulo={d.nombre} volver />
+        <section className="heroe">
+          <div className="etiqueta">Deuda o préstamo · te falta pagar</div>
+          <div className="cifra">{fmt(deuda, false)}</div>
+          {pm > 0 && <div className="sub">{falta > 0 ? <>Pago de este mes: <b>{fmt(falta)}</b>{fPago ? ` · ${fechaCorta(fPago)}` : ""}</> : "El pago de este mes ya está cubierto."}</div>}
+        </section>
+        <div className="acciones" style={{ marginTop: 12 }}>
+          <Link className="boton" to={`/nuevo?tipo=transferencia&destino=${id}`}>Registrar un pago</Link>
+          <Link className="boton claro" to={`/nuevo?cuenta=${id}`}>Intereses o cargo</Link>
+        </div>
+        <div className="trio">
+          <div><div className="k">Pagaste este mes</div><div className="v positivo">{fmt(abonado, false)}</div></div>
+          <div><div className="k">Pago mensual</div><div className="v">{pm > 0 ? fmt(pm, false) : "—"}</div></div>
+          <div><div className="k">Cargos del mes</div><div className="v">{fmt(d.mes_gastos, false)}</div></div>
+        </div>
+        <h2>Movimientos del mes</h2>
+        {lista}
+        <p className="nota">Los pagos son transferencias desde tu cuenta a este préstamo. <Link to="/ajustes/cuentas">Editar cuenta</Link></p>
+      </>
+    );
+  }
 
   if (!credito) {
     const entradas = n(d.mes_ingresos) + n(d.mes_entradas);

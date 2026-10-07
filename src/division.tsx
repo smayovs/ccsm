@@ -41,7 +41,7 @@ export function SelectorDivision({ d, onCambio, total, nota }: { d: Division; on
                     onChange={(e) => onCambio({ ...d, montos: { ...d.montos, [f]: limpiarMonto(e.target.value) } })} placeholder="$0" />}
             </div>
           ))}
-          <div className="fila"><div className="cuerpo"><div className="titulo">Tu parte</div><div className="detalle">Cuenta en tu presupuesto</div></div>
+          <div className="fila"><div className="cuerpo"><div className="titulo">Tu parte</div><div className="detalle">Cuenta en tus gastos</div></div>
             <div className={"monto" + (total - suma < -0.01 ? " negativo" : "")}>{fmt(total - suma)}</div></div>
         </div>
       )}

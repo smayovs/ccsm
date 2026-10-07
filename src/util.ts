@@ -23,7 +23,7 @@ export const diasEntre = (a: string, b: string) =>
   Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 864e5);
 
 export const TIPOS_CUENTA: Record<string, string> = {
-  debito: "Débito", credito: "Crédito", ahorro: "Ahorro", efectivo: "Efectivo", inversion: "Inversión",
+  debito: "Débito", credito: "Crédito", ahorro: "Ahorro", efectivo: "Efectivo", inversion: "Inversión", prestamo: "Deuda o préstamo",
 };
 export const TIPOS_MOV: Record<string, string> = {
   gasto: "Gasto", ingreso: "Ingreso", transferencia: "Transferencia", reembolso: "Reembolso", liquidacion: "Liquidación",

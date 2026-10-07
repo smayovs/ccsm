@@ -103,6 +103,7 @@ export function RitmoGasto({ diario, dias, hoy, presupuesto, mesTxt }: {
 
 // Dos barras en la misma escala: lo que tienes contra lo que ya está comprometido
 export function BarrasFlujo({ tienes, tarjetas, porGastar }: { tienes: number; tarjetas: number; porGastar: number }) {
+  // porGastar = pagos de préstamos del mes que faltan
   const comprometido = tarjetas + porGastar;
   const max = Math.max(tienes, comprometido, 1);
   const pc = (v: number) => `${(Math.max(0, v) / max) * 100}%`;
@@ -123,7 +124,7 @@ export function BarrasFlujo({ tienes, tarjetas, porGastar }: { tienes: number; t
       </div>
       <div className="leyenda-serie">
         <span><i className="punto-serie tarjetas" />Pagos de tarjeta {fmt(tarjetas, false)}</span>
-        <span><i className="punto-serie gastar" />Presupuesto por gastar {fmt(porGastar, false)}</span>
+        {porGastar > 0 && <span><i className="punto-serie gastar" />Pagos de préstamos {fmt(porGastar, false)}</span>}
       </div>
     </div>
   );

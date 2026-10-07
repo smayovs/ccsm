@@ -4,8 +4,9 @@ import { Cabeza, Segmentos } from "../ui";
 import { fmt, mesISO, nombreMes, sumarMes } from "../util";
 import { IconoCategoria, IconoCuenta } from "../iconos";
 import { BarrasMes } from "../graficas";
+import { agruparCategorias, DesgloseCategorias } from "../desglose";
 
-type Fila = { mes: string; categoria_id: string | null; categoria: string; icono: string | null; cuenta_id: string | null; cuenta: string; cuenta_tipo: string | null; monto: number };
+type Fila = { mes: string; categoria_id: string | null; categoria: string; icono: string | null; sub_id: string | null; sub: string | null; cuenta_id: string | null; cuenta: string; cuenta_tipo: string | null; monto: number };
 type Grupo = { clave: string; nombre: string; icono: string | null; tipo: string | null; total: number; porMes: Record<string, number> };
 
 const mesCorto = (m: string) => { const t = nombreMes(m).split(" ")[0]; return t[0].toUpperCase() + t.slice(1); };
@@ -21,7 +22,7 @@ export default function Analisis() {
 
   useEffect(() => {
     setCargando(true);
-    sb.rpc("analisis_gastos", { p_desde: desde, p_hasta: hasta }).then(({ data }) => {
+    sb.rpc("gastos_detalle", { p_desde: desde, p_hasta: hasta }).then(({ data }) => {
       setFilas(((data ?? []) as any[]).map((x) => ({ ...x, monto: Number(x.monto) })));
       setCargando(false);
     });
@@ -29,23 +30,34 @@ export default function Analisis() {
 
   const lista = useMemo(() => Array.from({ length: Number(meses) }, (_, k) => sumarMes(desde, k)), [desde, meses]);
 
+  // Por cuenta
   const grupos = useMemo(() => {
     const g: Record<string, Grupo> = {};
     for (const f of filas) {
-      const clave = vista === "categoria" ? f.categoria_id ?? "sin" : f.cuenta_id ?? f.cuenta;
-      const x = (g[clave] ??= { clave, nombre: vista === "categoria" ? f.categoria : f.cuenta, icono: f.icono, tipo: f.cuenta_tipo, total: 0, porMes: {} });
+      const clave = f.cuenta_id ?? f.cuenta;
+      const x = (g[clave] ??= { clave, nombre: f.cuenta, icono: null, tipo: f.cuenta_tipo, total: 0, porMes: {} });
       x.total += f.monto; x.porMes[f.mes] = (x.porMes[f.mes] ?? 0) + f.monto;
     }
     return Object.values(g).sort((a, b) => b.total - a.total);
-  }, [filas, vista]);
+  }, [filas]);
+  // Por categoría y subcategoría
+  const cats = useMemo(() => agruparCategorias(filas), [filas]);
 
-  const elegido = grupos.find((x) => x.clave === sel) ?? null;
+  // Qué filas entran en la gráfica según lo que tocaste
+  const coincide = (f: Fila) => {
+    if (!sel) return true;
+    if (vista === "cuenta") return (f.cuenta_id ?? f.cuenta) === sel;
+    const cat = f.categoria_id ?? "sin";
+    return cat === sel || f.sub_id === sel || (!f.sub_id && sel === `${cat}:general`);
+  };
+  const nombreSel = !sel ? null : vista === "cuenta" ? grupos.find((g) => g.clave === sel)?.nombre
+    : (() => { for (const c of cats) { if (c.clave === sel) return c.nombre; const s = c.subs.find((x) => x.clave === sel); if (s) return `${c.nombre} › ${s.nombre}`; } return null; })();
   const porMes = lista.map((m) => ({
     mes: m, etiqueta: mesCorto(m),
-    monto: elegido ? elegido.porMes[m] ?? 0 : filas.filter((f) => f.mes === m).reduce((s, f) => s + f.monto, 0),
+    monto: filas.filter((f) => f.mes === m && coincide(f)).reduce((s, f) => s + f.monto, 0),
   }));
   const total = porMes.reduce((s, x) => s + x.monto, 0);
-  const totalGeneral = grupos.reduce((s, x) => s + x.total, 0);
+  const totalGeneral = filas.reduce((s, x) => s + x.monto, 0);
   // El mes actual va a medias: el promedio usa solo meses cerrados cuando hay al menos uno
   const cerrados = porMes.slice(0, -1);
   const promedio = cerrados.length ? cerrados.reduce((s, x) => s + x.monto, 0) / cerrados.length : total;
@@ -68,8 +80,8 @@ export default function Analisis() {
         <>
           <section className="panel" style={{ marginTop: 0 }}>
             <div className="panel-cabeza">
-              <h2>{elegido ? elegido.nombre : "Gasto por mes"}</h2>
-              {elegido && <button className="enlace-chico boton-texto" onClick={() => setSel(null)}>Ver todo</button>}
+              <h2>{nombreSel ?? "Gasto por mes"}</h2>
+              {sel && <button className="enlace-chico boton-texto" onClick={() => setSel(null)}>Ver todo</button>}
             </div>
             <BarrasMes datos={porMes} promedio={promedio} />
             <div className="stats">
@@ -90,6 +102,9 @@ export default function Analisis() {
           <h2>Desglose</h2>
           <Segmentos etiqueta="Agrupar por" valor={vista} onCambio={(v) => { setVista(v); setSel(null); }} opciones={[
             { v: "categoria", t: "Categorías" }, { v: "cuenta", t: "Cuentas" }]} />
+          {vista === "categoria" ? (
+            <section className="panel" style={{ marginTop: 0 }}><DesgloseCategorias cats={cats} total={totalGeneral} sel={sel} onSel={setSel} /></section>
+          ) : (
           <div className="lista">
             {grupos.map((g) => {
               const pct = totalGeneral > 0 ? g.total / totalGeneral : 0;
@@ -97,7 +112,7 @@ export default function Analisis() {
               const activo = sel === g.clave;
               return (
                 <button key={g.clave} className={"fila analisis" + (activo ? " activa" : "")} aria-pressed={activo} onClick={() => setSel(activo ? null : g.clave)}>
-                  {vista === "categoria" ? <IconoCategoria nombre={g.nombre} icono={g.icono} /> : g.tipo ? <IconoCuenta tipo={g.tipo} /> : <IconoCategoria nombre="Otros" />}
+                  {g.tipo ? <IconoCuenta tipo={g.tipo} /> : <IconoCategoria nombre="Otros" />}
                   <div className="cuerpo">
                     <div className="cat-linea"><span className="cat-nombre">{g.nombre}</span><span className="cat-monto">{fmt(g.total, false)}</span></div>
                     <div className="cat-riel"><span style={{ width: `${(g.total / Math.max(1, grupos[0].total)) * 100}%` }} /></div>
@@ -107,7 +122,8 @@ export default function Analisis() {
               );
             })}
           </div>
-          <p className="nota">Toca una {vista === "categoria" ? "categoría" : "cuenta"} para ver su gasto mes a mes en la gráfica.</p>
+          )}
+          <p className="nota">Toca una {vista === "categoria" ? "categoría o subcategoría" : "cuenta"} para ver su gasto mes a mes en la gráfica.</p>
         </>
       )}
     </>

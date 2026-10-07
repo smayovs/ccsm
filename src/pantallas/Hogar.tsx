@@ -205,18 +205,15 @@ export default function Hogar() {
       <h2>Gasto del hogar</h2>
       <p className="nota" style={{ marginTop: -4, marginBottom: 8 }}>Todo lo registrado en categorías "Hogar:" por cualquiera de los dos, completo. Total: {fmt(totalHogar)}.</p>
       <div className="lista">
-        {hogarCats.map((c) => {
-          const p = Number(c.presupuesto) > 0 ? Number(c.gastado) / Number(c.presupuesto) : 0;
-          return (
+        {hogarCats.map((c) => (
             <div className="fila" key={c.categoria_id}>
               <div className="cuerpo"><div className="titulo">{c.nombre.replace(/^Hogar: /, "")}</div>
-                {Number(c.presupuesto) > 0 && <div className="barra"><span className={p > 1 ? "alerta" : ""} style={{ width: `${Math.min(100, p * 100)}%` }} /></div>}</div>
-              <div className="monto">{fmt(c.gastado, false)}{Number(c.presupuesto) > 0 && <small>de {fmt(c.presupuesto, false)}</small>}</div>
+                {totalHogar > 0 && <div className="barra"><span style={{ width: `${Math.min(100, (Number(c.gastado) / totalHogar) * 100)}%` }} /></div>}</div>
+              <div className="monto">{fmt(c.gastado, false)}</div>
             </div>
-          );
-        })}
+        ))}
       </div>
-      <p className="nota">El presupuesto del hogar se edita en <Link to="/ajustes/categorias">Categorías</Link>, pestaña Hogar. Para una cuenta conjunta, créala en <Link to="/ajustes/cuentas">Cuentas</Link>.</p>
+      <p className="nota">Las categorías del hogar se editan en <Link to="/ajustes/categorias">Categorías</Link>, pestaña Hogar. Para una cuenta conjunta, créala en <Link to="/ajustes/cuentas">Cuentas</Link>.</p>
     </>
   );
 }

@@ -24,7 +24,7 @@ export default function Formulario() {
   const [monto, setMonto] = useState("");
   const [fecha, setFecha] = useState(hoyISO());
   const [cuenta, setCuenta] = useState(qs.get("cuenta") ?? (qs.get("destino")
-    ? (activas.find((a) => a.id !== qs.get("destino") && a.tipo !== "credito") ?? activas.find((a) => a.id !== qs.get("destino")))?.id
+    ? (activas.find((a) => a.id !== qs.get("destino") && !["credito", "prestamo"].includes(a.tipo)) ?? activas.find((a) => a.id !== qs.get("destino")))?.id
     : activas[0]?.id) ?? "");
   const [destino, setDestino] = useState(qs.get("destino") ?? "");
   const [categoria, setCategoria] = useState<string | null>(null);
@@ -210,7 +210,7 @@ export default function Formulario() {
             <div className="detalle">{r?.modo === "porcentaje" ? `${Number(r.valor)}% del total` : "Monto fijo"}{ajeno.meses_msi ? " · se suma a lo que debes conforme se factura cada mensualidad" : ""}</div></div>
             <div className="monto negativo">{fmt(r?.monto)}</div></div>
         </div>
-        <h2>En tu presupuesto</h2>
+        <h2>En tus gastos</h2>
         <SelectorCategoria cats={categorias} tipo="gasto" valor={miCat} onCambio={setMiCat} uid={uid} />
         <label className="casilla"><input type="checkbox" checked={disputa} onChange={(e) => setDisputa(e.target.checked)} /> No estoy de acuerdo con este reparto</label>
         {disputa && <Campo etiqueta={`Nota para ${pagador}`}><textarea rows={2} value={nota} onChange={(e) => setNota(e.target.value)} placeholder="¿No era 40%?" /></Campo>}
@@ -284,7 +284,7 @@ export default function Formulario() {
         {tipo === "gasto" && (
           <>
             <div className="dos">
-              <Campo etiqueta="¿Para quién?" ayuda="Lo de otras personas se carga a tu cuenta igual, no cuenta en tu presupuesto y se va a Cobros.">
+              <Campo etiqueta="¿Para quién?" ayuda="Lo de otras personas se carga a tu cuenta igual, no cuenta en tus gastos y se va a Cobros.">
                 <select value={familiar} onChange={(e) => setFamiliar(e.target.value)}>
                   <option value="">Para mí</option>
                   {familiares.filter((f) => f.activo).map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
@@ -344,7 +344,7 @@ export default function Formulario() {
                               onChange={(e) => setMontosDiv({ ...montosDiv, [f]: limpiarMonto(e.target.value) })} placeholder="$0" />}
                       </div>
                     ))}
-                    <div className="fila"><div className="cuerpo"><div className="titulo">Tu parte</div><div className="detalle">Cuenta en tu presupuesto</div></div>
+                    <div className="fila"><div className="cuerpo"><div className="titulo">Tu parte</div><div className="detalle">Cuenta en tus gastos</div></div>
                       <div className={"monto" + (montoNum - sumaPartes - (comp !== "no" ? parteOtro : 0) < -0.01 ? " negativo" : "")}>{fmt(montoNum - sumaPartes - (comp !== "no" ? parteOtro : 0))}</div></div>
                   </div>
                 )}

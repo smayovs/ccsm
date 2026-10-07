@@ -18,7 +18,6 @@ export default function Categorias() {
   const tipo = vista === "ingreso" ? "ingreso" : "gasto";
   const propias = categorias.filter((c) => c.tipo === tipo && (delHogar ? c.propietario_id === null : c.propietario_id === uid));
   const padres = propias.filter((c) => !c.padre_id && (verArchivadas || !c.archivada)).sort((a, b) => a.orden - b.orden);
-  const total = padres.filter((p) => !p.archivada).reduce((s, p) => s + Number(p.presupuesto_mensual), 0);
 
   async function act(id: string, cambios: Partial<Categoria>) {
     const { error } = await sb.from("categorias").update(cambios).eq("id", id);
@@ -46,11 +45,7 @@ export default function Categorias() {
       <Cabeza titulo="Categorías" volver />
       <Segmentos etiqueta="Tipo" valor={vista} onCambio={(v) => { setVista(v); setAbierta(null); }}
         opciones={[{ v: "gasto", t: "Mis gastos" }, { v: "ingreso", t: "Mis ingresos" }, { v: "hogar", t: "Hogar" }]} />
-      {tipo === "gasto" && (
-        <p className="nota" style={{ marginTop: -4 }}>
-          Presupuesto mensual {delHogar ? "del hogar" : "personal"}: <strong className="num">{fmt(total, false)}</strong>. Escribe el monto de cada categoría; se guarda al salir del campo. Toca una categoría para cambiar su icono.
-        </p>
-      )}
+      <p className="nota" style={{ marginTop: -4 }}>Toca una categoría para cambiar su icono y sus subcategorías.</p>
       <div className="lista" style={{ marginTop: 12 }}>
         {padres.map((p) => {
           const subs = propias.filter((c) => c.padre_id === p.id && (verArchivadas || !c.archivada)).sort((a, b) => a.orden - b.orden);
@@ -63,11 +58,6 @@ export default function Categorias() {
                   <div className="titulo">{p.archivada && <span className="etiq">Archivada</span>}{delHogar ? p.nombre.replace(/^Hogar: /, "") : p.nombre}</div>
                   <div className="detalle">{subs.length ? subs.map((s) => s.nombre).join(", ") : "Sin subcategorías"}</div>
                 </button>
-                {tipo === "gasto" && (
-                  <input aria-label={`Presupuesto de ${p.nombre}`} inputMode="decimal" defaultValue={Number(p.presupuesto_mensual) || ""} placeholder="$0"
-                    style={{ width: 96, textAlign: "right", padding: "8px 10px", border: "1px solid var(--linea)", borderRadius: 9, background: "var(--fondo)", fontSize: 16 }}
-                    onBlur={(e) => { const v = Number(limpiarMonto(e.target.value)) || 0; if (v !== Number(p.presupuesto_mensual)) act(p.id, { presupuesto_mensual: v }); }} />
-                )}
               </div>
               {open && (
                 <div style={{ padding: "0 14px 14px" }}>
