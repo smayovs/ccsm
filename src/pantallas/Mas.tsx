@@ -10,6 +10,7 @@ const grupos: { t: string; items: [string, string, string][] }[] = [
     ["/pendientes", "Pendientes", "Lo que entró sin clasificar y los repartos en disputa"],
     ["/cobros", "Cobros", "Lo que te deben las personas a las que les compras o prestas"],
     ["/msi", "Compras a meses", "Mensualidades, lo que falta por facturar y proyección"],
+    ["/analisis", "Análisis", "Tus gastos por mes, categoría y cuenta"],
     ["/suscripciones", "Suscripciones", "Cargos recurrentes y próximos cobros"],
   ] },
   { t: "Ajustes", items: [

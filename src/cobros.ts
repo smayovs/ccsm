@@ -1,20 +1,22 @@
 import { sb } from "./supabase";
 import { sumarMes } from "./util";
 
-export type Cargo = { id: string; mov: string; fecha: string; texto: string; monto: number; pendiente: number };
-export type Persona = { cargos: Cargo[]; total: number; porVenir: number; proxima: number; pagado: number };
+export type Cargo = { id: string; mov: string; fecha: string; texto: string; monto: number; pendiente: number; marcado?: boolean };
+export type Persona = { cargos: Cargo[]; marcados: Cargo[]; total: number; porVenir: number; proxima: number; pagado: number };
 export type EstadoMov = { familiar_id: string; cobrado: number; pendiente: number; porVenir: number; completo: boolean };
 export type Cobros = { personas: Record<string, Persona>; movs: Record<string, EstadoMov[]> };
 
 // Cargos de cada persona: compras de contado, compras a meses que se cobran completas,
 // y mensualidades MSI ya facturadas. Los pagos se aplican a lo más antiguo primero.
 export async function cargarCobros(): Promise<Cobros> {
-  const [c, pp, d, r] = await Promise.all([
+  const [c, pp, d, r, mk] = await Promise.all([
     sb.from("movimientos").select("id, fecha, descripcion, comercio, monto, familiar_id, meses_msi, cobro_completo").eq("tipo", "gasto").not("familiar_id", "is", null),
     sb.from("partes_personas").select("monto, familiar_id, movimiento:movimientos(id, fecha, descripcion, comercio, meses_msi, cobro_completo)"),
     sb.rpc("msi_detalle"),
     sb.from("movimientos").select("monto, familiar_id").eq("tipo", "reembolso").not("familiar_id", "is", null),
+    sb.from("cobros_marcados").select("clave"),
   ]);
+  const marcados = new Set(((mk.data ?? []) as any[]).map((x) => x.clave as string));
   // Compras completas de una persona y partes de compras divididas, con el mismo formato
   const compras = [
     ...((c.data ?? []) as any[]).map((m) => ({ ...m, mov: m.id, parte: false })),
@@ -53,6 +55,8 @@ export async function cargarCobros(): Promise<Cobros> {
   const personas: Record<string, Persona> = {};
   for (const [fam, lista] of Object.entries(porPersona)) {
     lista.sort((a, b) => a.fecha.localeCompare(b.fecha));
+    // Los cargos que marcaste como pagados no esperan dinero: no se les aplican los pagos registrados
+    for (const g of lista) if (marcados.has(g.id)) { g.marcado = true; g.pendiente = 0; }
     let resto = pagos[fam] ?? 0;
     for (const g of lista) {
       const usa = Math.min(resto, g.pendiente);
@@ -61,9 +65,9 @@ export async function cargarCobros(): Promise<Cobros> {
       e.cobrado += g.monto; e.pendiente += g.pendiente;
     }
     const cargos = lista.filter((g) => g.pendiente > 0.004);
-    personas[fam] = { cargos, total: cargos.reduce((s, g) => s + g.pendiente, 0), porVenir: porVenir[fam] ?? 0, proxima: proxima[fam] ?? 0, pagado: pagos[fam] ?? 0 };
+    personas[fam] = { cargos, marcados: lista.filter((g) => g.marcado), total: cargos.reduce((s, g) => s + g.pendiente, 0), porVenir: porVenir[fam] ?? 0, proxima: proxima[fam] ?? 0, pagado: pagos[fam] ?? 0 };
   }
-  for (const [fam, total] of Object.entries(pagos)) personas[fam] ??= { cargos: [], total: 0, porVenir: 0, proxima: 0, pagado: total };
+  for (const [fam, total] of Object.entries(pagos)) personas[fam] ??= { cargos: [], marcados: [], total: 0, porVenir: 0, proxima: 0, pagado: total };
   return { personas, movs };
 }
 

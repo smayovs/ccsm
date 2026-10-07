@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CalendarClock, ChevronRight, CreditCard, Repeat } from "lucide-react";
 import { sb } from "../supabase";
@@ -76,7 +76,9 @@ export default function Inicio() {
 
   const visibles = saldos.filter((s) => s.activa);
   const creditos = visibles.filter((s) => s.tipo === "credito" && (s.mia || s.conjunta));
-  const otrasCuentas = visibles.filter((s) => !creditos.includes(s));
+  const ordenTipo = ["debito", "ahorro", "efectivo", "inversion", "credito"];
+  const otrasCuentas = visibles.filter((s) => !creditos.includes(s))
+    .sort((a, b) => Number(!(a.mia || a.conjunta)) - Number(!(b.mia || b.conjunta)) || ordenTipo.indexOf(a.tipo) - ordenTipo.indexOf(b.tipo));
   const tienes = visibles.filter((s) => (s.mia || s.conjunta) && ["debito", "efectivo", "ahorro"].includes(s.tipo)).reduce((a, s) => a + Math.max(0, n(s.saldo)), 0);
   const porPagarTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.falta, 0);
   const pagadoTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.pagado_mes, 0);
@@ -196,7 +198,7 @@ export default function Inicio() {
 
       {conGasto.length > 0 && (
         <section className="panel">
-          <div className="panel-cabeza"><h2>En qué se va</h2><Link to="/ajustes/categorias" className="enlace-chico">Presupuestos</Link></div>
+          <div className="panel-cabeza"><h2>En qué se va</h2><Link to="/analisis" className="enlace-chico">Análisis</Link></div>
           <div className="cats">
             {(todasCats ? conGasto : conGasto.slice(0, 6)).map((c) => {
               const g = n(c.gastado), p = n(c.presupuesto);
@@ -243,15 +245,19 @@ export default function Inicio() {
       <h2>Cuentas</h2>
       <div className="lista">
         {otrasCuentas.length === 0 && <div className="vacio">Sin otras cuentas. <Link to="/ajustes/cuentas">Agregar</Link></div>}
-        {otrasCuentas.map((s) => {
+        {otrasCuentas.map((s, i) => {
+          const nuevoGrupo = i === 0 || otrasCuentas[i - 1].tipo !== s.tipo || otrasCuentas[i - 1].mia !== s.mia;
           const dueno = s.conjunta ? "Conjunta" : s.mia ? TIPOS_CUENTA[s.tipo] : `De ${s.propietario_nombre}`;
           const Fila: any = s.mia || s.conjunta ? Link : "div";
           return (
-            <Fila className="fila" key={s.id} to={`/cuenta/${s.id}`}>
+            <Fragment key={s.id}>
+            {nuevoGrupo && <div className="subgrupo">{s.mia || s.conjunta ? ({ debito: "Débito", ahorro: "Ahorro", efectivo: "Efectivo", inversion: "Inversión", credito: "Crédito" } as Record<string, string>)[s.tipo] ?? "Otras" : "De tu pareja"}</div>}
+            <Fila className="fila" to={`/cuenta/${s.id}`}>
               <IconoCuenta tipo={s.tipo} conjunta={s.conjunta} />
               <div className="cuerpo"><div className="titulo">{s.nombre}</div><div className="detalle">{dueno}</div></div>
               <div className={"monto " + (n(s.saldo) < 0 ? "negativo" : "")}>{fmt(s.saldo)}</div>
             </Fila>
+            </Fragment>
           );
         })}
       </div>

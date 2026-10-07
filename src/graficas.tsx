@@ -23,6 +23,7 @@ export function Anillo({ usado, avance, tam = 128 }: { usado: number; avance: nu
   );
 }
 
+export function useAnchoExport<T extends HTMLElement>() { return useAncho<T>(); }
 function useAncho<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [ancho, setAncho] = useState(340);
@@ -124,6 +125,49 @@ export function BarrasFlujo({ tienes, tarjetas, porGastar }: { tienes: number; t
         <span><i className="punto-serie tarjetas" />Pagos de tarjeta {fmt(tarjetas, false)}</span>
         <span><i className="punto-serie gastar" />Presupuesto por gastar {fmt(porGastar, false)}</span>
       </div>
+    </div>
+  );
+}
+
+// Gasto por mes: barras de un solo color con línea de promedio
+export function BarrasMes({ datos, promedio }: { datos: { mes: string; etiqueta: string; monto: number }[]; promedio: number }) {
+  const [ref, ancho] = useAnchoExport<HTMLDivElement>();
+  const [sel, setSel] = useState<number | null>(null);
+  const alto = 170, iz = 40, de = 8, ar = 12, ab = 22;
+  const max = Math.max(1, ...datos.map((d) => d.monto), promedio) * 1.1;
+  const n = Math.max(1, datos.length);
+  const paso = (ancho - iz - de) / n;
+  const w = Math.max(6, Math.min(36, paso - 6));
+  const y = (v: number) => ar + (1 - v / max) * (alto - ar - ab);
+  const i = sel ?? datos.length - 1;
+  const d = datos[i];
+  return (
+    <div ref={ref} className="grafica">
+      <div className="lectura" aria-live="polite">
+        {d && <><span className="dia">{d.etiqueta}</span><span><i className="punto-serie real" />Gastado <b>{fmt(d.monto, false)}</b></span>
+          <span>{i === datos.length - 1 ? "mes en curso" : promedio > 0 ? `${d.monto >= promedio ? "+" : "−"}${Math.round(Math.abs(d.monto / promedio - 1) * 100)}% vs. promedio` : ""}</span></>}
+      </div>
+      <svg width={ancho} height={alto} role="img" aria-label={`Gasto por mes; promedio ${fmt(promedio, false)}`} onPointerLeave={() => setSel(null)}>
+        {[0, max / 2].map((t) => (
+          <g key={t}><line x1={iz} x2={ancho - de} y1={y(t)} y2={y(t)} className="rejilla" />
+            <text x={iz - 6} y={y(t) + 4} textAnchor="end" className="eje">{compacto(t)}</text></g>
+        ))}
+        {datos.map((b, k) => {
+          const x = iz + paso * k + (paso - w) / 2;
+          return (
+            <g key={b.mes} onPointerEnter={() => setSel(k)} onPointerDown={() => setSel(k)}>
+              <rect x={iz + paso * k} y={ar} width={paso} height={alto - ar - ab} fill="transparent" />
+              <path className={"barra-mes" + (k === i ? " activa" : "")}
+                d={`M${x},${y(0)} V${y(b.monto) + 4} q0,-4 4,-4 h${w - 8} q4,0 4,4 V${y(0)} Z`} style={{ display: b.monto > 0 ? undefined : "none" }} />
+              {(n <= 6 || k % 2 === (n - 1) % 2) && <text x={x + w / 2} y={alto - 6} textAnchor="middle" className="eje">{b.etiqueta.slice(0, 3)}</text>}
+            </g>
+          );
+        })}
+        {promedio > 0 && <>
+          <line x1={iz} x2={ancho - de} y1={y(promedio)} y2={y(promedio)} className="linea-ideal" />
+          <text x={ancho - de} y={y(promedio) - 5} textAnchor="end" className="eje fuerte">Promedio {compacto(promedio)}</text>
+        </>}
+      </svg>
     </div>
   );
 }

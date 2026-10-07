@@ -16,6 +16,7 @@ export default function Cuentas() {
   const [edit, setEdit] = useState<Edit | null>(null);
   const [error, setError] = useState("");
   const [eligiendo, setEligiendo] = useState(false);
+  const [ordenando, setOrdenando] = useState(false);
   const nav = useNavigate();
   const cargar = () => sb.from("cuentas").select("*").order("orden").order("nombre").then(({ data }) => setTodas((data ?? []) as Cuenta[]));
   useEffect(() => { cargar(); }, []);
@@ -105,14 +106,30 @@ export default function Cuentas() {
     );
   }
 
+  const ORDEN_TIPOS = ["credito", "debito", "ahorro", "efectivo", "inversion"];
+  const titulosTipo: Record<string, string> = { credito: "Tarjetas de crédito", debito: "Débito", ahorro: "Ahorro", efectivo: "Efectivo", inversion: "Inversión" };
+  const mias = todas.filter((c) => c.propietario_id === uid).sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+  async function mover(lista: Cuenta[], i: number, d: number) {
+    const j = i + d; if (j < 0 || j >= lista.length) return;
+    const nueva = [...lista]; [nueva[i], nueva[j]] = [nueva[j], nueva[i]];
+    setTodas(todas.map((c) => { const k = nueva.findIndex((x) => x.id === c.id); return k >= 0 ? { ...c, orden: k } : c; }));
+    const r = await Promise.all(nueva.map((c, k) => c.orden === k ? null : sb.from("cuentas").update({ orden: k }).eq("id", c.id)));
+    const e = r.find((x) => x?.error); if (e?.error) setError(errorTexto(e.error));
+    recargar();
+  }
   const grupos: [string, Cuenta[]][] = [
-    ["Mis cuentas", todas.filter((c) => c.propietario_id === uid)],
+    ...ORDEN_TIPOS.map((t) => [titulosTipo[t], mias.filter((c) => c.tipo === t)] as [string, Cuenta[]]),
+    ["Otras", mias.filter((c) => !ORDEN_TIPOS.includes(c.tipo))],
     ["Conjuntas", todas.filter((c) => c.propietario_id === null)],
     ["De tu pareja (las que comparte)", todas.filter((c) => c.propietario_id && c.propietario_id !== uid)],
   ];
   return (
     <>
-      <Cabeza titulo="Cuentas" volver accion={<button className="boton chico" onClick={() => setEligiendo(!eligiendo)}>Agregar</button>} />
+      <Cabeza titulo="Cuentas" volver accion={<div style={{ display: "flex", gap: 6 }}>
+        {mias.length > 1 && <button className={"boton chico" + (ordenando ? "" : " claro")} onClick={() => setOrdenando(!ordenando)}>{ordenando ? "Listo" : "Ordenar"}</button>}
+        {!ordenando && <button className="boton chico" onClick={() => setEligiendo(!eligiendo)}>Agregar</button>}
+      </div>} />
+      {ordenando && <p className="nota" style={{ marginTop: -8 }}>Usa las flechas para cambiar el orden dentro de cada grupo. Así se ven en Inicio y en los menús.</p>}
       {eligiendo && (
         <div className="lista" style={{ marginBottom: 16 }}>
           <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><IconoCuenta tipo="credito" /><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Asistente: deuda de hoy, corte, pago y compras a meses</div></div><span aria-hidden="true">›</span></button>
@@ -124,7 +141,14 @@ export default function Cuentas() {
         <section key={t}>
           <h2>{t}</h2>
           <div className="lista">
-            {l.map((c) => (
+            {l.map((c, i) => ordenando && c.propietario_id === uid ? (
+              <div className="fila" key={c.id}>
+                <IconoCuenta tipo={c.tipo} conjunta={false} />
+                <div className="cuerpo"><div className="titulo">{c.nombre}</div></div>
+                <button className="boton chico claro" aria-label={`Subir ${c.nombre}`} disabled={i === 0} onClick={() => mover(l, i, -1)}>↑</button>
+                <button className="boton chico claro" aria-label={`Bajar ${c.nombre}`} disabled={i === l.length - 1} onClick={() => mover(l, i, 1)}>↓</button>
+              </div>
+            ) : (
               <button className="fila" key={c.id} onClick={() => setEdit({ ...c, saldo_inicial: String(c.tipo === "credito" ? Math.abs(Number(c.saldo_inicial)) : c.saldo_inicial), dia_corte: String(c.dia_corte ?? ""),
                 dia_pago: String(c.dia_pago ?? ""), limite_credito: String(c.limite_credito ?? ""), conjunta: c.propietario_id === null })}>
                 <IconoCuenta tipo={c.tipo} conjunta={c.propietario_id === null} />
@@ -142,6 +166,7 @@ export default function Cuentas() {
           </div>
         </section>
       ))}
+      {error && <p className="error" role="alert">{error}</p>}
     </>
   );
 }
