@@ -340,3 +340,13 @@ h2 { font-size: 1.05rem; }
 .check[aria-checked="true"] { background: none; }
 .check[aria-checked="true"]::before { background: var(--sereno); border-color: var(--sereno); }
 .check[aria-checked="true"]::after { grid-area: 1 / 1; }
+/* Captura de varios gastos */
+.renglon-gasto { padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.renglon-gasto input, .renglon-gasto select { width: 100%; padding: 10px; border: 1px solid var(--linea); border-radius: var(--radio-chico); background: var(--fondo); font-size: 16px; min-height: 42px; }
+.rg-arriba { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rg-monto { font-family: var(--display); font-weight: 700; text-align: right; }
+.rg-abajo { display: flex; gap: 8px; }
+.rg-abajo select:first-child { flex: 2; }
+.rg-abajo select + select { flex: 1; }
+.rg-abajo .boton { flex: none; min-width: 42px; }
+.rg-abajo select + select { flex: 0 0 112px; }

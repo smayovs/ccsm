@@ -12,6 +12,7 @@ import Hogar from "./pantallas/Hogar";
 import Pendientes from "./pantallas/Pendientes";
 import Mas from "./pantallas/Mas";
 import Cuenta from "./pantallas/Cuenta";
+import VariosGastos from "./pantallas/VariosGastos";
 import Analisis from "./pantallas/Analisis";
 import Cobros from "./pantallas/Cobros";
 import Msi from "./pantallas/Msi";
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="/pendientes" element={<Pendientes onCambio={setPendientes} />} />
           <Route path="/mas" element={<Mas />} />
           <Route path="/cuenta/:id" element={<Cuenta />} />
+          <Route path="/cuenta/:id/varios" element={<VariosGastos />} />
           <Route path="/analisis" element={<Analisis />} />
           <Route path="/cobros" element={<Cobros />} />
           <Route path="/msi" element={<Msi />} />
