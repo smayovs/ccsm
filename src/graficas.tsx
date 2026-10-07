@@ -130,7 +130,9 @@ export function BarrasFlujo({ tienes, tarjetas, porGastar }: { tienes: number; t
 }
 
 // Gasto por mes: barras de un solo color con línea de promedio
-export function BarrasMes({ datos, promedio }: { datos: { mes: string; etiqueta: string; monto: number }[]; promedio: number }) {
+export function BarrasMes({ datos, promedio, proyeccion = false, serie = "Gastado" }: {
+  datos: { mes: string; etiqueta: string; monto: number }[]; promedio: number; proyeccion?: boolean; serie?: string;
+}) {
   const [ref, ancho] = useAnchoExport<HTMLDivElement>();
   const [sel, setSel] = useState<number | null>(null);
   const alto = 170, iz = 40, de = 8, ar = 12, ab = 22;
@@ -139,13 +141,13 @@ export function BarrasMes({ datos, promedio }: { datos: { mes: string; etiqueta:
   const paso = (ancho - iz - de) / n;
   const w = Math.max(6, Math.min(36, paso - 6));
   const y = (v: number) => ar + (1 - v / max) * (alto - ar - ab);
-  const i = sel ?? datos.length - 1;
+  const i = sel ?? (proyeccion ? 0 : datos.length - 1);
   const d = datos[i];
   return (
     <div ref={ref} className="grafica">
       <div className="lectura" aria-live="polite">
-        {d && <><span className="dia">{d.etiqueta}</span><span><i className="punto-serie real" />Gastado <b>{fmt(d.monto, false)}</b></span>
-          <span>{i === datos.length - 1 ? "mes en curso" : promedio > 0 ? `${d.monto >= promedio ? "+" : "−"}${Math.round(Math.abs(d.monto / promedio - 1) * 100)}% vs. promedio` : ""}</span></>}
+        {d && <><span className="dia">{d.etiqueta}</span><span><i className="punto-serie real" />{serie} <b>{fmt(d.monto, false)}</b></span>
+          <span>{proyeccion ? (i === 0 ? "este mes" : datos[0].monto > 0 ? `${d.monto <= datos[0].monto ? "−" : "+"}${fmt(Math.abs(datos[0].monto - d.monto), false)} vs. este mes` : "") : i === datos.length - 1 ? "mes en curso" : promedio > 0 ? `${d.monto >= promedio ? "+" : "−"}${Math.round(Math.abs(d.monto / promedio - 1) * 100)}% vs. promedio` : ""}</span></>}
       </div>
       <svg width={ancho} height={alto} role="img" aria-label={`Gasto por mes; promedio ${fmt(promedio, false)}`} onPointerLeave={() => setSel(null)}>
         {[0, max / 2].map((t) => (

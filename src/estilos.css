@@ -322,3 +322,13 @@ h2 { font-size: 1.05rem; }
 .boton-texto { background: none; border: 0; padding: 0; color: var(--ciruela); cursor: pointer; }
 .fila.analisis .detalle { margin-top: 4px; }
 .fila.analisis.activa { background: var(--ciruela-suave); }
+.msi-tarjetas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.msi-tarjetas span { font-size: 0.78rem; background: var(--fondo); border: 1px solid var(--linea); border-radius: 99px; padding: 3px 10px; font-variant-numeric: tabular-nums; }
+.msi-tarjetas b { font-weight: 600; }
+.filtros-desliza { overflow-x: auto; margin: 0 -16px; padding: 0 16px; scrollbar-width: none; }
+.filtros-desliza::-webkit-scrollbar { display: none; }
+.filtros-desliza .segmentos { flex-wrap: nowrap; }
+.filtros-desliza .segmentos button { flex: 0 0 auto; }
+.total-filtro { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 14px; border-radius: var(--radio); background: var(--ciruela-suave); margin-bottom: 4px; font-size: 0.9rem; }
+.total-filtro b { font-family: var(--display); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.lista + .tablero, .cabeza + .tablero { margin-top: 16px; }

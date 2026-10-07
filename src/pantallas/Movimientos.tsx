@@ -52,7 +52,7 @@ export default function Movimientos() {
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState("");
   const [q, setQ] = useState("");
-  const [filtro, setFiltro] = useState<"todo" | "gasto" | "ingreso" | "compartido" | "otros">("todo");
+  const [filtro, setFiltro] = useState<"todo" | "gasto" | "mensualidad" | "suscripcion" | "ingreso" | "compartido" | "otros">("todo");
 
   useEffect(() => {
     setCargando(true);
@@ -95,7 +95,10 @@ export default function Movimientos() {
   const propios = movs.map((m) => (m.meses_msi && m.tipo === "gasto" ? { ...m, movId: m.id, msiK: 1 } : m));
   const filtrados = [...propios, ...cuotas, ...programadas].sort((a, b) => b.fecha.localeCompare(a.fecha)).filter((m) => {
     if (cuentaFiltro && m.cuenta_id !== cuentaFiltro && m.cuenta_destino_id !== cuentaFiltro) return false;
-    if (filtro === "gasto" && m.tipo !== "gasto") return false;
+    const esSub = m.programada || !!subDe(m);
+    if (filtro === "gasto" && (m.tipo !== "gasto" || m.msiK || esSub)) return false;
+    if (filtro === "mensualidad" && !m.msiK) return false;
+    if (filtro === "suscripcion" && !esSub) return false;
     if (filtro === "ingreso" && !["ingreso", "reembolso"].includes(m.tipo)) return false;
     if (filtro === "compartido" && !(m.repartos?.length)) return false;
     if (filtro === "otros" && !["transferencia", "liquidacion"].includes(m.tipo)) return false;
@@ -122,10 +125,16 @@ export default function Movimientos() {
         <option value="">Todas las cuentas</option>
         {cuentas.filter((c) => c.activa || c.id === cuentaFiltro).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
       </select>
-      <Segmentos etiqueta="Filtrar" valor={filtro} onCambio={setFiltro} opciones={[
-        { v: "todo", t: "Todo" }, { v: "gasto", t: "Gastos" }, { v: "ingreso", t: "Ingresos" },
+      <div className="filtros-desliza"><Segmentos etiqueta="Filtrar" valor={filtro} onCambio={setFiltro} opciones={[
+        { v: "todo", t: "Todo" }, { v: "gasto", t: "Gastos" }, { v: "mensualidad", t: "Mensualidades" }, { v: "suscripcion", t: "Suscripciones" }, { v: "ingreso", t: "Ingresos" },
         ...(otros.length ? [{ v: "compartido" as const, t: "Compartidos" }] : []), { v: "otros", t: "Transferencias" },
-      ]} />
+      ]} /></div>
+      {["gasto", "mensualidad", "suscripcion"].includes(filtro) && grupos.length > 0 && (
+        <div className="total-filtro">
+          <span>{filtro === "mensualidad" ? "Mensualidades del mes" : filtro === "suscripcion" ? "Suscripciones del mes" : "Gastos del mes"}{filtro === "suscripcion" && programadas.length ? " (incluye programadas)" : ""}</span>
+          <b>{fmt(filtrados.reduce((a, m) => a + (m.tipo === "gasto" ? Number(m.monto) / (m.msiK ? m.meses_msi : 1) : 0), 0))}</b>
+        </div>
+      )}
       {cargando ? <div className="vacio">Cargando…</div> : fallo ? <p className="error" role="alert">{fallo}</p> : grupos.length === 0 ? (
         <div className="lista"><div className="vacio">{cuentaFiltro ? "Nada en esta cuenta este mes." : "Nada registrado en este mes."} <Link to="/nuevo">Agrega un movimiento</Link>.</div></div>
       ) : grupos.map(([fecha, lista]) => (
