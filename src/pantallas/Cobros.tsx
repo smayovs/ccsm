@@ -49,7 +49,7 @@ export default function Cobros() {
                 {p.cargos.map((c) => (
                   <Link className="fila" key={c.id} to={`/editar/${c.mov}`}>
                     <div className="cuerpo"><div className="titulo">{c.texto}</div>
-                      <div className="detalle">{c.id.includes("-") && c.id.length > 36 ? mesCorto(c.fecha) : fechaCorta(c.fecha)}{c.pendiente < c.monto ? ` · abonado ${fmt(c.monto - c.pendiente)}` : ""}</div></div>
+                      <div className="detalle">{c.id.split("|").length === 3 ? mesCorto(c.fecha) : fechaCorta(c.fecha)}{c.pendiente < c.monto ? ` · abonado ${fmt(c.monto - c.pendiente)}` : ""}</div></div>
                     <div className="monto">{fmt(c.pendiente)}</div>
                   </Link>
                 ))}

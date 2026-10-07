@@ -81,7 +81,6 @@ export default function Inicio() {
   const porPagarTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.falta, 0);
   const pagadoTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.pagado_mes, 0);
   const sobra = tienes - porPagarTarjetas - restante;
-  const hayEstimado = Object.values(tarjetas).some((t) => t.estimado && t.falta > 0);
 
   const proximos = [
     ...subs.map((x) => ({ ...x, tipo: "sub" as const })),
@@ -152,11 +151,7 @@ export default function Inicio() {
             <div className="v">{fmt(Math.abs(sobra), false)}</div>
           </div>
           <BarrasFlujo tienes={tienes} tarjetas={porPagarTarjetas} porGastar={restante} />
-          <p className="nota">
-            Tienes = débito, efectivo y ahorro. Por cubrir = lo que debes pagar de tus tarjetas en su estado de cuenta actual más lo que te queda de presupuesto.
-            {pagadoTarjetas > 0 && <> Este mes ya pagaste <b>{fmt(pagadoTarjetas, false)}</b> a tus tarjetas.</>}
-            {hayEstimado && <> Algún pago de tarjeta es estimado: corrígelo en el detalle de la tarjeta.</>}
-          </p>
+          {pagadoTarjetas > 0 && <p className="nota">Este mes ya pagaste <b>{fmt(pagadoTarjetas, false)}</b> a tus tarjetas.</p>}
         </section>
       )}
 

@@ -294,3 +294,12 @@ h2 { font-size: 1.05rem; }
 .cat-riel span { position: absolute; inset: 0 auto 0 0; background: var(--ciruela); border-radius: 99px; }
 .cat-riel span.alerta { background: var(--oxido); }
 .cat-riel i { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--tinta); border-radius: 2px; }
+
+/* Dividir un gasto entre personas */
+.caja-dividir { border: 1px solid var(--linea); border-radius: var(--radio); padding: 12px; margin: -4px 0 14px; background: var(--superficie); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.chips button { border: 1px solid var(--linea); background: var(--fondo); border-radius: 99px; padding: 7px 14px; min-height: 38px; cursor: pointer; font-weight: 500; }
+.chips button[aria-pressed="true"] { background: var(--ciruela); border-color: var(--ciruela); color: var(--fondo); }
+.chips button:disabled { opacity: 0.5; }
+.caja-dividir .lista { box-shadow: none; }
+.monto-chico { width: 110px; text-align: right; padding: 8px 10px; border: 1px solid var(--linea); border-radius: 9px; background: var(--fondo); font-size: 16px; font-family: var(--display); font-weight: 700; }

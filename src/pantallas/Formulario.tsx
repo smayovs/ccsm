@@ -30,6 +30,10 @@ export default function Formulario() {
   const [descripcion, setDescripcion] = useState("");
   const [familiar, setFamiliar] = useState(qs.get("familiar") ?? "");
   const [meses, setMeses] = useState("");
+  const [seleccion, setSeleccion] = useState<string[]>([]);
+  const [modoDiv, setModoDiv] = useState<"iguales" | "montos">("iguales");
+  const [conmigo, setConmigo] = useState(true);
+  const [montosDiv, setMontosDiv] = useState<Record<string, string>>({});
   const [cobroCompleto, setCobroCompleto] = useState<"mes" | "completo">("mes");
   const [comp, setComp] = useState<Comp>("no");
   const [valorComp, setValorComp] = useState("");
@@ -55,7 +59,11 @@ export default function Formulario() {
       }
       setTipo(m.tipo); setMonto(String(m.monto)); setFecha(m.fecha); setCuenta(m.cuenta_id ?? "");
       setDestino(m.cuenta_destino_id ?? ""); setCategoria(m.categoria_id); setDescripcion(m.descripcion ?? m.comercio ?? "");
-      setFamiliar(m.familiar_id ?? ""); setMeses(m.meses_msi ? String(m.meses_msi) : ""); setCobroCompleto(m.cobro_completo ? "completo" : "mes"); setRevisar(m.revisar); setEnSaldoInicial(!!m.en_saldo_inicial); setSumarASaldo(!!m.sumar_a_saldo);
+      setFamiliar(m.familiar_id ?? (m.partes?.length ? "__dividir" : ""));
+      if (m.partes?.length) {
+        setSeleccion(m.partes.map((x: any) => x.familiar_id)); setModoDiv("montos");
+        setMontosDiv(Object.fromEntries(m.partes.map((x: any) => [x.familiar_id, String(x.monto)])));
+      } setMeses(m.meses_msi ? String(m.meses_msi) : ""); setCobroCompleto(m.cobro_completo ? "completo" : "mes"); setRevisar(m.revisar); setEnSaldoInicial(!!m.en_saldo_inicial); setSumarASaldo(!!m.sumar_a_saldo);
       const r = (m.repartos ?? [])[0];
       if (r) {
         if (r.modo === "porcentaje" && Number(r.valor) === 50) setComp("mitad");
@@ -68,6 +76,11 @@ export default function Formulario() {
   }, [id, uid]);
 
   const montoNum = Number(String(monto).replace(/[^\d.]/g, ""));
+  const dividir = familiar === "__dividir";
+  const familiarReal = dividir ? "" : familiar;
+  const cuota = Math.floor((montoNum / Math.max(1, seleccion.length + (conmigo ? 1 : 0))) * 100) / 100;
+  const partes = dividir ? seleccion.map((f) => ({ familiar_id: f, monto: modoDiv === "iguales" ? cuota : Number(montosDiv[f] || 0) })) : [];
+  const sumaPartes = partes.reduce((a, x) => a + x.monto, 0);
   const cuentaSel = cuentas.find((c) => c.id === cuenta);
   const parteOtro = comp === "mitad" ? montoNum / 2 : comp === "todo" ? montoNum
     : comp === "pct" ? montoNum * Number(valorComp || 0) / 100 : comp === "monto" ? Number(valorComp || 0) : 0;
@@ -79,15 +92,20 @@ export default function Formulario() {
     if (tipo === "transferencia" && (!destino || destino === cuenta)) return setError("Elige una cuenta destino distinta.");
     if (tipo === "reembolso" && !familiar) return setError("Elige quién te pagó.");
     if (comp !== "no" && parteOtro > montoNum) return setError("La parte de tu pareja no puede ser mayor que el gasto.");
+    if (tipo === "gasto" && dividir) {
+      if (!seleccion.length) return setError("Elige con quién se divide el gasto.");
+      if (partes.some((x) => !(x.monto > 0))) return setError("Escribe la parte de cada persona.");
+      if (sumaPartes + (comp !== "no" ? parteOtro : 0) > montoNum + 0.01) return setError("Las partes suman más que el gasto.");
+    }
     setOcupado(true);
     const fila: any = {
       tipo, monto: montoNum, fecha, cuenta_id: cuenta,
       cuenta_destino_id: tipo === "transferencia" ? destino : null,
       categoria_id: tipo === "gasto" || tipo === "ingreso" ? categoria : null,
       descripcion: descripcion.trim() || null,
-      familiar_id: tipo === "gasto" || tipo === "reembolso" ? (familiar || null) : null,
+      familiar_id: tipo === "gasto" || tipo === "reembolso" ? (familiarReal || null) : null,
       meses_msi: tipo === "gasto" && Number(meses) > 1 ? Number(meses) : null,
-      cobro_completo: tipo === "gasto" && Number(meses) > 1 && !!familiar && cobroCompleto === "completo",
+      cobro_completo: tipo === "gasto" && Number(meses) > 1 && (!!familiarReal || dividir) && cobroCompleto === "completo",
       revisar: false,
       en_saldo_inicial: enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial,
       sumar_a_saldo: sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
@@ -101,6 +119,13 @@ export default function Formulario() {
       const { data, error } = await sb.from("movimientos").insert(fila).select("id").single();
       if (error) { setOcupado(false); return setError(errorTexto(error)); }
       movId = data.id;
+    }
+    if (movId && (id || (tipo === "gasto" && dividir))) {
+      if (id) await sb.from("partes_personas").delete().eq("movimiento_id", movId);
+      if (tipo === "gasto" && dividir) {
+        const { error } = await sb.from("partes_personas").insert(partes.map((x) => ({ movimiento_id: movId, ...x })));
+        if (error) { setOcupado(false); return setError(errorTexto(error)); }
+      }
     }
     if (otro && movId) {
       if (tipo === "gasto" && comp !== "no") {
@@ -224,10 +249,11 @@ export default function Formulario() {
         {tipo === "gasto" && (
           <>
             <div className="dos">
-              <Campo etiqueta="¿Para quién?" ayuda="Si es de otra persona, se carga a tu cuenta igual, no cuenta en tu presupuesto y se va a Cobros.">
+              <Campo etiqueta="¿Para quién?" ayuda="Lo de otras personas se carga a tu cuenta igual, no cuenta en tu presupuesto y se va a Cobros.">
                 <select value={familiar} onChange={(e) => setFamiliar(e.target.value)}>
                   <option value="">Para mí</option>
                   {familiares.filter((f) => f.activo).map((f) => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+                  {familiares.some((f) => f.activo) && <option value="__dividir">Dividir…</option>}
                 </select>
               </Campo>
               <Campo etiqueta="Meses sin intereses">
@@ -238,19 +264,52 @@ export default function Formulario() {
               </Campo>
             </div>
             {Number(meses) > 1 && montoNum > 0 && <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>{Number(meses)} mensualidades de {fmt(montoNum / Number(meses))}. Registra el total de la compra.</p>}
-            {Number(meses) > 1 && familiar && (
+            {dividir && (
+              <div className="caja-dividir">
+                <div className="sub" style={{ marginBottom: 8 }}>¿Entre quiénes?</div>
+                <div className="chips">
+                  <button type="button" aria-pressed={conmigo} onClick={() => setConmigo(!conmigo)} disabled={modoDiv === "montos"}>Yo</button>
+                  {familiares.filter((f) => f.activo || seleccion.includes(f.id)).map((f) => (
+                    <button type="button" key={f.id} aria-pressed={seleccion.includes(f.id)}
+                      onClick={() => setSeleccion(seleccion.includes(f.id) ? seleccion.filter((x) => x !== f.id) : [...seleccion, f.id])}>{f.nombre}</button>
+                  ))}
+                </div>
+                <Segmentos etiqueta="Cómo dividir" valor={modoDiv} onCambio={(v) => {
+                  if (v === "montos") setMontosDiv(Object.fromEntries(seleccion.map((f) => [f, montosDiv[f] || (cuota ? String(cuota) : "")])));
+                  setModoDiv(v);
+                }} opciones={[{ v: "iguales", t: "Partes iguales" }, { v: "montos", t: "Por monto" }]} />
+                {seleccion.length > 0 && (
+                  <div className="lista">
+                    {seleccion.map((f) => (
+                      <div className="fila" key={f}>
+                        <div className="cuerpo"><div className="titulo">{familiares.find((x) => x.id === f)?.nombre}</div></div>
+                        {modoDiv === "iguales"
+                          ? <div className="monto">{fmt(cuota)}</div>
+                          : <input className="monto-chico" inputMode="decimal" aria-label={`Parte de ${familiares.find((x) => x.id === f)?.nombre}`} value={montosDiv[f] ?? ""}
+                              onChange={(e) => setMontosDiv({ ...montosDiv, [f]: limpiarMonto(e.target.value) })} placeholder="$0" />}
+                      </div>
+                    ))}
+                    <div className="fila"><div className="cuerpo"><div className="titulo">Tu parte</div><div className="detalle">Cuenta en tu presupuesto</div></div>
+                      <div className={"monto" + (montoNum - sumaPartes - (comp !== "no" ? parteOtro : 0) < -0.01 ? " negativo" : "")}>{fmt(montoNum - sumaPartes - (comp !== "no" ? parteOtro : 0))}</div></div>
+                  </div>
+                )}
+                <p className="nota">Cada parte se va a Cobros de esa persona y entra en su mensaje de WhatsApp.</p>
+              </div>
+            )}
+            {Number(meses) > 1 && (familiarReal || dividir) && (
               <>
                 <Segmentos etiqueta="¿Cómo se lo cobras?" valor={cobroCompleto} onCambio={setCobroCompleto} opciones={[
                   { v: "mes", t: "Por mensualidad" }, { v: "completo", t: "Todo en un pago" }]} />
                 <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>
                   {cobroCompleto === "completo"
-                    ? `${familiares.find((f) => f.id === familiar)?.nombre ?? "Esta persona"} te debe ${montoNum > 0 ? fmt(montoNum) : "el total"} desde hoy. Tú sigues pagando la tarjeta a meses.`
-                    : "Te debe cada mensualidad conforme te la factura el banco."}
+                    ? (dividir ? "Cada quien te debe su parte completa desde hoy. Tú sigues pagando la tarjeta a meses."
+                      : `${familiares.find((f) => f.id === familiar)?.nombre ?? "Esta persona"} te debe ${montoNum > 0 ? fmt(montoNum) : "el total"} desde hoy. Tú sigues pagando la tarjeta a meses.`)
+                    : dividir ? "Cada quien te debe su parte de cada mensualidad conforme te la factura el banco." : "Te debe cada mensualidad conforme te la factura el banco."}
                 </p>
               </>
             )}
 
-            {otro && !familiar && (
+            {otro && !familiarReal && (
               <>
                 <span className="campo" style={{ marginBottom: 6 }}><span>¿Compartido con {otro.nombre}?</span></span>
                 <Segmentos etiqueta="Compartido" valor={comp} onCambio={setComp} opciones={[

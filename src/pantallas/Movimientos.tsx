@@ -9,7 +9,7 @@ import { IconoCategoria } from "../iconos";
 
 export const SELECT_MOV = `*, cuenta:cuentas!movimientos_cuenta_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_fkey(nombre),
   categoria:categorias!movimientos_categoria_id_fkey(nombre, icono, padre:padre_id(nombre, icono)), familiar:familiares(nombre),
-  repartos(user_id, modo, valor, monto, estado, nota, categoria_id)`;
+  repartos(user_id, modo, valor, monto, estado, nota, categoria_id), partes:partes_personas(familiar_id, monto)`;
 
 export type Mov = any;
 
@@ -22,7 +22,8 @@ export function textoCategoria(m: Mov) {
 export function lineaMov(m: Mov, uid: string, nombres: Record<string, string>) {
   const mio = m.creado_por === uid;
   const miParte = (m.repartos ?? []).find((r: any) => r.user_id === uid);
-  const partesOtros = (m.repartos ?? []).reduce((s: number, r: any) => s + Number(r.monto), 0);
+  const partesOtros = (m.repartos ?? []).reduce((s: number, r: any) => s + Number(r.monto), 0)
+    + (m.partes ?? []).reduce((s: number, r: any) => s + Number(r.monto), 0);
   let signo = 0; let monto = Number(m.monto); let nota = "";
   if (m.tipo === "gasto") {
     signo = -1;
@@ -105,6 +106,7 @@ export default function Movimientos() {
                       {disputa && <span className="etiq roja">En disputa</span>}
                       {m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
                       {(m.repartos?.length > 0) && <span className="etiq verde">Compartido</span>}
+                      {(m.partes?.length > 0) && <span className="etiq">Dividido</span>}
                       {m.familiar && <span className="etiq">{m.familiar.nombre}</span>}
                       {l.nota || l.detalle}
                     </div>

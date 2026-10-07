@@ -32,7 +32,7 @@ export default function Cuenta() {
   const [d, setD] = useState<Detalle | null>(null);
   const [movs, setMovs] = useState<Mov[]>([]);
   const [fallo, setFallo] = useState("");
-  const [cobros, setCobros] = useState<Record<string, EstadoMov>>({});
+  const [cobros, setCobros] = useState<Record<string, EstadoMov[]>>({});
   const [corrigiendo, setCorrigiendo] = useState(false);
   const [manual, setManual] = useState("");
   const nombres = useMemo(() => Object.fromEntries([...otros, ...(yo ? [yo] : [])].map((m) => [m.user_id, m.nombre])), [otros, yo]);
@@ -80,7 +80,7 @@ export default function Cuenta() {
               <div className="titulo">{l.titulo}</div>
               <div className="detalle">
                 {m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
-                {m.familiar && <EtiqPersona nombre={m.familiar.nombre} e={cobros[m.id]} />}
+                {(cobros[m.id] ?? []).map((e) => <EtiqPersona key={e.familiar_id} nombre={familiares.find((f) => f.id === e.familiar_id)?.nombre ?? "Otra persona"} e={e} />)}
                 {fechaCorta(m.fecha)}{l.detalle && m.tipo !== "gasto" ? ` · ${l.detalle}` : textoCat(m)}
               </div>
             </div>
@@ -192,7 +192,7 @@ export default function Cuenta() {
               <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
                 <div className="cuerpo"><div className="titulo">{x.descripcion}</div>
                   <div className="detalle">
-                    {cobros[x.id] && <EtiqPersona nombre={familiares.find((f) => f.id === cobros[x.id].familiar_id)?.nombre ?? "Otra persona"} e={cobros[x.id]} />}
+                    {(cobros[x.id] ?? []).map((e) => <EtiqPersona key={e.familiar_id} nombre={familiares.find((f) => f.id === e.familiar_id)?.nombre ?? "Otra persona"} e={e} />)}
                     {x.facturadas} de {x.meses} cobradas · faltan {x.restantes}</div>
                   <div className="barra"><span style={{ width: `${(x.facturadas / x.meses) * 100}%` }} /></div></div>
                 <div className="monto">{fmt(x.mensualidad)}<small>al mes</small></div>
