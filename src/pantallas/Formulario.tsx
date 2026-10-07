@@ -5,6 +5,7 @@ import { useApp } from "../contexto";
 import { Cabeza, Campo, Segmentos, SelectorCategoria } from "../ui";
 import { errorTexto, fechaLarga, fmt, hoyISO, limpiarMonto } from "../util";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
+import { facturadas, fechaParaPago } from "../ajustes/saldosTarjeta";
 
 type Tipo = "gasto" | "ingreso" | "transferencia" | "reembolso";
 type Comp = "no" | "mitad" | "pct" | "monto" | "todo";
@@ -13,7 +14,7 @@ export default function Formulario() {
   const { id } = useParams();
   const [qs] = useSearchParams();
   const nav = useNavigate();
-  const { uid, cuentas, categorias, familiares, otros, aviso, yo } = useApp();
+  const { uid, cuentas, categorias, familiares, otros, aviso, yo, recargar } = useApp();
   const otro = otros[0];
   const activas = cuentas.filter((c) => c.activa);
 
@@ -40,6 +41,10 @@ export default function Formulario() {
   const [revisar, setRevisar] = useState(false);
   const [enSaldoInicial, setEnSaldoInicial] = useState(false);
   const [sumarASaldo, setSumarASaldo] = useState(false);
+  // Compras a meses de antes del alta de la tarjeta
+  const [nPago, setNPago] = useState("");
+  const [msiIncluida, setMsiIncluida] = useState<"si" | "no">("si");
+  const [msiFalta, setMsiFalta] = useState("");
   const [error, setError] = useState("");
   const [ocupado, setOcupado] = useState(false);
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
@@ -82,6 +87,11 @@ export default function Formulario() {
   const partes = dividir ? seleccion.map((f) => ({ familiar_id: f, monto: modoDiv === "iguales" ? cuota : Number(montosDiv[f] || 0) })) : [];
   const sumaPartes = partes.reduce((a, x) => a + x.monto, 0);
   const cuentaSel = cuentas.find((c) => c.id === cuenta);
+  const msiPrevia = tipo === "gasto" && Number(meses) > 1 && cuentaSel?.tipo === "credito" && !!cuentaSel.dia_corte && fecha < cuentaSel.fecha_saldo_inicial;
+  const nCalc = msiPrevia ? facturadas(fecha, cuentaSel!.dia_corte!, Number(meses)) : 0;
+  const nEfectivo = nPago !== "" ? Math.min(Number(nPago), Number(meses)) : nCalc;
+  const mensualidadPrev = Number(meses) > 0 ? Math.round((Number(String(monto).replace(/[^\d.]/g, "")) / Number(meses)) * 100) / 100 : 0;
+  const faltaCalc = Math.round(mensualidadPrev * Math.max(0, Number(meses) - nEfectivo) * 100) / 100;
   const parteOtro = comp === "mitad" ? montoNum / 2 : comp === "todo" ? montoNum
     : comp === "pct" ? montoNum * Number(valorComp || 0) / 100 : comp === "monto" ? Number(valorComp || 0) : 0;
 
@@ -107,12 +117,15 @@ export default function Formulario() {
       meses_msi: tipo === "gasto" && Number(meses) > 1 ? Number(meses) : null,
       cobro_completo: tipo === "gasto" && Number(meses) > 1 && (!!familiarReal || dividir) && cobroCompleto === "completo",
       revisar: false,
-      en_saldo_inicial: enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial,
-      sumar_a_saldo: sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
+      // Al editar se respetan las banderas que ya tenía (cambiarlas movería la deuda de la tarjeta)
+      en_saldo_inicial: (!id && msiPrevia) || (enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial),
+      sumar_a_saldo: (id || !msiPrevia) && sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
     };
     // Si el gasto pasa a ser de otra persona (o deja de ser gasto), no se comparte con tu pareja
     const compEf = tipo !== "gasto" || familiarReal ? "no" : comp;
     const conPartes = tipo === "gasto" && dividir;
+    // Si tu estado de cuenta dice otro número de pago, la fecha se ajusta para que las mensualidades cuadren con tu corte
+    if (msiPrevia && nPago !== "" && nEfectivo !== nCalc) fila.fecha = fechaParaPago(cuentaSel!.dia_corte!, nEfectivo);
     let movId = id;
     if (id) {
       // Primero se quita lo que ya no aplica, para que el cambio de tipo o de persona no choque con repartos viejos
@@ -131,6 +144,13 @@ export default function Formulario() {
       const { data, error } = await sb.from("movimientos").insert(fila).select("id").single();
       if (error) { setOcupado(false); return setError(errorTexto(error)); }
       movId = data.id;
+      // Compra a meses que no estaba en lo que debías al dar de alta: se suma a la deuda solo lo que falta pagar
+      if (msiPrevia && msiIncluida === "no") {
+        const falta = msiFalta !== "" ? Number(msiFalta) : faltaCalc;
+        const r = await sb.from("cuentas").update({ saldo_inicial: Number(cuentaSel!.saldo_inicial) - falta }).eq("id", cuentaSel!.id);
+        if (r.error) { setOcupado(false); aviso("Se guardó la compra, pero no se sumó a la deuda: " + errorTexto(r.error)); nav(`/editar/${movId}`, { replace: true }); return; }
+        await recargar();
+      }
     }
     // Si algo falla después de crear el movimiento, se abre en modo edición para no duplicarlo al reintentar
     const fallaParcial = (e: any) => {
@@ -241,7 +261,7 @@ export default function Formulario() {
           <SelectorCategoria cats={categorias} tipo={tipo} valor={categoria} onCambio={setCategoria} uid={uid} incluirHogar={tipo === "gasto"} />
         )}
 
-        {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && (
+        {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && !msiPrevia && (
           <>
             <p className="nota" style={{ marginTop: -6, marginBottom: 8 }}>Esta fecha es anterior al alta de {cuentaSel.nombre} ({new Date(cuentaSel.fecha_saldo_inicial + "T12:00:00Z").toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" })}). Si la deuda o saldo que capturaste ese día ya lo incluía, déjalo así; si no, márcalo para sumarlo.</p>
             <label className="casilla"><input type="checkbox" checked={sumarASaldo} onChange={(e) => setSumarASaldo(e.target.checked)} /> No estaba incluido: súmalo al saldo de {cuentaSel.nombre}</label>
@@ -279,8 +299,25 @@ export default function Formulario() {
               </Campo>
             </div>
             {Number(meses) > 1 && montoNum > 0 && <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>{Number(meses)} mensualidades de {fmt(montoNum / Number(meses))}. Registra el total de la compra.</p>}
-            {Number(meses) > 1 && cuentaSel?.tipo === "credito" && fecha < cuentaSel.fecha_saldo_inicial && !id && (
-              <p className="aviso" style={{ marginTop: -4, marginBottom: 14 }}>Esta compra es de antes de que dieras de alta {cuentaSel.nombre}. Si ya pagaste alguna mensualidad, captúrala mejor en <b>{cuentaSel.nombre} › Cuadrar con mi estado de cuenta</b>, con la mensualidad y el “pago N de M”; así la deuda y el pago de tu tarjeta salen correctos.</p>
+            {msiPrevia && (
+              <div className="caja-dividir">
+                <div className="sub" style={{ marginBottom: 8 }}>Compra de antes de dar de alta {cuentaSel!.nombre}</div>
+                <p className="nota" style={{ marginTop: 0 }}>Según tu día de corte ({cuentaSel!.dia_corte}), llevas <b>{nCalc} de {meses}</b> mensualidades cobradas. Si tu estado de cuenta dice otro número, corrígelo:</p>
+                <Campo etiqueta="Pago número en tu estado de cuenta">
+                  <input inputMode="numeric" value={nPago === "" ? String(nCalc) : nPago} onChange={(e) => setNPago(e.target.value.replace(/\D/g, ""))} />
+                </Campo>
+                {!id && (
+                  <>
+                    <Segmentos etiqueta="¿Estaba en lo que debías?" valor={msiIncluida} onCambio={setMsiIncluida} opciones={[
+                      { v: "si", t: "Ya estaba en mi deuda" }, { v: "no", t: "No, súmala" }]} />
+                    {msiIncluida === "si"
+                      ? <p className="nota" style={{ marginTop: -6 }}>Lo que te falta ya estaba en lo que capturaste como deuda al dar de alta {cuentaSel!.nombre}; solo se agregan sus mensualidades.</p>
+                      : <Campo etiqueta="Lo que te falta pagar de esta compra" ayuda="Se suma a la deuda de la tarjeta. Incluye la mensualidad de este mes si todavía no la pagas.">
+                          <input inputMode="decimal" value={msiFalta === "" ? String(faltaCalc) : msiFalta} onChange={(e) => setMsiFalta(limpiarMonto(e.target.value))} />
+                        </Campo>}
+                  </>
+                )}
+              </div>
             )}
             {dividir && (
               <div className="caja-dividir">

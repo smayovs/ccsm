@@ -134,7 +134,7 @@ export default function Cuentas() {
       {ordenando && <p className="nota" style={{ marginTop: -8 }}>Usa las flechas para cambiar el orden dentro de cada grupo. Así se ven en Inicio y en los menús.</p>}
       {eligiendo && (
         <div className="lista" style={{ marginBottom: 16 }}>
-          <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><IconoCuenta tipo="credito" /><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Asistente: deuda de hoy, corte, pago y compras a meses</div></div><span aria-hidden="true">›</span></button>
+          <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><IconoCuenta tipo="credito" /><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Nombre, corte, pago y límite; lo demás se acumula solo</div></div><span aria-hidden="true">›</span></button>
           <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva()); }}><IconoCuenta tipo="debito" /><div className="cuerpo"><div className="titulo">Débito, ahorro, efectivo o inversión</div><div className="detalle">Solo nombre y saldo de hoy</div></div><span aria-hidden="true">›</span></button>
         </div>
       )}
