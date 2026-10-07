@@ -14,6 +14,7 @@ type Detalle = {
   corte_conocido?: boolean; pago_manual?: boolean; pago_corte?: number; pagado_desde_corte?: number; msi_por_facturar?: number;
   periodo_contado?: number; periodo_msi_nuevas?: number; periodo_devoluciones?: number; mensualidades_proximo?: number;
   msi?: { id: string; descripcion: string; meses: number; mensualidad: number; facturadas: number; restantes: number }[];
+  aplazados?: { id: string; fecha: string; fecha_compra: string | null; monto: number; meses: number | null; descripcion: string }[];
 };
 
 const n = (x: unknown) => Number(x ?? 0);
@@ -42,7 +43,7 @@ export default function Cuenta() {
     setD(det);
     const desde = det.tipo === "credito" && det.ultimo_corte ? det.ultimo_corte : null;
     let q = sb.from("movimientos").select(SELECT_MOV).or(`cuenta_id.eq.${id},cuenta_destino_id.eq.${id}`);
-    q = desde ? q.gt("fecha", desde) : q.gte("fecha", mesISO());
+    q = (desde ? q.gt("fecha", desde) : q.gte("fecha", mesISO())).lte("fecha", hoyISO());
     const m = await q.order("fecha", { ascending: false }).order("created_at", { ascending: false });
     setMovs((m.data ?? []).filter((x: any) => x.origen !== "Saldo inicial"));
     cargarCobros().then((c) => setCobros(c.movs));
@@ -219,6 +220,22 @@ export default function Cuenta() {
             ))}
           </div>
           <p className="nota">Por facturar: {fmt(d.msi_por_facturar)}. <Link to="/msi">Ver proyección</Link></p>
+        </>
+      )}
+
+      {(d.aplazados?.length ?? 0) > 0 && (
+        <>
+          <h2>Cargos aplazados</h2>
+          <div className="lista">
+            {d.aplazados!.map((x) => (
+              <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
+                <div className="cuerpo"><div className="titulo">{x.descripcion}</div>
+                  <div className="detalle">{x.meses ? <span className="etiq">{x.meses} MSI</span> : null}Se cobra el {fechaLarga(x.fecha)}{x.fecha_compra ? ` · compra del ${fechaCorta(x.fecha_compra)}` : ""}</div></div>
+                <div className="monto">{fmt(x.monto)}{x.meses ? <small>{fmt(Number(x.monto) / x.meses, false)} al mes</small> : null}</div>
+              </Link>
+            ))}
+          </div>
+          <p className="nota">Todavía no suman a tu deuda ni a tu pago: entran solos el día en que el banco los cobra. Total: {fmt(d.aplazados!.reduce((a, x) => a + Number(x.monto), 0))}.</p>
         </>
       )}
 

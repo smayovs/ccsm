@@ -261,6 +261,7 @@ export default function Movimientos() {
                       {disputa && <span className="etiq roja">En disputa</span>}
                       {m.movId ? (m.msiK >= 1 ? <span className="etiq">Mensualidad {m.msiK} de {m.meses_msi}</span>
                         : <span className="etiq">{m.meses_msi} MSI · 1ª mensualidad el próximo mes</span>) : null}
+                      {m.tipo === "gasto" && (!m.movId || m.compra) && (m.fecha_compra || m.fecha > hoy) && <span className="etiq">Aplazado{m.fecha_compra ? ` · compra ${fechaCorta(m.fecha_compra)}` : ""}</span>}
                       {subDe(m) && <span className="etiq">Suscripción</span>}
                       {(m.repartos?.length > 0) && <span className="etiq verde">Compartido</span>}
                       {(m.partes?.length > 0) && <span className="etiq">Dividido</span>}

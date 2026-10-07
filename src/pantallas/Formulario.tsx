@@ -41,6 +41,9 @@ export default function Formulario() {
   const [revisar, setRevisar] = useState(false);
   const [enSaldoInicial, setEnSaldoInicial] = useState(false);
   const [sumarASaldo, setSumarASaldo] = useState(false);
+  // Cargo aplazado: compras hoy y el banco lo cobra en una fecha posterior
+  const [aplazado, setAplazado] = useState(false);
+  const [fechaCobro, setFechaCobro] = useState("");
   // Compras a meses de antes del alta de la tarjeta
   const [nPago, setNPago] = useState("");
   const [msiIncluida, setMsiIncluida] = useState<"si" | "no">("si");
@@ -69,6 +72,7 @@ export default function Formulario() {
         setSeleccion(m.partes.map((x: any) => x.familiar_id)); setModoDiv("montos");
         setMontosDiv(Object.fromEntries(m.partes.map((x: any) => [x.familiar_id, String(x.monto)])));
       } setMeses(m.meses_msi ? String(m.meses_msi) : ""); setCobroCompleto(m.cobro_completo ? "completo" : "mes"); setRevisar(m.revisar); setEnSaldoInicial(!!m.en_saldo_inicial); setSumarASaldo(!!m.sumar_a_saldo);
+      if (m.tipo === "gasto" && (m.fecha_compra || m.fecha > hoyISO())) { setAplazado(true); setFechaCobro(m.fecha); setFecha(m.fecha_compra ?? m.fecha); }
       const r = (m.repartos ?? [])[0];
       if (r) {
         if (r.modo === "porcentaje" && Number(r.valor) === 50) setComp("mitad");
@@ -87,7 +91,8 @@ export default function Formulario() {
   const partes = dividir ? seleccion.map((f) => ({ familiar_id: f, monto: modoDiv === "iguales" ? cuota : Number(montosDiv[f] || 0) })) : [];
   const sumaPartes = partes.reduce((a, x) => a + x.monto, 0);
   const cuentaSel = cuentas.find((c) => c.id === cuenta);
-  const msiPrevia = tipo === "gasto" && Number(meses) > 1 && cuentaSel?.tipo === "credito" && !!cuentaSel.dia_corte && fecha < cuentaSel.fecha_saldo_inicial;
+  const esAplazado = tipo === "gasto" && cuentaSel?.tipo === "credito" && aplazado && !!fechaCobro;
+  const msiPrevia = !esAplazado && tipo === "gasto" && Number(meses) > 1 && cuentaSel?.tipo === "credito" && !!cuentaSel.dia_corte && fecha < cuentaSel.fecha_saldo_inicial;
   const nCalc = msiPrevia ? facturadas(fecha, cuentaSel!.dia_corte!, Number(meses)) : 0;
   const nEfectivo = nPago !== "" ? Math.min(Number(nPago), Number(meses)) : nCalc;
   const mensualidadPrev = Number(meses) > 0 ? Math.round((Number(String(monto).replace(/[^\d.]/g, "")) / Number(meses)) * 100) / 100 : 0;
@@ -101,6 +106,7 @@ export default function Formulario() {
     if (!cuenta) return setError("Elige la cuenta.");
     if (tipo === "transferencia" && (!destino || destino === cuenta)) return setError("Elige una cuenta destino distinta.");
     if (tipo === "reembolso" && !familiar) return setError("Elige quién te pagó.");
+    if (tipo === "gasto" && aplazado && cuentaSel?.tipo === "credito" && !(fechaCobro > fecha)) return setError("La fecha en que se cobra debe ser posterior a la fecha de compra.");
     if (comp !== "no" && !familiarReal && parteOtro > montoNum) return setError("La parte de tu pareja no puede ser mayor que el gasto.");
     if (tipo === "gasto" && dividir) {
       if (!seleccion.length) return setError("Elige con quién se divide el gasto.");
@@ -120,7 +126,10 @@ export default function Formulario() {
       // Al editar se respetan las banderas que ya tenía (cambiarlas movería la deuda de la tarjeta)
       en_saldo_inicial: (!id && msiPrevia) || (enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial),
       sumar_a_saldo: (id || !msiPrevia) && sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
+      fecha_compra: null,
     };
+    // Cargo aplazado: el movimiento vive en la fecha en que el banco lo cobra; hasta entonces no suma a la deuda
+    if (esAplazado) Object.assign(fila, { fecha: fechaCobro, fecha_compra: fecha, en_saldo_inicial: false, sumar_a_saldo: false });
     // Si el gasto pasa a ser de otra persona (o deja de ser gasto), no se comparte con tu pareja
     const compEf = tipo !== "gasto" || familiarReal ? "no" : comp;
     const conPartes = tipo === "gasto" && dividir;
@@ -261,13 +270,13 @@ export default function Formulario() {
           <SelectorCategoria cats={categorias} tipo={tipo} valor={categoria} onCambio={setCategoria} uid={uid} incluirHogar={tipo === "gasto"} />
         )}
 
-        {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && !msiPrevia && (
+        {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && !msiPrevia && !esAplazado && (
           <>
             <p className="nota" style={{ marginTop: -6, marginBottom: 8 }}>Esta fecha es anterior al alta de {cuentaSel.nombre} ({new Date(cuentaSel.fecha_saldo_inicial + "T12:00:00Z").toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" })}). Si la deuda o saldo que capturaste ese día ya lo incluía, déjalo así; si no, márcalo para sumarlo.</p>
             <label className="casilla"><input type="checkbox" checked={sumarASaldo} onChange={(e) => setSumarASaldo(e.target.checked)} /> No estaba incluido: súmalo al saldo de {cuentaSel.nombre}</label>
           </>
         )}
-        {cuentaSel && fecha === cuentaSel.fecha_saldo_inicial && tipo !== "transferencia" && (
+        {cuentaSel && fecha === cuentaSel.fecha_saldo_inicial && tipo !== "transferencia" && !esAplazado && (
           <label className="casilla"><input type="checkbox" checked={enSaldoInicial} onChange={(e) => setEnSaldoInicial(e.target.checked)} /> Ya estaba incluido en el saldo con que diste de alta {cuentaSel.nombre}</label>
         )}
         <Campo etiqueta="Descripción"><input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder={tipo === "gasto" ? "Comercio o nota" : ""} /></Campo>
@@ -299,6 +308,17 @@ export default function Formulario() {
               </Campo>
             </div>
             {Number(meses) > 1 && montoNum > 0 && <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>{Number(meses)} mensualidades de {fmt(montoNum / Number(meses))}. Registra el total de la compra.</p>}
+            {cuentaSel?.tipo === "credito" && (
+              <>
+                <label className="casilla"><input type="checkbox" checked={aplazado} onChange={(e) => setAplazado(e.target.checked)} /> Cargo aplazado (el banco lo cobra después)</label>
+                {aplazado && (
+                  <>
+                    <Campo etiqueta={Number(meses) > 1 ? "Fecha del primer cargo" : "Fecha en que se cobra"}><input type="date" value={fechaCobro} min={fecha} onChange={(e) => setFechaCobro(e.target.value)} /></Campo>
+                    <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>Hasta esa fecha no suma a tu deuda ni a tu pago; lo verás en {cuentaSel.nombre} como cargo aplazado.{Number(meses) > 1 ? " Las mensualidades empiezan a contar desde ese cargo." : ""}</p>
+                  </>
+                )}
+              </>
+            )}
             {msiPrevia && (
               <div className="caja-dividir">
                 <div className="sub" style={{ marginBottom: 8 }}>Compra de antes de dar de alta {cuentaSel!.nombre}</div>
