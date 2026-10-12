@@ -42,13 +42,16 @@ export async function cargarCobros(): Promise<Cobros> {
       lista.push({ id: clave, mov: m.mov, fecha: m.fecha, texto: m.meses_msi ? `${texto} (a ${m.meses_msi} meses, cobro completo)` : texto, monto: Number(m.monto), pendiente: Number(m.monto) });
     } else {
       const mensual = Math.round((Number(m.monto) / x.meses) * 100) / 100;
+      // La primera mensualidad absorbe los centavos, igual que el banco y la base de datos (_msi_cobrado)
+      const primera = Math.round((Number(m.monto) - mensual * (x.meses - 1)) * 100) / 100;
       for (let k = 1; k <= x.facturadas; k++) {
-        lista.push({ id: `${clave}|${k}`, mov: m.mov, fecha: sumarMes(x.primer_mes, k - 1), texto: `${texto} (MSI ${k} de ${x.meses})`, monto: mensual, pendiente: mensual });
+        const v = k === 1 ? primera : mensual;
+        lista.push({ id: `${clave}|${k}`, mov: m.mov, fecha: sumarMes(x.primer_mes, k - 1), texto: `${texto} (MSI ${k} de ${x.meses})`, monto: v, pendiente: v });
       }
-      const venir = mensual * x.restantes;
+      const venir = x.facturadas > 0 ? mensual * x.restantes : Number(m.monto);
       estado[clave].porVenir = venir;
       porVenir[m.familiar_id] = (porVenir[m.familiar_id] ?? 0) + venir;
-      if (x.restantes > 0) proxima[m.familiar_id] = (proxima[m.familiar_id] ?? 0) + mensual;
+      if (x.restantes > 0) proxima[m.familiar_id] = (proxima[m.familiar_id] ?? 0) + (x.facturadas === 0 ? primera : mensual);
     }
   }
 

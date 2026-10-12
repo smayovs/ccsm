@@ -96,9 +96,14 @@ export default function Formulario() {
   const nCalc = msiPrevia ? facturadas(fecha, cuentaSel!.dia_corte!, Number(meses)) : 0;
   const nEfectivo = nPago !== "" ? Math.min(Number(nPago), Number(meses)) : nCalc;
   const mensualidadPrev = Number(meses) > 0 ? Math.round((Number(String(monto).replace(/[^\d.]/g, "")) / Number(meses)) * 100) / 100 : 0;
-  const faltaCalc = Math.round(mensualidadPrev * Math.max(0, Number(meses) - nEfectivo) * 100) / 100;
-  const parteOtro = comp === "mitad" ? montoNum / 2 : comp === "todo" ? montoNum
-    : comp === "pct" ? montoNum * Number(valorComp || 0) / 100 : comp === "monto" ? Number(valorComp || 0) : 0;
+  // Sin mensualidades cobradas falta el total exacto (la primera mensualidad absorbe los centavos)
+  const faltaCalc = nEfectivo <= 0 ? montoNum : Math.round(mensualidadPrev * Math.max(0, Number(meses) - nEfectivo) * 100) / 100;
+  // Los gastos de la cuenta conjunta ya son de los dos: no se comparten
+  const esConjunta = !!cuentaSel && !cuentaSel.propietario_id;
+  // Lo que se comparte con tu pareja es lo que queda después de las partes de familiares (igual que la base de datos)
+  const base = montoNum - (dividir ? sumaPartes : 0);
+  const parteOtro = comp === "mitad" ? Math.round(base * 50) / 100 : comp === "todo" ? base
+    : comp === "pct" ? Math.round(base * Number(valorComp || 0)) / 100 : comp === "monto" ? Number(valorComp || 0) : 0;
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault(); setError("");
@@ -107,12 +112,13 @@ export default function Formulario() {
     if (tipo === "transferencia" && (!destino || destino === cuenta)) return setError("Elige una cuenta destino distinta.");
     if (tipo === "reembolso" && !familiar) return setError("Elige quién te pagó.");
     if (tipo === "gasto" && aplazado && cuentaSel?.tipo === "credito" && !(fechaCobro > fecha)) return setError("La fecha en que se cobra debe ser posterior a la fecha de compra.");
-    if (comp !== "no" && !familiarReal && parteOtro > montoNum) return setError("La parte de tu pareja no puede ser mayor que el gasto.");
     if (tipo === "gasto" && dividir) {
       if (!seleccion.length) return setError("Elige con quién se divide el gasto.");
       if (partes.some((x) => !(x.monto > 0))) return setError("Escribe la parte de cada persona.");
-      if (sumaPartes + (comp !== "no" ? parteOtro : 0) > montoNum + 0.01) return setError("Las partes suman más que el gasto.");
+      if (sumaPartes > montoNum + 0.01) return setError("Las partes suman más que el gasto.");
     }
+    if (comp !== "no" && !familiarReal && !esConjunta && parteOtro > base + 0.001)
+      return setError(dividir ? "La parte de tu pareja no puede ser mayor que lo que queda después de las otras partes." : "La parte de tu pareja no puede ser mayor que el gasto.");
     setOcupado(true);
     const fila: any = {
       tipo, monto: montoNum, fecha, cuenta_id: cuenta,
@@ -130,57 +136,24 @@ export default function Formulario() {
     };
     // Cargo aplazado: el movimiento vive en la fecha en que el banco lo cobra; hasta entonces no suma a la deuda
     if (esAplazado) Object.assign(fila, { fecha: fechaCobro, fecha_compra: fecha, en_saldo_inicial: false, sumar_a_saldo: false });
-    // Si el gasto pasa a ser de otra persona (o deja de ser gasto), no se comparte con tu pareja
-    const compEf = tipo !== "gasto" || familiarReal ? "no" : comp;
+    // Si el gasto pasa a ser de otra persona, se paga con la cuenta conjunta o deja de ser gasto, no se comparte con tu pareja
+    const compEf = tipo !== "gasto" || familiarReal || esConjunta ? "no" : comp;
     const conPartes = tipo === "gasto" && dividir;
     // Si tu estado de cuenta dice otro número de pago, la fecha se ajusta para que las mensualidades cuadren con tu corte
     if (msiPrevia && nPago !== "" && nEfectivo !== nCalc) fila.fecha = fechaParaPago(cuentaSel!.dia_corte!, nEfectivo);
-    let movId = id;
-    if (id) {
-      // Primero se quita lo que ya no aplica, para que el cambio de tipo o de persona no choque con repartos viejos
-      if (compEf === "no") {
-        const r = await sb.from("repartos").delete().eq("movimiento_id", id);
-        if (r.error) { setOcupado(false); return setError(errorTexto(r.error)); }
-      }
-      if (!conPartes) {
-        const r = await sb.from("partes_personas").delete().eq("movimiento_id", id);
-        if (r.error) { setOcupado(false); return setError(errorTexto(r.error)); }
-      }
-      const { error } = await sb.from("movimientos").update(fila).eq("id", id);
-      if (error) { setOcupado(false); return setError(errorTexto(error)); }
-    } else {
-      fila.origen = "App";
-      const { data, error } = await sb.from("movimientos").insert(fila).select("id").single();
-      if (error) { setOcupado(false); return setError(errorTexto(error)); }
-      movId = data.id;
-      // Compra a meses que no estaba en lo que debías al dar de alta: se suma a la deuda solo lo que falta pagar
-      if (msiPrevia && msiIncluida === "no") {
-        const falta = msiFalta !== "" ? Number(msiFalta) : faltaCalc;
-        const r = await sb.from("cuentas").update({ saldo_inicial: Number(cuentaSel!.saldo_inicial) - falta }).eq("id", cuentaSel!.id);
-        if (r.error) { setOcupado(false); aviso("Se guardó la compra, pero no se sumó a la deuda: " + errorTexto(r.error)); nav(`/editar/${movId}`, { replace: true }); return; }
-        await recargar();
-      }
-    }
-    // Si algo falla después de crear el movimiento, se abre en modo edición para no duplicarlo al reintentar
-    const fallaParcial = (e: any) => {
-      setOcupado(false);
-      if (!id) { aviso("Se guardó el movimiento, pero faltó una parte: " + errorTexto(e)); nav(`/editar/${movId}`, { replace: true }); return; }
-      setError(errorTexto(e));
-    };
-    if (movId && conPartes) {
-      if (id) {
-        const r = await sb.from("partes_personas").delete().eq("movimiento_id", movId);
-        if (r.error) return fallaParcial(r.error);
-      }
-      const { error } = await sb.from("partes_personas").insert(partes.map((x) => ({ movimiento_id: movId, ...x })));
-      if (error) return fallaParcial(error);
-    }
-    if (otro && movId && compEf !== "no") {
-      const r = compEf === "mitad" ? { modo: "porcentaje", valor: 50 } : compEf === "todo" ? { modo: "porcentaje", valor: 100 }
-        : compEf === "pct" ? { modo: "porcentaje", valor: Number(valorComp) } : { modo: "monto", valor: Number(valorComp) };
-      const { error } = await sb.from("repartos").upsert({ movimiento_id: movId, user_id: otro.user_id, ...r }, { onConflict: "movimiento_id,user_id" });
-      if (error) return fallaParcial(error);
-    }
+    if (!id) fila.origen = "App";
+    const reparto = otro && compEf !== "no"
+      ? { user_id: otro.user_id, ...(compEf === "mitad" ? { modo: "porcentaje", valor: 50 } : compEf === "todo" ? { modo: "porcentaje", valor: 100 }
+        : compEf === "pct" ? { modo: "porcentaje", valor: Number(valorComp) } : { modo: "monto", valor: Number(valorComp) }) }
+      : null;
+    // Compra a meses que no estaba en lo que debías al dar de alta: se suma a la deuda solo lo que falta pagar
+    const ajuste = !id && msiPrevia && msiIncluida === "no" ? (msiFalta !== "" ? Number(msiFalta) : faltaCalc) : null;
+    // Todo en un solo paso en la base de datos: o se guarda completo o no se guarda nada
+    const { error } = await sb.rpc("guardar_movimiento", {
+      p_id: id ?? null, p_mov: fila, p_partes: conPartes ? partes : null, p_reparto: reparto, p_ajuste_saldo: ajuste,
+    });
+    if (error) { setOcupado(false); return setError(errorTexto(error)); }
+    if (ajuste) await recargar();
     setOcupado(false);
     aviso(id ? "Cambios guardados" : "Movimiento guardado");
     nav(-1);
@@ -365,7 +338,7 @@ export default function Formulario() {
                       </div>
                     ))}
                     <div className="fila"><div className="cuerpo"><div className="titulo">Tu parte</div><div className="detalle">Cuenta en tus gastos</div></div>
-                      <div className={"monto" + (montoNum - sumaPartes - (comp !== "no" ? parteOtro : 0) < -0.01 ? " negativo" : "")}>{fmt(montoNum - sumaPartes - (comp !== "no" ? parteOtro : 0))}</div></div>
+                      <div className={"monto" + (base - (comp !== "no" && !esConjunta ? parteOtro : 0) < -0.01 ? " negativo" : "")}>{fmt(base - (comp !== "no" && !esConjunta ? parteOtro : 0))}</div></div>
                   </div>
                 )}
                 <p className="nota">Cada parte se va a Cobros de esa persona y entra en su mensaje de WhatsApp.</p>
@@ -384,7 +357,10 @@ export default function Formulario() {
               </>
             )}
 
-            {otro && !familiarReal && (
+            {otro && !familiarReal && esConjunta && (
+              <p className="nota" style={{ marginBottom: 14 }}>Se paga con la cuenta conjunta: ya es de los dos, así que no se comparte con {otro.nombre}.</p>
+            )}
+            {otro && !familiarReal && !esConjunta && (
               <>
                 <span className="campo" style={{ marginBottom: 6 }}><span>¿Compartido con {otro.nombre}?</span></span>
                 <Segmentos etiqueta="Compartido" valor={comp} onCambio={setComp} opciones={[
@@ -397,7 +373,8 @@ export default function Formulario() {
                 )}
                 {comp !== "no" && montoNum > 0 && (
                   <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>
-                    A {otro.nombre} le tocan {fmt(parteOtro)}; a ti {fmt(montoNum - parteOtro)}.
+                    A {otro.nombre} le tocan {fmt(parteOtro)}; a ti {fmt(base - parteOtro)}.
+                    {dividir && sumaPartes > 0 && ` Se reparte lo que queda después de las otras partes (${fmt(base)}).`}
                     {Number(meses) > 1 && " Su parte se suma a lo que te debe conforme se factura cada mensualidad."}
                   </p>
                 )}
