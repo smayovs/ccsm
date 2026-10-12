@@ -174,3 +174,46 @@ export function BarrasMes({ datos, promedio, proyeccion = false, serie = "Gastad
     </div>
   );
 }
+
+// Ingresos contra gastos por mes: dos barras por mes
+export function BarrasDobles({ datos }: { datos: { mes: string; etiqueta: string; ingresos: number; gastos: number }[] }) {
+  const [ref, ancho] = useAnchoExport<HTMLDivElement>();
+  const [sel, setSel] = useState<number | null>(null);
+  const alto = 170, iz = 40, de = 8, ar = 12, ab = 22;
+  const max = Math.max(1, ...datos.flatMap((d) => [d.ingresos, d.gastos])) * 1.1;
+  const n = Math.max(1, datos.length);
+  const paso = (ancho - iz - de) / n;
+  const w = Math.max(4, Math.min(16, paso / 2 - 4));
+  const y = (v: number) => ar + (1 - v / max) * (alto - ar - ab);
+  const i = sel ?? datos.length - 1;
+  const d = datos[i];
+  const barra = (x: number, v: number, cls: string) => v > 0
+    ? <path className={cls} d={`M${x},${y(0)} V${y(v) + 3} q0,-3 3,-3 h${w - 6} q3,0 3,3 V${y(0)} Z`} /> : null;
+  return (
+    <div ref={ref} className="grafica">
+      <div className="lectura" aria-live="polite">
+        {d && <><span className="dia">{d.etiqueta}</span>
+          <span><i className="punto-serie tienes" />Ingresos <b>{fmt(d.ingresos, false)}</b></span>
+          <span><i className="punto-serie real" />Gastos <b>{fmt(d.gastos, false)}</b></span>
+          <span className={d.ingresos - d.gastos < 0 ? "negativo" : "positivo"}>{d.ingresos - d.gastos >= 0 ? "Ahorro" : "Faltó"} {fmt(Math.abs(d.ingresos - d.gastos), false)}</span></>}
+      </div>
+      <svg width={ancho} height={alto} role="img" aria-label="Ingresos y gastos por mes" onPointerLeave={() => setSel(null)}>
+        {[0, max / 2].map((t) => (
+          <g key={t}><line x1={iz} x2={ancho - de} y1={y(t)} y2={y(t)} className="rejilla" />
+            <text x={iz - 6} y={y(t) + 4} textAnchor="end" className="eje">{compacto(t)}</text></g>
+        ))}
+        {datos.map((b, k) => {
+          const c = iz + paso * k + paso / 2;
+          return (
+            <g key={b.mes} onPointerEnter={() => setSel(k)} onPointerDown={() => setSel(k)} opacity={k === i ? 1 : 0.55}>
+              <rect x={iz + paso * k} y={ar} width={paso} height={alto - ar - ab} fill="transparent" />
+              {barra(c - w - 1, b.ingresos, "barra-ingreso")}
+              {barra(c + 1, b.gastos, "barra-mes activa")}
+              <text x={c} y={alto - 6} textAnchor="middle" className="eje">{b.etiqueta.slice(0, 3)}</text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}

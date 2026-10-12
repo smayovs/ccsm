@@ -6,6 +6,7 @@ import { Icono } from "./ui";
 import Acceso, { NuevaContrasena } from "./pantallas/Acceso";
 import Bienvenida from "./pantallas/Bienvenida";
 import Inicio from "./pantallas/Inicio";
+import PersonalizarInicio from "./pantallas/PersonalizarInicio";
 import Movimientos from "./pantallas/Movimientos";
 import Formulario from "./pantallas/Formulario";
 import Hogar from "./pantallas/Hogar";
@@ -45,6 +46,7 @@ export default function App() {
       <main className="app">
         <Routes>
           <Route path="/" element={<Inicio />} />
+          <Route path="/inicio/personalizar" element={<PersonalizarInicio />} />
           <Route path="/movimientos" element={<Movimientos />} />
           <Route path="/nuevo" element={<FormularioNuevo />} />
           <Route path="/editar/:id" element={<FormularioNuevo />} />

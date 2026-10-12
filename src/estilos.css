@@ -376,3 +376,43 @@ h2 { font-size: 1.05rem; }
 .cat-riel.fino { height: 4px; margin-top: 3px; }
 .cat-riel.fino span { background: var(--heroe-tinta-2); }
 .ico.cuenta-prestamo { background: var(--oxido-suave); color: var(--oxido); }
+.grafica .barra-ingreso { fill: var(--sereno); }
+
+/* Inicio personalizable */
+.cabeza .boton.chico { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.filtros-inicio { margin: -4px 0 14px; }
+.filtros-resumen { display: flex; align-items: center; gap: 6px; width: 100%; border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta);
+  border-radius: 99px; padding: 9px 14px; font: inherit; font-size: 0.86rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 42px; }
+.filtros-resumen.activos { border-color: var(--ciruela); background: var(--ciruela-suave); color: var(--ciruela); font-weight: 600; }
+.filtros-resumen span { overflow: hidden; text-overflow: ellipsis; }
+.filtros-resumen .sep { color: var(--tinta-2); flex: none; }
+.filtros-panel { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); padding: 14px; margin-top: 8px; box-shadow: var(--sombra); }
+.filtros-panel > .sub { font-size: 0.8rem; color: var(--tinta-2); font-weight: 600; margin: 4px 0 8px; }
+.filtros-panel select, .filtros-panel input[type=date] { width: 100%; }
+.chips-filtro { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.chips-filtro button { border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 7px 12px; font: inherit; font-size: 0.85rem; cursor: pointer; min-height: 36px; }
+.chips-filtro button[aria-pressed="true"] { background: var(--ciruela); border-color: var(--ciruela); color: var(--fondo); font-weight: 600; }
+.etiq-periodo { font-size: 0.76rem; color: var(--tinta-2); margin: -6px 0 10px; }
+.lista.plana { box-shadow: none; border: 0; background: transparent; margin: 0 -14px; }
+.comp-total { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.comp-total .k { font-size: 0.76rem; color: var(--tinta-2); }
+.comp-total .v { font-family: var(--display); font-weight: 700; font-variant-numeric: tabular-nums; }
+.comp-lista { display: flex; flex-direction: column; gap: 10px; }
+.comp-fila { display: flex; align-items: center; gap: 12px; }
+.comp-fila .cuerpo { flex: 1; min-width: 0; }
+.comp-fila .titulo { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comp-fila .detalle { font-size: 0.78rem; color: var(--tinta-2); }
+.comp-valor { display: flex; flex-direction: column; align-items: flex-end; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+.comp-valor span { display: inline-flex; align-items: center; gap: 2px; font-size: 0.78rem; font-weight: 600; }
+.fila.personalizar { gap: 8px; }
+.fila.personalizar.apagada .titulo { color: var(--tinta-2); }
+.interruptor { position: relative; flex: none; width: 46px; height: 28px; }
+.interruptor input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; z-index: 1; }
+.interruptor span { position: absolute; inset: 0; border-radius: 99px; background: var(--linea); transition: background 0.15s; }
+.interruptor span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,0.2); transition: transform 0.15s; }
+.interruptor input:checked + span { background: var(--sereno); }
+.interruptor input:checked + span::after { transform: translateX(18px); }
+.interruptor input:focus-visible + span { outline: 2px solid var(--ciruela); outline-offset: 2px; }
+.filtros-panel .dos select, .panel .dos select { width: 100%; padding: 10px; border: 1px solid var(--linea); border-radius: var(--radio-chico); background: var(--fondo); color: var(--tinta); font-size: 16px; min-height: 44px; }
+.panel .dos { margin-bottom: 12px; }
+.fila.personalizar .titulo, .fila.personalizar .detalle { white-space: normal; overflow: visible; }
