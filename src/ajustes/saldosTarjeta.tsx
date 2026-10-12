@@ -129,15 +129,12 @@ export async function aplicarSaldos(cuenta: { id: string; dia_corte: number }, f
     return { id: f.id, ...c };
   });
   // 2) Quitar solo lo que marcaste para quitar (con confirmación en pantalla)
-  const quitadas = existentes.filter((e) => e.id && !filas.some((f) => f.id === e.id));
-  for (const q of quitadas) {
-    const { error } = await sb.from("movimientos").delete().eq("id", q.id!);
-    if (error) return error;
-  }
-  // 3) Todo lo demás en un solo paso en el servidor
+  const quitadas = existentes.filter((e) => e.id && !filas.some((f) => f.id === e.id)).map((e) => e.id!);
+  // 3) Todo en un solo paso en el servidor: si algo falla, no se borra ni se cambia nada
   const { error } = await sb.rpc("cuadrar_tarjeta", {
     p_cuenta: cuenta.id, p_cambios: cambios, p_deuda: Math.round(deudaTotal(s, validas) * 100) / 100,
     p_pago: s.yaPagado ? 0 : s.pago !== "" ? Number(s.pago) : null, p_corte: ultimoCorte(corte, hoy),
+    p_quitar: quitadas.length ? quitadas : null,
   });
   return error;
 }

@@ -25,6 +25,7 @@ type Ctx = {
   categorias: Categoria[];  // mías y del hogar
   familiares: Familiar[];
   listo: boolean;
+  fallo: boolean;           // la última carga de catálogos falló (sin conexión)
   recargar: () => Promise<void>;
   aviso: (t: string) => void;
 };
@@ -42,6 +43,7 @@ export function Proveedor({ children }: { children: ReactNode }) {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [familiares, setFamiliares] = useState<Familiar[]>([]);
   const [listo, setListo] = useState(false);
+  const [fallo, setFallo] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,12 +65,16 @@ export function Proveedor({ children }: { children: ReactNode }) {
 
   const recargar = useCallback(async () => {
     if (!uid) { setListo(true); return; }
-    const [m, c, cat, f] = await Promise.all([
+    const r = await Promise.all([
       sb.from("miembros").select("*"),
       sb.from("cuentas").select("*").order("orden").order("nombre"),
       sb.from("categorias").select("*").order("orden").order("nombre"),
       sb.from("familiares").select("*").order("nombre"),
-    ]);
+    ]).catch(() => null);
+    // Sin conexión no se borra lo que ya había: sin miembros la app creería que no tienes hogar
+    if (!r || r.some((x) => x.error)) { setFallo(true); setListo(true); return; }
+    setFallo(false);
+    const [m, c, cat, f] = r;
     const miembros = (m.data ?? []) as Miembro[];
     setYo(miembros.find((x) => x.user_id === uid) ?? null);
     setOtros(miembros.filter((x) => x.user_id !== uid));
@@ -86,7 +92,7 @@ export function Proveedor({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <C.Provider value={{ session, recuperando, terminarRecuperacion: () => setRecuperando(false), uid, yo, otros, cuentas, categorias, familiares, listo: inicio && listo, recargar, aviso }}>
+    <C.Provider value={{ session, recuperando, terminarRecuperacion: () => setRecuperando(false), uid, yo, otros, cuentas, categorias, familiares, listo: inicio && listo, fallo, recargar, aviso }}>
       {children}
       {toast && <div className="toast" role="status">{toast}</div>}
     </C.Provider>

@@ -36,6 +36,10 @@ export default function Inicio() {
   const [msi, setMsi] = useState<CompraMsi[]>([]);
   const [personas, setPersonas] = useState<Record<string, Persona>>({});
   const [listo, setListo] = useState(false);
+  // Si falla la conexión se avisa en lugar de mostrar ceros; "intento" vuelve a cargar todo
+  const [fallo, setFallo] = useState(false);
+  const [falloG, setFalloG] = useState(false);
+  const [intento, setIntento] = useState(0);
   const [config, setConfig] = useState<ConfigInicio>(configInicial());
   // ---------- Datos filtrables ----------
   const [filtros, setFiltrosEstado] = useState<Filtros>(leerFiltros());
@@ -62,6 +66,7 @@ export default function Inicio() {
         .in("tipo", ["transferencia", "liquidacion"]).gte("fecha", mes).not("cuenta_destino_id", "is", null),
       cargarCobros().catch(() => ({ personas: {} as Record<string, Persona> })),
     ]).then(async ([s, rm, b, su, md, ab, co]) => {
+      setFallo(!!(s.error || rm.error || b.error || su.error || ab.error));
       setMsi(md.filter((x) => x.estado === "Activa"));
       const abonos: Record<string, number> = {};
       for (const x of (ab.data ?? []) as any[]) if (x.cuenta_destino?.tipo === "prestamo") abonos[x.cuenta_destino_id] = (abonos[x.cuenta_destino_id] ?? 0) + n(x.monto);
@@ -83,8 +88,8 @@ export default function Inicio() {
           pagado_mes: n(v.mes_entradas) + n(v.mes_ingresos), estimado: v.ultimo_corte ? !v.corte_conocido && !v.pago_manual : false };
       });
       setTarjetas(t);
-    });
-  }, [mes]);
+    }).catch(() => { setFallo(true); setListo(true); });
+  }, [mes, intento]);
 
   useEffect(() => {
     setCargandoG(true);
@@ -93,11 +98,12 @@ export default function Inicio() {
       sb.from("movimientos").select("fecha, monto, cuenta_id, cuenta:cuentas!movimientos_cuenta_id_fkey(propietario_id)")
         .eq("tipo", "ingreso").eq("creado_por", uid).gte("fecha", desdeFetch).lt("fecha", r.hasta),
     ]).then(([g, i]) => {
+      setFalloG(!!(g.error || i.error));
       setGastos(((g.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) })));
       setIngresos(((i.data ?? []) as any[]).filter((x) => x.cuenta?.propietario_id).map((x) => ({ fecha: x.fecha, monto: n(x.monto), cuenta_id: x.cuenta_id })));
       setCargandoG(false);
-    });
-  }, [desdeFetch, r.hasta, uid]);
+    }).catch(() => { setFalloG(true); setCargandoG(false); });
+  }, [desdeFetch, r.hasta, uid, intento]);
 
   // ---------- Cálculos con filtros ----------
   const filtrados = useMemo(() => gastos.filter((g) => pasaFiltro(g, filtros)), [gastos, filtros]);
@@ -518,6 +524,12 @@ export default function Inicio() {
         <Link to="/inicio/personalizar" className="boton chico claro" aria-label="Personalizar inicio"><Settings2 size={16} /> Personalizar</Link>
       </header>
       <BarraFiltros f={filtros} onCambio={setFiltros} />
+      {(fallo || falloG) && (
+        <div className="aviso rojo" role="alert">
+          <span><strong>No se pudo cargar todo.</strong> Revisa tu conexión: algunas cifras pueden estar incompletas.</span>
+          <button className="boton chico" onClick={() => setIntento((x) => x + 1)}>Reintentar</button>
+        </div>
+      )}
       {cuentas.length === 0 && (
         <Link className="aviso" to="/ajustes/cuentas"><span><strong>Empieza agregando tus cuentas</strong> con su saldo de hoy: débito, tarjetas y ahorro.</span></Link>
       )}

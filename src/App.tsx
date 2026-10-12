@@ -28,7 +28,8 @@ import CuadrarTarjeta from "./ajustes/CuadrarTarjeta";
 import NuevaTarjeta from "./ajustes/NuevaTarjeta";
 
 export default function App() {
-  const { session, yo, listo, uid, recuperando } = useApp();
+  const { session, yo, listo, uid, recuperando, fallo, recargar } = useApp();
+  const [reintentando, setReintentando] = useState(false);
   const [pendientes, setPendientes] = useState(0);
 
   useEffect(() => {
@@ -39,6 +40,17 @@ export default function App() {
   if (!listo) return <div className="cargando">Cargando…</div>;
   if (!session) return <Acceso />;
   if (recuperando) return <NuevaContrasena />;
+  // Si no se pudo cargar (sin conexión), se avisa en lugar de pedir que crees un hogar
+  if (fallo && !yo) return (
+    <div className="acceso">
+      <h1>Sin conexión</h1>
+      <p>No pude cargar tus datos. Revisa tu internet e inténtalo de nuevo.</p>
+      <button className="boton ancho" disabled={reintentando}
+        onClick={async () => { setReintentando(true); await recargar(); setReintentando(false); }}>
+        {reintentando ? "Un momento…" : "Reintentar"}
+      </button>
+    </div>
+  );
   if (!yo) return <Bienvenida />;
 
   return (

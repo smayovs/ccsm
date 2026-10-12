@@ -46,29 +46,23 @@ export default function Suscripciones() {
       if (ps.some((x) => !(x.monto > 0))) return setError("Escribe la parte de cada persona.");
       if (ps.reduce((a, x) => a + x.monto, 0) > fila.monto + 0.01) return setError("Las partes suman más que el monto.");
     }
-    const r = edit.id ? await sb.from("suscripciones").update(fila).eq("id", edit.id).select("id").single() : await sb.from("suscripciones").insert(fila).select("id").single();
-    if (r.error) return setError(errorTexto(r.error));
-    const sid = (r.data as any).id;
-    await sb.from("suscripcion_partes").delete().eq("suscripcion_id", sid);
-    if (ps.length) {
-      const { error } = await sb.from("suscripcion_partes").insert(ps.map((x) => ({ suscripcion_id: sid, ...x })));
-      if (error) return setError(errorTexto(error));
-    }
+    // La suscripción y su división se guardan en un solo paso: o todo o nada
+    const { error } = await sb.rpc("guardar_suscripcion", { p_id: edit.id || null, p_fila: fila, p_partes: ps.length ? ps : null });
+    if (error) return setError(errorTexto(error));
     aviso("Suscripción guardada"); setEdit(null); cargar();
   }
   async function registrarCobro() {
     if (!edit?.id) return; setError("");
     if (!edit.cuenta_id) return setError("Elige la cuenta donde te lo cobran y guarda primero.");
     const monto = Number(edit.monto);
-    const { data, error } = await sb.from("movimientos").insert({
-      tipo: "gasto", monto, fecha: hoyISO(), cuenta_id: edit.cuenta_id, categoria_id: edit.categoria_id, descripcion: edit.servicio.trim(), origen: "Suscripción",
-    }).select("id").single();
-    if (error) return setError(errorTexto(error));
     const ps = partes[edit.id] ?? [];
-    if (ps.length) {
-      const r = await sb.from("partes_personas").insert(ps.map((x) => ({ movimiento_id: data.id, familiar_id: x.familiar_id, monto: x.monto })));
-      if (r.error) return setError(errorTexto(r.error));
-    }
+    // El cobro y su división se guardan en un solo paso: si algo falla no queda un gasto a medias ni se duplica al reintentar
+    const { error } = await sb.rpc("guardar_movimiento", {
+      p_id: null,
+      p_mov: { tipo: "gasto", monto, fecha: hoyISO(), cuenta_id: edit.cuenta_id, categoria_id: edit.categoria_id, descripcion: edit.servicio.trim(), origen: "Suscripción" },
+      p_partes: ps.length ? ps.map((x) => ({ familiar_id: x.familiar_id, monto: x.monto })) : null,
+    });
+    if (error) return setError(errorTexto(error));
     aviso(ps.length ? "Cobro registrado y dividido" : "Cobro registrado"); setEdit(null);
   }
   async function borrar(id: string) {
