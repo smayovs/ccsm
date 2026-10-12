@@ -4,6 +4,7 @@ import { HashRouter } from "react-router-dom";
 import { Proveedor } from "./contexto";
 import App from "./App";
 import "./estilos.css";
+import { aparienciaGuardada, aplicarApariencia } from "./tema";
 import { registerSW } from "virtual:pwa-register";
 
 // Instala las versiones nuevas en cuanto existen y recarga la app sola.
@@ -18,6 +19,9 @@ const actualizar = registerSW({
   },
 });
 void actualizar;
+
+// La apariencia guardada en este dispositivo se aplica antes de pintar; la de tu cuenta llega al iniciar sesión
+aplicarApariencia(aparienciaGuardada());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

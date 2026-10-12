@@ -7,6 +7,7 @@ import Acceso, { NuevaContrasena } from "./pantallas/Acceso";
 import Bienvenida from "./pantallas/Bienvenida";
 import Inicio from "./pantallas/Inicio";
 import PersonalizarInicio from "./pantallas/PersonalizarInicio";
+import AparienciaPantalla from "./ajustes/Apariencia";
 import Movimientos from "./pantallas/Movimientos";
 import Formulario from "./pantallas/Formulario";
 import Hogar from "./pantallas/Hogar";
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="/ajustes/familiares" element={<Familiares />} />
           <Route path="/ajustes/llaves" element={<Llaves />} />
           <Route path="/ajustes/perfil" element={<Perfil />} />
+          <Route path="/ajustes/apariencia" element={<AparienciaPantalla />} />
           <Route path="/ajustes/tarjeta/:id/cuadrar" element={<CuadrarTarjeta />} />
           <Route path="/ajustes/tarjeta-nueva" element={<NuevaTarjeta />} />
           <Route path="*" element={<Inicio />} />

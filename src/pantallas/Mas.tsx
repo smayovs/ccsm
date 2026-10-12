@@ -19,6 +19,7 @@ const grupos: { t: string; items: [string, string, string][] }[] = [
     ["/ajustes/reglas", "Reglas de Apple Pay", "Comercio → categoría y reparto automático"],
     ["/ajustes/familiares", "Personas", "A quién le compras o prestas: familia, amigos, otros"],
     ["/ajustes/llaves", "Atajos del iPhone", "Llave personal y dirección para tus atajos"],
+    ["/ajustes/apariencia", "Apariencia", "Colores, modo oscuro, tipografía y tamaño de letra"],
     ["/ajustes/perfil", "Perfil y hogar", "Tu nombre, invitar a tu pareja, cerrar sesión"],
   ] },
 ];

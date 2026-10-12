@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { sb } from "./supabase";
+import { APARIENCIA_INICIAL, aplicarApariencia } from "./tema";
 
 export type Cuenta = {
   id: string; nombre: string; tipo: string; propietario_id: string | null; saldo_inicial: number;
@@ -65,6 +66,11 @@ export function Proveedor({ children }: { children: ReactNode }) {
 
   const recargar = useCallback(async () => {
     if (!uid) { setListo(true); return; }
+    // Tu apariencia guardada (colores, letra); si falla se queda la de este dispositivo
+    sb.from("preferencias").select("apariencia").maybeSingle().then(({ data }) => {
+      const ap = (data as any)?.apariencia;
+      if (ap && Object.keys(ap).length) aplicarApariencia({ ...APARIENCIA_INICIAL, ...ap });
+    }, () => {});
     const r = await Promise.all([
       sb.from("miembros").select("*"),
       sb.from("cuentas").select("*").order("orden").order("nombre"),
