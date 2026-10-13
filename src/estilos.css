@@ -656,3 +656,17 @@ h2 { font-size: 1.05rem; }
 /* Animaciones reducidas desde la app, igual que con el ajuste del iPhone */
 :root[data-movimiento="reducido"] * { transition: none !important; animation: none !important; }
 :root[data-movimiento="reducido"] .toast { transition: opacity 200ms ease !important; }
+
+/* ===== Hogar ===== */
+.pareja { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.avatar-mini { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 0.95rem; color: #101217; }
+.pareja-flecha { color: var(--heroe-tinta-2); font-size: 1.1rem; line-height: 1; display: grid; place-items: center; width: 22px; }
+.pareja-flecha.hacia-mi { transform: scaleX(-1); }
+.pareja-flecha.a-mano { color: #7BE0B5; }
+.tablero .saldar .campo > span { color: var(--heroe-tinta-2); }
+.tablero .saldar input, .tablero .saldar select { color: var(--tinta); }
+/* Barra de compartidos sobre una tarjeta clara */
+.reparto-claro .reparto-cabeza { color: var(--tinta-2); }
+.reparto-claro .reparto-cabeza b, .reparto-claro .reparto-leyenda b { color: var(--tinta); }
+.reparto-claro .reparto-leyenda { color: var(--tinta-2); }
+.reparto-claro .reparto-barra span, .reparto-claro .reparto-leyenda i { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tinta) 12%, transparent); }
