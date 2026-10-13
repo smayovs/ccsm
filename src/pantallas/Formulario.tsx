@@ -3,7 +3,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, Campo, Cargando, Segmentos, SelectorCategoria } from "../ui";
-import { errorTexto, fechaLarga, fmt, hoyISO, limpiarMonto } from "../util";
+import { errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto } from "../util";
+import { TEXTO_REPETIR, type Repetir } from "../ingresos";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 import { facturadas, fechaParaPago } from "../ajustes/saldosTarjeta";
 import { parteDePareja } from "../dinero";
@@ -53,6 +54,9 @@ export default function Formulario() {
   // Cargo aplazado: compras hoy y el banco lo cobra en una fecha posterior
   const [aplazado, setAplazado] = useState(false);
   const [fechaCobro, setFechaCobro] = useState("");
+  // Ingreso programado: todavía no llega; se guarda aparte y se confirma el día que llega
+  const [programar, setProgramar] = useState(qs.get("programar") === "1");
+  const [repetir, setRepetir] = useState<"no" | "catorcena" | "mes">("no");
   // Compras a meses de antes del alta de la tarjeta
   const [nPago, setNPago] = useState("");
   const [msiIncluida, setMsiIncluida] = useState<"si" | "no">("si");
@@ -113,10 +117,22 @@ export default function Formulario() {
   // Con la cuenta conjunta no se comparte: tu parte es todo lo que queda.
   const { base, parte: parteOtro, tuParte } = parteDePareja(montoNum, dividir ? sumaPartes : 0, esConjunta ? "no" : comp, Number(valorComp || 0));
 
+  const esProgramado = !id && tipo === "ingreso" && programar;
   async function guardar(e: React.FormEvent) {
     e.preventDefault(); setError("");
     if (!(montoNum > 0)) return setError("Escribe un monto mayor a cero.");
     if (!cuenta) return setError("Elige la cuenta.");
+    if (esProgramado) {
+      setOcupado(true);
+      const { error } = await sb.from("ingresos_programados").insert({
+        fecha, monto: montoNum, cuenta_id: cuenta, categoria_id: categoria, descripcion: descripcion.trim() || "Ingreso",
+        repetir: (repetir === "no" ? null : repetir) as Repetir,
+      });
+      setOcupado(false);
+      if (error) return setError(errorTexto(error));
+      aviso(`Ingreso programado para el ${fechaCorta(fecha)}`);
+      return nav(-1);
+    }
     if (tipo === "transferencia" && (!destino || destino === cuenta)) return setError("Elige una cuenta destino distinta.");
     if (tipo === "reembolso" && !familiar) return setError("Elige quién te pagó.");
     if (tipo === "gasto" && aplazado && cuentaSel?.tipo === "credito" && !(fechaCobro > fecha)) return setError("La fecha en que se cobra debe ser posterior a la fecha de compra.");
@@ -234,9 +250,23 @@ export default function Formulario() {
               </select>
             </Campo>
           ) : (
-            <Campo etiqueta="Fecha"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Campo>
+            <Campo etiqueta={esProgramado ? "Fecha esperada" : "Fecha"}><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Campo>
           )}
         </div>
+        {!id && tipo === "ingreso" && (
+          <>
+            <label className="casilla"><input type="checkbox" checked={programar} onChange={(e) => setProgramar(e.target.checked)} /> Programar: aún no llega</label>
+            {programar && (
+              <>
+                <div className="sub mb-6">Se repite</div>
+                <Segmentos etiqueta="Se repite" valor={repetir} onCambio={setRepetir} opciones={[
+                  { v: "no", t: "Una vez" }, { v: "catorcena", t: TEXTO_REPETIR.catorcena }, { v: "mes", t: TEXTO_REPETIR.mes },
+                ]} />
+                <p className="nota mt-n6 mb-14">Pon el monto aproximado. No suma a tus saldos hasta que lo confirmes: el día que llegue te aparece en Inicio y en Pendientes para confirmarlo con el monto real.{repetir !== "no" ? " Al confirmarlo se programa solo el siguiente." : ""}</p>
+              </>
+            )}
+          </>
+        )}
         {tipo === "transferencia" && (
           <>
             <Campo etiqueta="Fecha"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Campo>
@@ -389,7 +419,7 @@ export default function Formulario() {
         )}
 
         <div className="acciones">
-          <button className="boton" disabled={ocupado}>{ocupado ? "Guardando…" : id ? "Guardar cambios" : "Guardar"}</button>
+          <button className="boton" disabled={ocupado}>{ocupado ? "Guardando…" : id ? "Guardar cambios" : esProgramado ? "Programar ingreso" : "Guardar"}</button>
         </div>
         {id && (
           <div className="acciones">

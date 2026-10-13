@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorCategoria } from "../ui";
-import { errorTexto, fechaCorta, fmt } from "../util";
+import { errorTexto, fechaCorta, fmt, hoyISO } from "../util";
+import { cargarProgramados, type IngresoProgramado } from "../ingresos";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 
 export default function Pendientes({ onCambio }: { onCambio: (n: number) => void }) {
@@ -11,6 +12,8 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
   const [revisar, setRevisar] = useState<any[]>([]);
   const [sinCat, setSinCat] = useState<any[]>([]);
   const [disputas, setDisputas] = useState<any[]>([]);
+  // Ingresos programados cuya fecha ya llegó: falta confirmarlos con el monto real
+  const [porConfirmar, setPorConfirmar] = useState<IngresoProgramado[]>([]);
   const [eleccion, setEleccion] = useState<Record<string, string | null>>({});
   const [error, setError] = useState("");
   const nombres: Record<string, string> = Object.fromEntries(otros.map((o) => [o.user_id, o.nombre]));
@@ -21,8 +24,9 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
       sb.from("repartos").select("movimiento_id, monto, movimiento:movimientos(fecha, descripcion, comercio, monto, creado_por)").eq("user_id", uid).is("categoria_id", null),
       sb.from("repartos").select("movimiento_id, user_id, monto, nota, movimiento:movimientos!inner(fecha, descripcion, comercio, monto, creado_por)").eq("estado", "disputa").eq("movimiento.creado_por", uid),
     ]);
-    setRevisar(a.data ?? []); setSinCat(b.data ?? []); setDisputas(c.data ?? []);
-    onCambio((a.data?.length ?? 0) + (b.data?.length ?? 0));
+    const vencidos = await cargarProgramados().then((p) => p.filter((x) => x.fecha <= hoyISO()), () => []);
+    setRevisar(a.data ?? []); setSinCat(b.data ?? []); setDisputas(c.data ?? []); setPorConfirmar(vencidos);
+    onCambio((a.data?.length ?? 0) + (b.data?.length ?? 0) + vencidos.length);
   }, [uid, onCambio]);
   useEffect(() => { cargar(); }, [cargar]);
 
@@ -39,11 +43,26 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
     aviso("Marcado como resuelto"); cargar();
   }
 
-  const nada = !revisar.length && !sinCat.length && !disputas.length;
+  const nada = !revisar.length && !sinCat.length && !disputas.length && !porConfirmar.length;
   return (
     <>
       <Cabeza titulo="Pendientes" volver />
       {nada && <div className="lista"><div className="vacio">Todo en orden: no hay nada por revisar.</div></div>}
+
+      {porConfirmar.length > 0 && (
+        <>
+          <h2>Ingresos por confirmar</h2>
+          <p className="nota mt-n4 mb-8">Ya pasó su fecha esperada. Confírmalos con el monto real o cámbiales la fecha si no han llegado.</p>
+          <div className="lista">
+            {porConfirmar.map((p) => (
+              <Link className="fila" key={p.id} to={`/ingreso-programado/${p.id}`}>
+                <div className="cuerpo"><div className="titulo">{p.descripcion}</div><div className="detalle">Esperado el {fechaCorta(p.fecha)}</div></div>
+                <div className="monto positivo">~{fmt(p.monto)}</div>
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
 
       {revisar.length > 0 && (
         <>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { cargarProgramados, fechasEn, type IngresoProgramado } from "../ingresos";
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
@@ -105,6 +106,9 @@ export default function Movimientos() {
     sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").not("meses_msi", "is", null)
       .then(({ data }) => setTodasMsi(data ?? []));
   }, []);
+  // Ingresos programados (aún no llegan): se muestran en el periodo, marcados, y se confirman desde su pantalla
+  const [ingresosProg, setIngresosProg] = useState<IngresoProgramado[]>([]);
+  useEffect(() => { cargarProgramados().then(setIngresosProg, () => {}); }, []);
   // Compras a meses de antes del periodo cuya mensualidad cae dentro
   const msiPrevias = useMemo(() => msiAnteriores(todasMsi, desde), [todasMsi, desde]);
   useEffect(() => {
@@ -143,9 +147,13 @@ export default function Movimientos() {
     }));
   const propios = movs.map((m) => (m.meses_msi && m.tipo === "gasto"
     ? { ...m, movId: m.id, msiK: kEn(m, enCorte ? mesesPeriodo[0] : mesISO(m.fecha)), compra: true } : m));
-  const filtrados = [...propios, ...cuotas, ...programadas].sort((a, b) => b.fecha.localeCompare(a.fecha)).filter((m) => {
+  const ingresosEsperados: Mov[] = enCorte ? [] : ingresosProg.flatMap((p) => fechasEn(p, desde, hasta).map((f, i) => ({
+    id: `ip-${p.id}-${f}`, programada: true, ipId: p.id, siguiente: i > 0, fecha: f, tipo: "ingreso", monto: p.monto, descripcion: p.descripcion,
+    cuenta_id: p.cuenta_id, cuenta: { nombre: cuentas.find((c) => c.id === p.cuenta_id)?.nombre }, repartos: [],
+  })));
+  const filtrados = [...propios, ...cuotas, ...programadas, ...ingresosEsperados].sort((a, b) => b.fecha.localeCompare(a.fecha)).filter((m) => {
     if (cuentaFiltro && m.cuenta_id !== cuentaFiltro && m.cuenta_destino_id !== cuentaFiltro) return false;
-    const esSub = m.programada || !!subDe(m);
+    const esSub = (m.programada && !m.ipId) || !!subDe(m);
     if (filtro === "gasto" && (m.tipo !== "gasto" || m.movId || esSub)) return false;
     if (filtro === "mensualidad" && !(m.msiK >= 1)) return false;
     if (filtro === "suscripcion" && !esSub) return false;
@@ -238,6 +246,16 @@ export default function Movimientos() {
           <div className="fecha-grupo">{fechaLarga(fecha)}{enCorte && fecha === finCorte && lista.some((m) => m.movId && !m.compra) ? " · corte" : ""}</div>
           <div className="lista">
             {lista.map((m) => {
+              if (m.ipId) return (
+                <Link className="fila programada" key={m.id} to={`/ingreso-programado/${m.ipId}`}>
+                  <span className="ico cuenta-ahorro" aria-hidden="true"><CalendarDots size={20} /></span>
+                  <div className="cuerpo">
+                    <div className="titulo">{m.descripcion}</div>
+                    <div className="detalle"><span className="etiq verde">Programado</span>Ingreso aproximado{m.cuenta?.nombre ? ` · ${m.cuenta.nombre}` : ""}{m.siguiente ? " · se repite" : m.fecha <= hoy ? " · confírmalo" : ""}</div>
+                  </div>
+                  <div className="monto positivo">+~{fmt(m.monto)}</div>
+                </Link>
+              );
               if (m.programada) return (
                 <Link className="fila programada" key={m.id} to="/suscripciones">
                   <span className="ico" aria-hidden="true"><CalendarDots size={20} /></span>

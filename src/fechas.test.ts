@@ -157,3 +157,15 @@ describe("catorcenas", () => {
     expect(inicioCatorcena("2027-01-01", pago)).toBe("2026-12-30");
   });
 });
+
+describe("ingresos programados", () => {
+  it("proyecta las fechas de un ingreso que se repite dentro de un periodo", async () => {
+    const { fechasEn, siguienteFecha } = await import("./ingresos");
+    expect(fechasEn({ fecha: "2026-10-21", repetir: "catorcena" }, "2026-10-01", "2026-11-19")).toEqual(["2026-10-21", "2026-11-04", "2026-11-18"]);
+    expect(fechasEn({ fecha: "2026-10-21", repetir: null }, "2026-10-01", "2026-11-01")).toEqual(["2026-10-21"]);
+    expect(fechasEn({ fecha: "2026-10-21", repetir: null }, "2026-11-01", "2026-12-01")).toEqual([]);
+    // el mes conserva el día 31 aunque pase por meses cortos
+    expect(fechasEn({ fecha: "2027-01-31", repetir: "mes" }, "2027-01-01", "2027-04-01")).toEqual(["2027-01-31", "2027-02-28", "2027-03-31"]);
+    expect(siguienteFecha("2026-10-21", null)).toBeNull();
+  });
+});

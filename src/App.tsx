@@ -23,6 +23,7 @@ const Analisis = perezoso(() => import("./pantallas/Analisis"));
 const Cobros = perezoso(() => import("./pantallas/Cobros"));
 const Msi = perezoso(() => import("./pantallas/Msi"));
 const Suscripciones = perezoso(() => import("./pantallas/Suscripciones"));
+const IngresoProgramado = perezoso(() => import("./pantallas/IngresoProgramado"));
 const Cuentas = perezoso(() => import("./ajustes/Cuentas"));
 const Categorias = perezoso(() => import("./ajustes/Categorias"));
 const Reglas = perezoso(() => import("./ajustes/Reglas"));
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="/cobros" element={<Cobros />} />
           <Route path="/msi" element={<Msi />} />
           <Route path="/suscripciones" element={<Suscripciones />} />
+          <Route path="/ingreso-programado/:id" element={<IngresoProgramado />} />
           <Route path="/ajustes/cuentas" element={<Cuentas />} />
           <Route path="/ajustes/categorias" element={<Categorias />} />
           <Route path="/ajustes/reglas" element={<Reglas />} />

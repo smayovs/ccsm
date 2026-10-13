@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, CalendarDots, CaretRight, CreditCard, Eye, EyeSlash, HandCoins, Handshake, Repeat, SquaresFour, Tray } from "../phosphor";
+import { ArrowDownRight, ArrowUpRight, CalendarDots, CaretRight, CreditCard, Eye, EyeSlash, HandCoins, Handshake, Repeat, SquaresFour, Tray, Wallet } from "../phosphor";
+import { cargarProgramados, fechasEn, type IngresoProgramado } from "../ingresos";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { cobroEnMes, diasEntre, fechaCorta, fmt, hoyISO, masDias, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
@@ -21,7 +22,7 @@ type Ingreso = { fecha: string; monto: number; cuenta_id: string };
 type Balance = { nombre: string; me_debe: number };
 type Parte = { user_id: string; nombre: string; color: "rosa" | "gris" | null; es_yo: boolean; parte: number };
 type Tablero = { saldos: Saldo[]; porRevisar: number; abonosPrestamo: Record<string, number>; tarjetas: Record<string, Tarjeta>;
-  balance: Balance[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona>; cuando: number };
+  balance: Balance[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona>; cuando: number; programados: IngresoProgramado[] };
 
 const n = (x: unknown) => Number(x ?? 0);
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
@@ -61,7 +62,12 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const [subs, setSubs] = useState<Sub[]>(guardado?.subs ?? []);
   const [msi, setMsi] = useState<CompraMsi[]>(guardado?.msi ?? []);
   const [personas, setPersonas] = useState<Record<string, Persona>>(guardado?.personas ?? {});
+  // Ingresos programados (aún no llegan): se ven en Esta semana y cuentan aparte en el límite por ingresos
+  const [programados, setProgramados] = useState<IngresoProgramado[]>(guardado?.programados ?? []);
   const [listo, setListo] = useState(!!guardado?.saldos);
+  // El círculo de "Más" cuenta lo por revisar y los ingresos programados cuya fecha ya llegó
+  const vencidos = programados.filter((p) => p.fecha <= hoy).length;
+  useEffect(() => { if (listo) onPendientes?.(porRevisar + vencidos); }, [porRevisar, vencidos, listo]);
   // Si falla la conexión se avisa en lugar de mostrar ceros; "intento" vuelve a cargar todo
   const [fallo, setFallo] = useState(false);
   const [falloG, setFalloG] = useState(false);
@@ -113,6 +119,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     const detalleMsi = Promise.resolve(sb.rpc("msi_detalle"));
     // Cobros (5 consultas) va aparte: el resto de Inicio no lo espera
     cargarCobros(detalleMsi).then((co) => { setPersonas(co.personas); recordar({ personas: co.personas }); }, () => {});
+    cargarProgramados().then((p) => { setProgramados(p); recordar({ programados: p }); }, () => {});
     // El detalle de todas tus tarjetas en una sola consulta, al mismo tiempo que lo demás
     sb.rpc("detalle_tarjetas").then(({ data, error }) => {
       if (error || !data) return; // se quedan las tarjetas que ya se veían
@@ -202,7 +209,10 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const grupos = agruparCategorias(actuales.map((g) => ({ ...g })));
   // La meta es del mes completo: se compara solo con el mes actual y sin filtros de cuenta o categoría
   const porIngresos = metaConfig?.modo === "ingresos";
-  const meta = metaConfig?.modo === "fija" ? metaConfig.monto : porIngresos ? ingresado : 0;
+  // Lo que se espera que entre en el periodo y aún no se confirma (sin filtro de categoría; con filtro de cuentas, solo esas)
+  const esperado = conCategoria ? 0 : programados.filter((p) => !filtros.cuentas.length || (p.cuenta_id && filtros.cuentas.includes(p.cuenta_id)))
+    .reduce((a, p) => a + fechasEn(p, r.desde, r.hasta).length * p.monto, 0);
+  const meta = metaConfig?.modo === "fija" ? metaConfig.monto : porIngresos ? ingresado + esperado : 0;
   const metaAplica = esMesActual && !filtros.cuentas.length && !conCategoria;
   const conMeta = !!meta && metaAplica;
   const quedaMeta = conMeta ? meta - gastado : 0;
@@ -282,6 +292,12 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           return { k: "p" + i, to: p.tipo === "sub" ? "/suscripciones" : `/cuenta/${p.id}`, I: p.tipo === "sub" ? Repeat : p.tipo === "prestamo" ? HandCoins : CreditCard, t: p.t,
             d: `${d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : `En ${d} días`} · ${fechaCorta(p.f)}`, m: fmt(p.m), tono: d <= 3 ? "urgente" : "" };
         }),
+        ...programados.filter((p) => diasEntre(hoy, p.fecha) <= 7).map((p) => {
+          const d = diasEntre(hoy, p.fecha);
+          return { k: "ip" + p.id, to: `/ingreso-programado/${p.id}`, I: Wallet, t: d <= 0 ? `Confirma: ${p.descripcion}` : p.descripcion,
+            d: d < 0 ? `Esperado hace ${-d} ${d === -1 ? "día" : "días"}` : d === 0 ? "Esperado hoy" : d === 1 ? "Mañana" : `En ${d} días · ${fechaCorta(p.fecha)}`,
+            m: "~" + fmt(p.monto), tono: "verde" };
+        }),
         ...(conAvisos && otros.length ? balance.filter((b) => Math.abs(b.me_debe) >= 0.5).map((b) => ({ k: "b" + b.nombre, to: "/hogar", I: Handshake,
           t: b.me_debe > 0 ? `${b.nombre} te debe` : `Le debes a ${b.nombre}`, d: "Gastos compartidos", m: fmt(Math.abs(b.me_debe)), tono: b.me_debe > 0 ? "verde" : "" })) : []),
       ];
@@ -324,7 +340,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
             </Link>
             {conMeta ? (
               quedaMeta >= 0
-                ? <div className="sub">{porIngresos ? <>De tus ingresos de {elPeriodo} ({fmt(meta, false)})</> : <>De tu meta de {fmt(meta, false)}</>} te quedan <b>{fmt(quedaMeta, false)}</b> por gastar, unos <b>{fmt(quedaMeta / diasRestantes, false)}</b> por día.</div>
+                ? <div className="sub">{porIngresos ? <>De tus ingresos de {elPeriodo} ({fmt(meta, false)})</> : <>De tu meta de {fmt(meta, false)}</>} te quedan <b>{fmt(quedaMeta, false)}</b> por gastar{porIngresos && esperado > 0 ? <>, de ellos <b>{fmt(Math.min(esperado, quedaMeta), false)}</b> aún esperados</> : null}, unos <b>{fmt(quedaMeta / diasRestantes, false)}</b> por día.</div>
                 : <div className="sub">Gastaste <b>{fmt(-quedaMeta, false)}</b> más {porIngresos ? <>de lo que entró en {elPeriodo} ({fmt(meta, false)})</> : <>de tu meta de {fmt(meta, false)}</>}.</div>
             ) : <>
               {proyCierre !== null && <div className="sub">A este ritmo cerrarías {elPeriodo} en <b>{fmt(proyCierre, false)}</b>.</div>}
