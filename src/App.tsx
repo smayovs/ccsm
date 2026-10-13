@@ -1,32 +1,35 @@
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useApp } from "./contexto";
 import { sb } from "./supabase";
 import { Icono } from "./ui";
+import { perezoso } from "./perezoso";
+// Lo primero que ves al abrir va en la descarga inicial; el resto se descarga al abrir cada pantalla
+// (la app instalada las guarda todas, así que también funcionan sin conexión)
 import Acceso, { NuevaContrasena } from "./pantallas/Acceso";
 import Bienvenida from "./pantallas/Bienvenida";
 import Inicio from "./pantallas/Inicio";
-import PersonalizarInicio from "./pantallas/PersonalizarInicio";
-import AparienciaPantalla from "./ajustes/Apariencia";
-import Movimientos from "./pantallas/Movimientos";
-import Formulario from "./pantallas/Formulario";
-import Hogar from "./pantallas/Hogar";
-import Pendientes from "./pantallas/Pendientes";
-import Mas from "./pantallas/Mas";
-import Cuenta from "./pantallas/Cuenta";
-import VariosGastos from "./pantallas/VariosGastos";
-import Analisis from "./pantallas/Analisis";
-import Cobros from "./pantallas/Cobros";
-import Msi from "./pantallas/Msi";
-import Suscripciones from "./pantallas/Suscripciones";
-import Cuentas from "./ajustes/Cuentas";
-import Categorias from "./ajustes/Categorias";
-import Reglas from "./ajustes/Reglas";
-import Familiares from "./ajustes/Familiares";
-import Llaves from "./ajustes/Llaves";
-import Perfil from "./ajustes/Perfil";
-import CuadrarTarjeta from "./ajustes/CuadrarTarjeta";
-import NuevaTarjeta from "./ajustes/NuevaTarjeta";
+const PersonalizarInicio = perezoso(() => import("./pantallas/PersonalizarInicio"));
+const AparienciaPantalla = perezoso(() => import("./ajustes/Apariencia"));
+const Movimientos = perezoso(() => import("./pantallas/Movimientos"));
+const Formulario = perezoso(() => import("./pantallas/Formulario"));
+const Hogar = perezoso(() => import("./pantallas/Hogar"));
+const Pendientes = perezoso(() => import("./pantallas/Pendientes"));
+const Mas = perezoso(() => import("./pantallas/Mas"));
+const Cuenta = perezoso(() => import("./pantallas/Cuenta"));
+const VariosGastos = perezoso(() => import("./pantallas/VariosGastos"));
+const Analisis = perezoso(() => import("./pantallas/Analisis"));
+const Cobros = perezoso(() => import("./pantallas/Cobros"));
+const Msi = perezoso(() => import("./pantallas/Msi"));
+const Suscripciones = perezoso(() => import("./pantallas/Suscripciones"));
+const Cuentas = perezoso(() => import("./ajustes/Cuentas"));
+const Categorias = perezoso(() => import("./ajustes/Categorias"));
+const Reglas = perezoso(() => import("./ajustes/Reglas"));
+const Familiares = perezoso(() => import("./ajustes/Familiares"));
+const Llaves = perezoso(() => import("./ajustes/Llaves"));
+const Perfil = perezoso(() => import("./ajustes/Perfil"));
+const CuadrarTarjeta = perezoso(() => import("./ajustes/CuadrarTarjeta"));
+const NuevaTarjeta = perezoso(() => import("./ajustes/NuevaTarjeta"));
 
 export default function App() {
   const { session, yo, listo, uid, recuperando, fallo, recargar } = useApp();
@@ -57,6 +60,7 @@ export default function App() {
   return (
     <>
       <main className="app">
+        <Suspense fallback={<div className="cargando">Cargando…</div>}>
         <Routes>
           <Route path="/" element={<Inicio />} />
           <Route path="/inicio/personalizar" element={<PersonalizarInicio />} />
@@ -83,6 +87,7 @@ export default function App() {
           <Route path="/ajustes/tarjeta-nueva" element={<NuevaTarjeta />} />
           <Route path="*" element={<Inicio />} />
         </Routes>
+        </Suspense>
       </main>
       <nav className="nav" aria-label="Principal">
         <div className="dentro">
