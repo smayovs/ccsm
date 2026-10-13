@@ -45,7 +45,7 @@ export async function cargarConfig(uid: string): Promise<ConfigInicio> {
 }
 
 // Lo de Inicio se guarda junto (secciones y meta): cada cambio conserva lo demás que ya estaba guardado
-async function guardarInicio(uid: string, cambio: { secciones?: ConfigInicio; meta?: number; metaModo?: ModoMeta }) {
+async function guardarInicio(uid: string, cambio: { secciones?: ConfigInicio; meta?: number; metaModo?: ModoMeta; ciclo?: Ciclo }) {
   const actual = (await cargarPreferencias(uid))?.inicio ?? {};
   const r = await sb.from("preferencias").upsert({ user_id: uid, inicio: { ...actual, ...cambio }, updated_at: new Date().toISOString() });
   olvidarPreferencias();
@@ -68,11 +68,31 @@ export const guardarMeta = (uid: string, meta: Meta) =>
   guardarInicio(uid, { metaModo: meta.modo, meta: meta.modo === "fija" ? Math.max(0, meta.monto) : 0 });
 
 // ---------- Filtros (se conservan mientras la app está abierta) ----------
-export type Periodo = "mes" | "mes_pasado" | "3m" | "6m" | "anio" | "rango";
+export type Periodo = "mes" | "mes_pasado" | "catorcena" | "catorcena_pasada" | "3m" | "6m" | "anio" | "rango";
+
+// ---------- Periodo de pago ----------
+// Mes calendario o catorcena: cada 14 días a partir de un día de pago (por ejemplo, un miércoles sí y uno no)
+export type Ciclo = { tipo: "mes" } | { tipo: "catorcena"; ref: string };
+export async function cargarCiclo(uid: string): Promise<Ciclo> {
+  const c = (await cargarPreferencias(uid))?.inicio?.ciclo as Ciclo | undefined;
+  return c?.tipo === "catorcena" && /^\d{4}-\d{2}-\d{2}$/.test(c.ref) ? c : { tipo: "mes" };
+}
+export async function guardarCiclo(uid: string, ciclo: Ciclo) {
+  const r = await guardarInicio(uid, { ciclo });
+  filtrosActuales = null; // Inicio vuelve a abrir en el periodo nuevo
+  return r;
+}
+// Inicio de la catorcena que contiene "fecha", contando de 14 en 14 días desde el día de pago "ref"
+export const inicioCatorcena = (fecha: string, ref: string) => masDias(ref, 14 * Math.floor(diasEntre(ref, fecha) / 14));
+// Día de pago de referencia de la catorcena (null = mes calendario); Inicio lo fija al cargar tus preferencias
+let refCatorcena: string | null = null;
+export const fijarCatorcena = (ref: string | null) => { refCatorcena = ref; };
+export const catorcenaActiva = () => refCatorcena;
 export type Filtros = { periodo: Periodo; desde: string; hasta: string; cuentas: string[]; categoria: string; sub: string };
 
 let filtrosActuales: Filtros | null = null;
-export const filtrosIniciales = (): Filtros => ({ periodo: "mes", desde: mesISO(), hasta: hoyISO(), cuentas: [], categoria: "", sub: "" });
+export const filtrosIniciales = (): Filtros => ({ periodo: refCatorcena ? "catorcena" : "mes", desde: mesISO(), hasta: hoyISO(), cuentas: [], categoria: "", sub: "" });
+export const filtrosElegidos = () => filtrosActuales !== null;
 export const leerFiltros = () => filtrosActuales ?? filtrosIniciales();
 export const recordarFiltros = (f: Filtros) => { filtrosActuales = f; };
 
@@ -83,6 +103,10 @@ export function rango(f: Filtros): { desde: string; hasta: string; antDesde: str
   switch (f.periodo) {
     case "mes": return porMeses(mes, 1);
     case "mes_pasado": return porMeses(sumarMes(mes, -1), 1);
+    case "catorcena": case "catorcena_pasada": {
+      const d = masDias(inicioCatorcena(hoyISO(), refCatorcena ?? hoyISO()), f.periodo === "catorcena" ? 0 : -14);
+      return { desde: d, hasta: masDias(d, 14), antDesde: masDias(d, -14), antHasta: d, meses: 1, unMes: false };
+    }
     case "3m": return porMeses(sumarMes(mes, -2), 3);
     case "6m": return porMeses(sumarMes(mes, -5), 6);
     case "anio": { const d = `${mes.slice(0, 4)}-01-01`; const k = Number(mes.slice(5, 7)); return porMeses(d, k); }
@@ -95,7 +119,7 @@ export function rango(f: Filtros): { desde: string; hasta: string; antDesde: str
 }
 
 export const NOMBRE_PERIODO: Record<Periodo, string> = {
-  mes: "Este mes", mes_pasado: "Mes pasado", "3m": "Últimos 3 meses", "6m": "Últimos 6 meses", anio: "Este año", rango: "Fechas",
+  mes: "Este mes", mes_pasado: "Mes pasado", catorcena: "Esta catorcena", catorcena_pasada: "Catorcena pasada", "3m": "Últimos 3 meses", "6m": "Últimos 6 meses", anio: "Este año", rango: "Fechas",
 };
 
 export type Gasto = {

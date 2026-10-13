@@ -25,6 +25,7 @@
   --heroe-tinta-2: #B4BAC5;
   --rosa: #E3B7E0;           /* colores del símbolo: ella y él */
   --gris: #C2C7D0;
+  --acento-anillo: #E3B7E0;   /* anillo de la meta y enlaces sobre la tarjeta oscura */
   --radio: 16px;
   --radio-chico: 10px;
   --sombra: 0 1px 2px rgba(16, 18, 23, 0.05), 0 6px 20px rgba(16, 18, 23, 0.06);
@@ -288,7 +289,7 @@ button.enlace { background: none; border: 0; padding: 0; color: var(--ciruela); 
 .tablero-trio .v { font-family: var(--display); font-weight: 700; font-size: 1.02rem; font-variant-numeric: tabular-nums; }
 .tablero-trio .v.pos { color: #7BE0B5; }
 .tablero-trio .v.neg { color: #FFB4A6; }
-.tablero-meta { display: inline-block; margin-top: 8px; font-size: 0.82rem; font-weight: 600; color: var(--rosa); text-decoration: none; }
+.tablero-meta { display: inline-block; margin-top: 8px; font-size: 0.82rem; font-weight: 600; color: var(--acento-anillo); text-decoration: none; }
 .tablero-enlace { display: block; color: inherit; text-decoration: none; }
 .tablero-flecha { vertical-align: 0.1em; opacity: 0.55; }
 .actualizado { font-size: 0.76rem; color: var(--tinta-2); margin-top: 3px; min-height: 1em; }
@@ -321,7 +322,7 @@ button.enlace { background: none; border: 0; padding: 0; color: var(--ciruela); 
 
 .anillo { flex: none; }
 .anillo .pista { fill: none; stroke: rgba(255, 255, 255, 0.14); stroke-width: 11; }
-.anillo .lleno { fill: none; stroke: var(--rosa); stroke-width: 11; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
+.anillo .lleno { fill: none; stroke: var(--acento-anillo); stroke-width: 11; stroke-linecap: round; transition: stroke-dasharray 0.6s ease; }
 .anillo.rapido .lleno { stroke: #F2C66E; }
 .anillo.exceso .lleno { stroke: #FF8E7C; }
 .anillo .marca { fill: var(--heroe-tinta); stroke: var(--heroe); stroke-width: 2.5; }
@@ -338,7 +339,7 @@ button.enlace { background: none; border: 0; padding: 0; color: var(--ciruela); 
 .seccion-cabeza { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 0 4px 8px; }
 .seccion-cabeza h2 { margin: 0; font-size: 1.1rem; }
 .seccion .panel { margin-top: 0; }
-.boton-icono { flex: none; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--secundario); color: var(--sobre-secundario); transition: transform 160ms var(--ease-out); }
+.boton-icono { border: 0; cursor: pointer; flex: none; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center; background: var(--secundario); color: var(--sobre-secundario); transition: transform 160ms var(--ease-out); }
 .boton-icono:active { transform: scale(0.94); }
 
 /* Más: tarjeta de perfil y grupos de opciones */
@@ -548,6 +549,8 @@ h2 { font-size: 1.05rem; }
 .paleta { display: flex; flex-direction: column; align-items: center; gap: 6px; border: 0; background: none; font-size: 0.8rem; color: var(--tinta); cursor: pointer; padding: 4px 0; }
 .muestra-color { position: relative; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08); }
 .paleta[aria-checked="true"] .muestra-color { outline: 3px solid var(--tinta); outline-offset: 3px; }
+.paletas-titulo { font-size: 0.82rem; font-weight: 600; color: var(--tinta-2); margin: 4px 4px 10px; }
+.paletas + .paletas-titulo { margin-top: 18px; }
 .muestra-color.propio { background: conic-gradient(#E5484D, #F5A524, #46A758, #0E7C86, #3E63DD, #8E4EC6, #E5484D); }
 .muestra-color input[type=color] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; border: 0; padding: 0; }
 .fila.fuente-opcion { width: 100%; text-align: left; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }

@@ -145,3 +145,15 @@ describe("fechas en hora de Cancún", () => {
     expect(proximoCobro("2025-03-15", 12)).toBe("2026-03-15");
   });
 });
+
+describe("catorcenas", () => {
+  it("cuenta de 14 en 14 días desde el día de pago, hacia adelante y hacia atrás", async () => {
+    const { inicioCatorcena } = await import("./inicio/secciones");
+    const pago = "2026-10-07"; // miércoles
+    expect(inicioCatorcena("2026-10-07", pago)).toBe("2026-10-07");
+    expect(inicioCatorcena("2026-10-20", pago)).toBe("2026-10-07");
+    expect(inicioCatorcena("2026-10-21", pago)).toBe("2026-10-21");
+    expect(inicioCatorcena("2026-10-06", pago)).toBe("2026-09-23");
+    expect(inicioCatorcena("2027-01-01", pago)).toBe("2026-12-30");
+  });
+});

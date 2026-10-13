@@ -1,5 +1,10 @@
+// Modo discreto: con los montos ocultos, toda cifra formateada se muestra como "$•••" (contexto.tsx lo activa)
+let montosOcultos = false;
+export const ocultarMontos = (si: boolean) => { montosOcultos = si; };
+export const montosEstanOcultos = () => montosOcultos;
+
 export const fmt = (n: number | null | undefined, decimales = true) =>
-  Number(n ?? 0).toLocaleString("es-MX", {
+  montosOcultos ? "$•••" : Number(n ?? 0).toLocaleString("es-MX", {
     style: "currency", currency: "MXN",
     minimumFractionDigits: decimales ? 2 : 0, maximumFractionDigits: decimales ? 2 : 0,
   });

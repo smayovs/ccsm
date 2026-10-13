@@ -1,10 +1,19 @@
 // Apariencia elegida por el usuario: paleta (color de acento), modo claro/oscuro, tipografía y tamaño de letra.
-export type Apariencia = { paleta: string; acento?: string; modo: "auto" | "claro" | "oscuro"; fuente: string; tamano: "chico" | "normal" | "grande" | "enorme" };
+export type Apariencia = { paleta: string; acento?: string; modo: "auto" | "claro" | "oscuro"; fuente: string; tamano: "chico" | "normal" | "grande" | "enorme"; discreto?: boolean };
 
 export const APARIENCIA_INICIAL: Apariencia = { paleta: "ccsm", modo: "auto", fuente: "clasica", tamano: "normal" };
 
-export const PALETAS: { id: string; nombre: string; acento: string }[] = [
-  { id: "ccsm", nombre: "ccsm", acento: "#8F4E8E" },
+// Paletas de dos colores (como la de la marca): "acento" para botones principales, "segundo" para lo elegido
+// y "heroe" para el tono de la tarjeta del resumen. Las de un solo color generan todo a partir del acento.
+export type Paleta = { id: string; nombre: string; acento: string; segundo?: string; heroe?: string };
+export const PALETAS: Paleta[] = [
+  { id: "ccsm", nombre: "ccsm", acento: "#E3B7E0", segundo: "#C2C7D0", heroe: "#101217" },
+  { id: "medianoche", nombre: "Medianoche", acento: "#A9C1F2", segundo: "#C9CED8", heroe: "#141D36" },
+  { id: "lila-menta", nombre: "Lila y menta", acento: "#C9B8F2", segundo: "#B3E2D2", heroe: "#18152B" },
+  { id: "durazno", nombre: "Durazno", acento: "#F6C1A6", segundo: "#E2D6C8", heroe: "#211915" },
+  { id: "salvia", nombre: "Salvia", acento: "#B9D6B2", segundo: "#D9D5C7", heroe: "#132019" },
+  { id: "coral", nombre: "Coral", acento: "#F4A79D", segundo: "#F1DCA7", heroe: "#241618" },
+  { id: "lima", nombre: "Lima", acento: "#B5EE7A", segundo: "#C2C7D0", heroe: "#121512" },
   { id: "azul", nombre: "Azul marino", acento: "#2357C6" },
   { id: "turquesa", nombre: "Turquesa", acento: "#0E7C86" },
   { id: "esmeralda", nombre: "Esmeralda", acento: "#1F7A4D" },
@@ -70,13 +79,38 @@ function cssTema(acentoBase: string) {
     secundario: mix(acentoBase, oscFondo, 0.25), "sobre-secundario": acentoOsc,
     heroe: mix(acentoBase, "#0B0E14", 0.35), "heroe-2": mix(acentoBase, "#0B0E14", 0.55), "heroe-tinta-2": mix(acentoBase, "#E8ECF3", 0.25),
   });
-  return { css: `:root {\n${claro}\n}\n@media (prefers-color-scheme: dark) {\n:root:not([data-modo="claro"]) {\n${oscuro}\n}\n}\n:root[data-modo="oscuro"] {\n${oscuro}\n}\n`, barra: mix(acentoBase, "#0B0E14", 0.3) };
+  return envolver(claro + `\n  --acento-anillo: ${mix(acentoBase, "#FFFFFF", 0.45)};`, oscuro + `\n  --acento-anillo: ${mix(acentoBase, "#FFFFFF", 0.45)};`, mix(acentoBase, "#0B0E14", 0.3));
 }
 
 // "marino" era la paleta inicial antes de la marca ccsm y cada dispositivo la guardaba sola al abrir:
 // si no hay color propio, se toma como la inicial de ahora. El azul sigue disponible como "azul".
 export function normalizar(a: Apariencia): Apariencia {
   return a.paleta === "marino" && !esHex(a.acento) ? { ...a, paleta: APARIENCIA_INICIAL.paleta } : a;
+}
+
+function envolver(claro: string, oscuro: string, barra: string) {
+  return { css: `:root {\n${claro}\n}\n@media (prefers-color-scheme: dark) {\n:root:not([data-modo="claro"]) {\n${oscuro}\n}\n}\n:root[data-modo="oscuro"] {\n${oscuro}\n}\n`, barra };
+}
+
+// Paleta de dos colores: los dos son claros, así que llevan texto oscuro encima en ambos modos
+function cssDuo(p: Paleta) {
+  const a = p.acento, b = p.segundo!, h = p.heroe ?? "#101217";
+  const vars = (v: Record<string, string>) => Object.entries(v).map(([k, x]) => `  --${k}: ${x};`).join("\n");
+  const oscFondo = mix(h, "#0B0C0F", 0.35), oscSuperficie = mix(h, "#16181D", 0.35);
+  const comunes = { "acento-fondo": a, seleccion: b, "acento-anillo": a, "heroe-tinta": "#EEF0F4", "heroe-tinta-2": mix(a, "#B4BAC5", 0.25) };
+  const claro = vars({ ...comunes,
+    fondo: mix(a, "#F4F4F7", 0.05), linea: mix(a, "#E1E3EA", 0.08),
+    ciruela: legible(a, "#FFFFFF", "#000000"), "ciruela-suave": mix(a, "#FFFFFF", 0.22),
+    "sobre-acento": "#101217", "sobre-seleccion": "#101217", secundario: mix(b, "#FFFFFF", 0.35), "sobre-secundario": "#101217",
+    heroe: h, "heroe-2": mix(h, "#FFFFFF", 0.9),
+  });
+  const oscuro = vars({ ...comunes,
+    fondo: oscFondo, superficie: oscSuperficie, linea: mix(h, "#262A33", 0.4),
+    ciruela: a, "ciruela-suave": mix(a, oscFondo, 0.16),
+    "sobre-acento": oscFondo, "sobre-seleccion": oscFondo, secundario: mix(b, oscSuperficie, 0.12), "sobre-secundario": "#EEF0F4",
+    heroe: mix(h, "#FFFFFF", 0.93), "heroe-2": mix(h, "#FFFFFF", 0.86),
+  });
+  return envolver(claro, oscuro, h);
 }
 
 const CLAVE = "ccsm-apariencia";
@@ -102,7 +136,8 @@ export function aplicarApariencia(elegida: Apariencia) {
   let estilo = document.getElementById("tema-usuario") as HTMLStyleElement | null;
   if (!estilo) { estilo = document.createElement("style"); estilo.id = "tema-usuario"; document.head.appendChild(estilo); }
   const esDefault = a.paleta === "ccsm" && !esHex(a.acento);
-  const t = esDefault ? { css: "", barra: "#101217" } : cssTema(colorAcento(a));
+  const duo = !esHex(a.acento) ? PALETAS.find((p) => p.id === a.paleta && p.segundo) : undefined;
+  const t = esDefault ? { css: "", barra: "#101217" } : duo ? cssDuo(duo) : cssTema(colorAcento(a));
   const f = FUENTES.find((x) => x.id === a.fuente) ?? FUENTES[0];
   cargarFuente(f.id);
   estilo.textContent = t.css + `:root { --display: ${f.display}; --texto: ${f.texto}; }\n`;

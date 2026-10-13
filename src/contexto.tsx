@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { sb } from "./supabase";
-import { APARIENCIA_INICIAL, aplicarApariencia } from "./tema";
+import { APARIENCIA_INICIAL, aparienciaGuardada, aplicarApariencia } from "./tema";
+import { ocultarMontos } from "./util";
 import { borrarCache, guardarCache, leerCache } from "./cache";
 import { cargarPreferencias, olvidarPreferencias } from "./preferencias";
 
@@ -33,6 +34,8 @@ type Ctx = {
   fallo: boolean;           // la última carga de catálogos falló (sin conexión)
   recargar: () => Promise<void>;
   aviso: (t: string) => void;
+  oculto: boolean;          // modo discreto: montos ocultos ahora mismo
+  setOculto: (si: boolean) => void;
 };
 
 const C = createContext<Ctx>(null as unknown as Ctx);
@@ -48,6 +51,9 @@ export function Proveedor({ children }: { children: ReactNode }) {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [familiares, setFamiliares] = useState<Familiar[]>([]);
   const [listo, setListo] = useState(false);
+  // Con el modo discreto en Apariencia, la app abre con los montos ocultos; el ojo de Inicio los muestra un rato
+  const [oculto, setOculto] = useState(() => !!aparienciaGuardada().discreto);
+  ocultarMontos(oculto);
   const [fallo, setFallo] = useState(false);
   const [toast, setToast] = useState<{ id: number; texto: string; saliendo: boolean } | null>(null);
   const ultimoAviso = useRef(0);
@@ -85,7 +91,7 @@ export function Proveedor({ children }: { children: ReactNode }) {
     // (la misma consulta trae las secciones de Inicio: preferencias.ts la comparte)
     cargarPreferencias(uid).then((p) => {
       const ap = p?.apariencia;
-      if (ap && Object.keys(ap).length) aplicarApariencia({ ...APARIENCIA_INICIAL, ...ap });
+      if (ap && Object.keys(ap).length) { aplicarApariencia({ ...APARIENCIA_INICIAL, ...ap }); setOculto(!!ap.discreto); }
     });
     const r = await Promise.all([
       sb.from("miembros").select("*"),
@@ -120,7 +126,7 @@ export function Proveedor({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <C.Provider value={{ session, recuperando, terminarRecuperacion: () => setRecuperando(false), uid, yo, otros, cuentas, categorias, familiares, listo: inicio && listo, fallo, recargar, aviso }}>
+    <C.Provider value={{ session, recuperando, terminarRecuperacion: () => setRecuperando(false), uid, yo, otros, cuentas, categorias, familiares, listo: inicio && listo, fallo, recargar, aviso, oculto, setOculto }}>
       {children}
       {/* La zona que VoiceOver escucha siempre existe; el aviso se monta dentro para que entre con animación */}
       <div role="status" aria-live="polite">

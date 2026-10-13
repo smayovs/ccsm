@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, CalendarDots, CaretRight, CreditCard, HandCoins, Handshake, Repeat, SquaresFour, Tray } from "../phosphor";
+import { ArrowDownRight, ArrowUpRight, CalendarDots, CaretRight, CreditCard, Eye, EyeSlash, HandCoins, Handshake, Repeat, SquaresFour, Tray } from "../phosphor";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { cobroEnMes, diasEntre, fechaCorta, fmt, hoyISO, masDias, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
@@ -9,7 +9,7 @@ import { Anillo, BarrasDobles, BarrasFlujo, BarrasMes, RitmoGasto } from "../gra
 import { agruparCategorias, DesgloseCategorias } from "../desglose";
 import { cargarMsi, CompraMsi, proyeccionMsi } from "../msi";
 import { cargarCobros, Persona } from "../cobros";
-import { cargarConfig, cargarMeta, ConfigInicio, type Meta, configInicial, Filtros, Gasto, IdSeccion, leerFiltros, pasaFiltro, rango, recordarFiltros, SECCIONES } from "../inicio/secciones";
+import { cargarCiclo, cargarConfig, cargarMeta, ConfigInicio, filtrosElegidos, fijarCatorcena, type Meta, configInicial, Filtros, Gasto, IdSeccion, leerFiltros, pasaFiltro, rango, recordarFiltros, SECCIONES } from "../inicio/secciones";
 import { BarraFiltros, textoPeriodo } from "../inicio/Filtros";
 import { guardarCache, leerCache } from "../cache";
 
@@ -42,7 +42,7 @@ const tarjetaDesde = (id: string, d: any): Tarjeta => ({
 
 // onPendientes: el aviso de "Más" usa el mismo resumen del mes que Inicio, sin pedirlo otra vez
 export default function Inicio({ onPendientes }: { onPendientes?: (n: number) => void }) {
-  const { uid, yo, otros, cuentas, categorias, familiares } = useApp();
+  const { uid, yo, otros, cuentas, categorias, familiares, oculto, setOculto } = useApp();
   const mes = mesISO();
   const hoy = hoyISO();
   // Lo último que viste este mes se muestra al instante mientras se actualiza (cache.ts)
@@ -103,6 +103,11 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   useEffect(() => {
     cargarConfig(uid).then(setConfig);
     cargarMeta(uid).then(setMetaConfig);
+    // Con catorcena, Inicio abre en "Esta catorcena" (si no elegiste otro periodo en esta sesión)
+    cargarCiclo(uid).then((c) => {
+      fijarCatorcena(c.tipo === "catorcena" ? c.ref : null);
+      if (!filtrosElegidos()) setFiltrosEstado((f) => ({ ...f, periodo: c.tipo === "catorcena" ? "catorcena" : f.periodo === "catorcena" ? "mes" : f.periodo }));
+    });
     setActualizando(true);
     // El detalle de compras a meses se pide una vez y lo comparten Cobros y Mensualidades
     const detalleMsi = Promise.resolve(sb.rpc("msi_detalle"));
@@ -185,9 +190,12 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const ingresado = ingFiltrados.filter((x) => x.fecha >= r.desde && x.fecha < r.hasta).reduce((a, x) => a + x.monto, 0);
   const conCategoria = !!filtros.categoria;
   const periodo = textoPeriodo(filtros);
-  const esMesActual = filtros.periodo === "mes";
-  const totalDias = new Date(Number(r.desde.slice(0, 4)), Number(r.desde.slice(5, 7)), 0).getDate();
-  const diaHoy = esMesActual ? Number(hoy.slice(8, 10)) : totalDias;
+  // Periodo en curso: este mes o esta catorcena (la meta, la proyección y "por día" se calculan sobre él)
+  const esCatorcena = filtros.periodo === "catorcena" || filtros.periodo === "catorcena_pasada";
+  const esMesActual = filtros.periodo === "mes" || filtros.periodo === "catorcena";
+  const elPeriodo = esCatorcena ? "la catorcena" : "el mes";
+  const totalDias = esCatorcena ? 14 : new Date(Number(r.desde.slice(0, 4)), Number(r.desde.slice(5, 7)), 0).getDate();
+  const diaHoy = esMesActual ? diasEntre(r.desde, hoy) + 1 : totalDias;
   const proyCierre = esMesActual && diaHoy >= 3 ? (gastado / diaHoy) * totalDias : null;
   const diario: Record<number, number> = {};
   if (r.unMes) for (const g of actuales) diario[Number(g.fecha.slice(8, 10))] = (diario[Number(g.fecha.slice(8, 10))] ?? 0) + g.monto;
@@ -316,12 +324,12 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
             </Link>
             {conMeta ? (
               quedaMeta >= 0
-                ? <div className="sub">{porIngresos ? <>De tus ingresos del mes ({fmt(meta, false)})</> : <>De tu meta de {fmt(meta, false)}</>} te quedan <b>{fmt(quedaMeta, false)}</b> por gastar, unos <b>{fmt(quedaMeta / diasRestantes, false)}</b> por día.</div>
-                : <div className="sub">Gastaste <b>{fmt(-quedaMeta, false)}</b> más {porIngresos ? <>de lo que entró este mes ({fmt(meta, false)})</> : <>de tu meta de {fmt(meta, false)}</>}.</div>
+                ? <div className="sub">{porIngresos ? <>De tus ingresos de {elPeriodo} ({fmt(meta, false)})</> : <>De tu meta de {fmt(meta, false)}</>} te quedan <b>{fmt(quedaMeta, false)}</b> por gastar, unos <b>{fmt(quedaMeta / diasRestantes, false)}</b> por día.</div>
+                : <div className="sub">Gastaste <b>{fmt(-quedaMeta, false)}</b> más {porIngresos ? <>de lo que entró en {elPeriodo} ({fmt(meta, false)})</> : <>de tu meta de {fmt(meta, false)}</>}.</div>
             ) : <>
-              {proyCierre !== null && <div className="sub">A este ritmo cerrarías el mes en <b>{fmt(proyCierre, false)}</b>.</div>}
+              {proyCierre !== null && <div className="sub">A este ritmo cerrarías {elPeriodo} en <b>{fmt(proyCierre, false)}</b>.</div>}
               {proyCierre === null && gastadoAnt > 0 && <div className="sub">Periodo anterior: <b>{fmt(gastadoAnt, false)}</b> ({gastado >= gastadoAnt ? "+" : "−"}{Math.round(Math.abs(gastado / gastadoAnt - 1) * 100)}%)</div>}
-              {porIngresos && metaAplica && <div className="sub">Aún no hay ingresos registrados este mes para calcular cuánto te queda.</div>}
+              {porIngresos && metaAplica && <div className="sub">Aún no hay ingresos registrados en {elPeriodo} para calcular cuánto te queda.</div>}
               {metaConfig?.modo === "ninguna" && esMesActual && <Link to="/inicio/personalizar" className="tablero-meta">Ponerte un límite de gasto</Link>}
             </>}
           </div>
@@ -660,7 +668,12 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           <h1>{cap(nombreMes(mes).replace(" de ", " "))}</h1>
           <div className="actualizado" aria-live="polite">{actualizando ? "Actualizando…" : actualizado ? haceCuanto(actualizado) : ""}</div>
         </div>
-        <Link to="/inicio/personalizar" className="boton-icono" aria-label="Personalizar inicio"><SquaresFour size={22} /></Link>
+        <div className="flex gap-8">
+          <button className="boton-icono" onClick={() => setOculto(!oculto)} aria-label={oculto ? "Mostrar montos" : "Ocultar montos"} aria-pressed={oculto}>
+            {oculto ? <EyeSlash size={22} /> : <Eye size={22} />}
+          </button>
+          <Link to="/inicio/personalizar" className="boton-icono" aria-label="Personalizar inicio"><SquaresFour size={22} /></Link>
+        </div>
       </header>
       {(fallo || falloG) && (
         <div className="aviso rojo" role="alert">

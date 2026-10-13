@@ -10,3 +10,14 @@ describe("normalizar", () => {
     expect(normalizar({ ...APARIENCIA_INICIAL, paleta: "azul" }).paleta).toBe("azul");
   });
 });
+
+describe("paletas de dos colores", () => {
+  it("el texto oscuro se lee sobre sus dos colores", async () => {
+    const { PALETAS, contraste } = await import("./tema");
+    for (const p of PALETAS.filter((x) => x.segundo)) {
+      expect(contraste(p.acento, "#101217"), p.id).toBeGreaterThanOrEqual(4.5);
+      expect(contraste(p.segundo!, "#101217"), p.id).toBeGreaterThanOrEqual(4.5);
+      expect(contraste(p.heroe!, "#EEF0F4"), p.id).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+});

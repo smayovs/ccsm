@@ -3,10 +3,14 @@ import { SlidersHorizontal } from "../phosphor";
 import { useApp } from "../contexto";
 import { Segmentos } from "../ui";
 import { fechaCorta, masDias } from "../util";
-import { Filtros, filtrosIniciales, NOMBRE_PERIODO, Periodo, rango } from "./secciones";
+import { Filtros, filtrosIniciales, NOMBRE_PERIODO, Periodo, rango, catorcenaActiva } from "./secciones";
 
 
 export function textoPeriodo(f: Filtros) {
+  if (f.periodo === "catorcena" || f.periodo === "catorcena_pasada") {
+    const r = rango(f);
+    return `${NOMBRE_PERIODO[f.periodo]} · ${fechaCorta(r.desde)} – ${fechaCorta(masDias(r.hasta, -1))}`;
+  }
   if (f.periodo !== "rango") return NOMBRE_PERIODO[f.periodo];
   const r = rango(f);
   return `${fechaCorta(r.desde)} – ${fechaCorta(masDias(r.hasta, -1))}`;
@@ -38,6 +42,7 @@ export function BarraFiltros({ f, onCambio }: { f: Filtros; onCambio: (f: Filtro
         <div className="filtros-panel">
           <div className="sub">Periodo</div>
           <Segmentos etiqueta="Periodo" valor={f.periodo} onCambio={(v: Periodo) => onCambio({ ...f, periodo: v })} opciones={[
+            ...(catorcenaActiva() ? [{ v: "catorcena" as const, t: "Esta catorcena" }, { v: "catorcena_pasada" as const, t: "Catorcena pasada" }] : []),
             { v: "mes", t: "Este mes" }, { v: "mes_pasado", t: "Mes pasado" }, { v: "3m", t: "3 meses" },
             { v: "6m", t: "6 meses" }, { v: "anio", t: "Este año" }, { v: "rango", t: "Fechas" },
           ]} />

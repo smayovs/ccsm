@@ -5,11 +5,11 @@ import { useApp } from "../contexto";
 import { olvidarPreferencias } from "../preferencias";
 import { Cabeza, Segmentos } from "../ui";
 import { errorTexto, fmt } from "../util";
-import { Apariencia, APARIENCIA_INICIAL, aparienciaGuardada, aplicarApariencia, colorAcento, esHex, FUENTES, PALETAS, TAMANOS } from "../tema";
+import { Apariencia, APARIENCIA_INICIAL, type Paleta, aparienciaGuardada, aplicarApariencia, colorAcento, esHex, FUENTES, PALETAS, TAMANOS } from "../tema";
 
 // Colores, modo, tipografía y tamaño de letra. Se aplica al instante y se guarda en tu cuenta.
 export default function AparienciaPantalla() {
-  const { uid, aviso } = useApp();
+  const { uid, aviso, setOculto } = useApp();
   const [a, setA] = useState<Apariencia>(aparienciaGuardada());
   const [error, setError] = useState("");
 
@@ -22,6 +22,18 @@ export default function AparienciaPantalla() {
     if (error) setError(errorTexto(error));
   }
   const propio = esHex(a.acento);
+  // Las de dos colores muestran ambos en diagonal y llevan la palomita oscura (sus colores son claros)
+  const muestra = (p: Paleta) => {
+    const activa = !propio && a.paleta === p.id;
+    return (
+      <button key={p.id} type="button" role="radio" aria-checked={activa} className="paleta" onClick={() => cambiar({ paleta: p.id, acento: undefined })}>
+        <span className="muestra-color" style={{ background: p.segundo ? `linear-gradient(135deg, ${p.acento} 50%, ${p.segundo} 50%)` : p.acento }}>
+          {activa && <Check size={18} color={p.segundo ? "#101217" : "#fff"} />}
+        </span>
+        <span>{p.nombre}</span>
+      </button>
+    );
+  };
 
   return (
     <>
@@ -45,17 +57,11 @@ export default function AparienciaPantalla() {
       </div>
 
       <h2>Color</h2>
-      <div className="paletas" role="radiogroup" aria-label="Paleta de color">
-        {PALETAS.map((p) => {
-          const activa = !propio && a.paleta === p.id;
-          return (
-            <button key={p.id} type="button" role="radio" aria-checked={activa} className="paleta" onClick={() => cambiar({ paleta: p.id, acento: undefined })}>
-              {/* La de la marca muestra sus dos colores: rosa y gris */}
-              <span className="muestra-color" style={{ background: p.id === "ccsm" ? "linear-gradient(135deg, var(--rosa) 50%, var(--gris) 50%)" : p.acento }}>{activa && <Check size={18} color={p.id === "ccsm" ? "#101217" : "#fff"} />}</span>
-              <span>{p.nombre}</span>
-            </button>
-          );
-        })}
+      <div className="paletas-titulo">Dos colores</div>
+      <div className="paletas" role="radiogroup" aria-label="Paletas de dos colores">{PALETAS.filter((p) => p.segundo).map(muestra)}</div>
+      <div className="paletas-titulo">Un color</div>
+      <div className="paletas" role="radiogroup" aria-label="Paletas de un color">
+        {PALETAS.filter((p) => !p.segundo).map(muestra)}
         <label className="paleta" aria-checked={propio}>
           <span className="muestra-color propio" style={propio ? { background: a.acento } : undefined}>
             {propio && <Check size={18} color="#fff" />}
@@ -64,7 +70,15 @@ export default function AparienciaPantalla() {
           <span>Tu color</span>
         </label>
       </div>
-      <p className="nota">Cambia el color de botones, enlaces, gráficas y la tarjeta principal. Los colores de ingresos (verde) y de alertas (rojo) se quedan igual para que siempre se distingan. Si eliges un color muy claro, la app lo oscurece un poco para que se lea bien.</p>
+      <p className="nota">Las de dos colores usan uno para los botones principales y otro para lo que eliges, como la de la marca. Cambian también enlaces, gráficas y la tarjeta principal. Los colores de ingresos (verde) y de alertas (rojo) se quedan igual para que siempre se distingan. Si eliges un color muy claro, la app lo oscurece un poco para que se lea bien.</p>
+
+      <h2>Privacidad</h2>
+      <div className="lista">
+        <label className="fila">
+          <div className="cuerpo"><div className="titulo">Modo discreto</div><div className="detalle">La app abre con los montos ocultos. Toca el ojo en Inicio para verlos.</div></div>
+          <span className="interruptor"><input type="checkbox" checked={!!a.discreto} onChange={(e) => { cambiar({ discreto: e.target.checked }); setOculto(e.target.checked); }} /><span /></span>
+        </label>
+      </div>
 
       <h2>Modo</h2>
       <Segmentos etiqueta="Modo" valor={a.modo} onCambio={(v) => cambiar({ modo: v })} opciones={[

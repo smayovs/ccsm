@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { fmt } from "./util";
+import { fmt, montosEstanOcultos } from "./util";
 
-const compacto = (n: number) =>
+const compacto = (n: number) => montosEstanOcultos() ? "•••" :
   Math.abs(n) >= 1000 ? `$${(n / 1000).toLocaleString("es-MX", { maximumFractionDigits: n >= 10000 ? 0 : 1 })}k` : `$${Math.round(n)}`;
 
 // Anillo de presupuesto: cuánto llevas gastado y una marca de cuánto del mes ha pasado
