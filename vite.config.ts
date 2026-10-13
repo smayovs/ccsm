@@ -29,7 +29,15 @@ export default defineConfig({
           { src: "icono-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
         ]
       },
-      workbox: { cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true, navigateFallback: "/ccsm/index.html", globPatterns: ["**/*.{js,css,html,svg,png,woff2}"] }
+      workbox: {
+        cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true, navigateFallback: "/ccsm/index.html", globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Las otras fuentes de Apariencia vienen de Google: se guardan la primera vez para que funcionen sin conexión
+        runtimeCaching: [
+          { urlPattern: /^https:\/\/fonts\.googleapis\.com\//, handler: "StaleWhileRevalidate", options: { cacheName: "fuentes-css" } },
+          { urlPattern: /^https:\/\/fonts\.gstatic\.com\//, handler: "CacheFirst",
+            options: { cacheName: "fuentes-archivos", expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 }, cacheableResponse: { statuses: [0, 200] } } },
+        ],
+      }
     })
   ]
 });

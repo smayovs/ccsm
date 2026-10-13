@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import type { Session } from "@supabase/supabase-js";
 import { sb } from "./supabase";
 import { APARIENCIA_INICIAL, aplicarApariencia } from "./tema";
+import { borrarCache, guardarCache, leerCache } from "./cache";
 
 export type Cuenta = {
   id: string; nombre: string; tipo: string; propietario_id: string | null; saldo_inicial: number;
@@ -14,6 +15,8 @@ export type Categoria = {
 };
 export type Familiar = { id: string; nombre: string; activo: boolean };
 export type Miembro = { user_id: string; nombre: string; rol: string; hogar_id: string; color: string | null };
+
+type Catalogos = { miembros: Miembro[]; cuentas: Cuenta[]; categorias: Categoria[]; familiares: Familiar[] };
 
 type Ctx = {
   session: Session | null;
@@ -55,6 +58,8 @@ export function Proveedor({ children }: { children: ReactNode }) {
     if (/type=recovery/.test(location.hash)) setRecuperando(true);
     sb.auth.getSession().then(({ data }) => { setSession(data.session); setInicio(true); limpiarUrl(); });
     const { data } = sb.auth.onAuthStateChange((e, s) => {
+      // Al cerrar sesión no quedan tus datos guardados en el dispositivo
+      if (e === "SIGNED_OUT") borrarCache();
       setSession(s);
       if (e === "PASSWORD_RECOVERY") setRecuperando(true);
       limpiarUrl();
@@ -63,6 +68,14 @@ export function Proveedor({ children }: { children: ReactNode }) {
   }, []);
 
   const uid = session?.user.id ?? "";
+
+  const aplicar = useCallback((x: Catalogos) => {
+    setYo(x.miembros.find((m) => m.user_id === uid) ?? null);
+    setOtros(x.miembros.filter((m) => m.user_id !== uid));
+    setCuentas(x.cuentas.filter((c) => c.propietario_id === uid || c.propietario_id === null));
+    setCategorias(x.categorias);
+    setFamiliares(x.familiares);
+  }, [uid]);
 
   const recargar = useCallback(async () => {
     if (!uid) { setListo(true); return; }
@@ -81,16 +94,19 @@ export function Proveedor({ children }: { children: ReactNode }) {
     if (!r || r.some((x) => x.error)) { setFallo(true); setListo(true); return; }
     setFallo(false);
     const [m, c, cat, f] = r;
-    const miembros = (m.data ?? []) as Miembro[];
-    setYo(miembros.find((x) => x.user_id === uid) ?? null);
-    setOtros(miembros.filter((x) => x.user_id !== uid));
-    setCuentas(((c.data ?? []) as Cuenta[]).filter((x) => x.propietario_id === uid || x.propietario_id === null));
-    setCategorias((cat.data ?? []) as Categoria[]);
-    setFamiliares((f.data ?? []) as Familiar[]);
+    const x: Catalogos = { miembros: (m.data ?? []) as Miembro[], cuentas: (c.data ?? []) as Cuenta[], categorias: (cat.data ?? []) as Categoria[], familiares: (f.data ?? []) as Familiar[] };
+    aplicar(x);
+    guardarCache(uid, "catalogos", x);
     setListo(true);
-  }, [uid]);
+  }, [uid, aplicar]);
 
-  useEffect(() => { if (inicio) { setListo(false); recargar(); } }, [inicio, uid, recargar]);
+  useEffect(() => {
+    if (!inicio) return;
+    // Lo último que viste se muestra al instante y se actualiza por detrás
+    const guardado = leerCache<Catalogos>(uid, "catalogos");
+    if (guardado) { aplicar(guardado); setListo(true); } else setListo(false);
+    recargar();
+  }, [inicio, uid, recargar, aplicar]);
 
   const aviso = useCallback((t: string) => {
     setToast(t);

@@ -91,13 +91,19 @@ export default function Movimientos() {
   }, [desde, hasta, enCorte, finCorte]);
 
   useEffect(() => {
+    // Si cambias de periodo antes de que llegue la respuesta, la vieja se descarta: no pisa al periodo que ves
+    let vigente = true;
     setCargando(true);
     sb.from("movimientos").select(SELECT_MOV).gte("fecha", desde).lt("fecha", hasta)
       .order("fecha", { ascending: false }).order("created_at", { ascending: false }).limit(3000)
-      .then(({ data, error }) => { setMovs(data ?? []); setFallo(error ? "No se pudieron cargar los movimientos. Revisa tu conexión e intenta de nuevo." : ""); setCargando(false); });
+      .then(({ data, error }) => {
+        if (!vigente) return;
+        setMovs(data ?? []); setFallo(error ? "No se pudieron cargar los movimientos. Revisa tu conexión e intenta de nuevo." : ""); setCargando(false);
+      });
     // Compras a meses de antes del periodo cuya mensualidad cae dentro
     sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").not("meses_msi", "is", null).lt("fecha", desde).gte("fecha", sumarMes(mesISO(desde), -48))
-      .then(({ data }) => setMsiPrevias(data ?? []));
+      .then(({ data }) => { if (vigente) setMsiPrevias(data ?? []); });
+    return () => { vigente = false; };
   }, [desde, hasta]);
   useEffect(() => {
     sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id, palabra_clave, categoria_id").eq("activa", true)

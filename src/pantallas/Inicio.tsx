@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDownRight, ArrowUpRight, CalendarClock, CreditCard, HandCoins, Repeat, Settings2 } from "lucide-react";
 import { sb } from "../supabase";
@@ -11,12 +11,15 @@ import { cargarMsi, CompraMsi, proyeccionMsi } from "../msi";
 import { cargarCobros, Persona } from "../cobros";
 import { cargarConfig, ConfigInicio, configInicial, Filtros, Gasto, IdSeccion, leerFiltros, pasaFiltro, rango, recordarFiltros } from "../inicio/secciones";
 import { BarraFiltros, textoPeriodo } from "../inicio/Filtros";
+import { guardarCache, leerCache } from "../cache";
 
 type Saldo = { id: string; nombre: string; tipo: string; mia: boolean; conjunta: boolean; propietario_nombre: string | null;
   saldo: number; limite_credito: number | null; proximo_pago: string | null; dia_pago: number | null; msi_por_facturar: number; activa: boolean };
 type Tarjeta = { id: string; falta: number; fecha_pago: string | null; pagado_mes: number; estimado: boolean };
 type Sub = { id: string; servicio: string; monto: number; frecuencia_meses: number; fecha_referencia: string | null; cuenta_id: string | null };
 type Ingreso = { fecha: string; monto: number; cuenta_id: string };
+type Tablero = { saldos: Saldo[]; porRevisar: number; abonosPrestamo: Record<string, number>; tarjetas: Record<string, Tarjeta>;
+  balance: { nombre: string; me_debe: number }[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona> };
 
 const n = (x: unknown) => Number(x ?? 0);
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
@@ -26,16 +29,21 @@ export default function Inicio() {
   const { uid, yo, otros, cuentas, categorias, familiares } = useApp();
   const mes = mesISO();
   const hoy = hoyISO();
+  // Lo último que viste este mes se muestra al instante mientras se actualiza (cache.ts)
+  const claveTablero = `inicio-${mes}`;
+  const [guardado] = useState(() => leerCache<Tablero>(uid, claveTablero));
+  const tablero = useRef<Partial<Tablero>>(guardado ?? {});
+  const recordar = (parte: Partial<Tablero>) => { tablero.current = { ...tablero.current, ...parte }; guardarCache(uid, claveTablero, tablero.current); };
   // ---------- Estado de hoy (no depende de filtros) ----------
-  const [saldos, setSaldos] = useState<Saldo[]>([]);
-  const [porRevisar, setPorRevisar] = useState(0);
-  const [abonosPrestamo, setAbonosPrestamo] = useState<Record<string, number>>({});
-  const [tarjetas, setTarjetas] = useState<Record<string, Tarjeta>>({});
-  const [balance, setBalance] = useState<{ nombre: string; me_debe: number }[]>([]);
-  const [subs, setSubs] = useState<Sub[]>([]);
-  const [msi, setMsi] = useState<CompraMsi[]>([]);
-  const [personas, setPersonas] = useState<Record<string, Persona>>({});
-  const [listo, setListo] = useState(false);
+  const [saldos, setSaldos] = useState<Saldo[]>(guardado?.saldos ?? []);
+  const [porRevisar, setPorRevisar] = useState(guardado?.porRevisar ?? 0);
+  const [abonosPrestamo, setAbonosPrestamo] = useState<Record<string, number>>(guardado?.abonosPrestamo ?? {});
+  const [tarjetas, setTarjetas] = useState<Record<string, Tarjeta>>(guardado?.tarjetas ?? {});
+  const [balance, setBalance] = useState<{ nombre: string; me_debe: number }[]>(guardado?.balance ?? []);
+  const [subs, setSubs] = useState<Sub[]>(guardado?.subs ?? []);
+  const [msi, setMsi] = useState<CompraMsi[]>(guardado?.msi ?? []);
+  const [personas, setPersonas] = useState<Record<string, Persona>>(guardado?.personas ?? {});
+  const [listo, setListo] = useState(!!guardado?.saldos);
   // Si falla la conexión se avisa en lugar de mostrar ceros; "intento" vuelve a cargar todo
   const [fallo, setFallo] = useState(false);
   const [falloG, setFalloG] = useState(false);
@@ -58,28 +66,37 @@ export default function Inicio() {
 
   useEffect(() => {
     cargarConfig().then(setConfig);
+    // Cobros (5 consultas) va aparte: el resto de Inicio no lo espera
+    cargarCobros().then((co) => { setPersonas(co.personas); recordar({ personas: co.personas }); }, () => {});
     Promise.all([
       sb.rpc("saldos_cuentas"), sb.rpc("resumen_mes", { p_mes: mes }), sb.rpc("balance_hogar"),
       sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id").eq("activa", true),
       cargarMsi(),
       sb.from("movimientos").select("cuenta_destino_id, monto, cuenta_destino:cuentas!movimientos_cuenta_destino_id_fkey(tipo)")
         .in("tipo", ["transferencia", "liquidacion"]).gte("fecha", mes).not("cuenta_destino_id", "is", null),
-      cargarCobros().catch(() => ({ personas: {} as Record<string, Persona> })),
-    ]).then(async ([s, rm, b, su, md, ab, co]) => {
-      setFallo(!!(s.error || rm.error || b.error || su.error || ab.error));
-      setMsi(md.filter((x) => x.estado === "Activa"));
+    ]).then(async ([s, rm, b, su, md, ab]) => {
+      const error = !!(s.error || rm.error || b.error || su.error || ab.error);
+      setFallo(error);
+      // Sin conexión se queda lo que ya se veía (lo guardado) en lugar de ceros
+      if (error) { setListo(true); return; }
+      const msiActivas = md.filter((x) => x.estado === "Activa");
+      setMsi(msiActivas);
       const abonos: Record<string, number> = {};
       for (const x of (ab.data ?? []) as any[]) if (x.cuenta_destino?.tipo === "prestamo") abonos[x.cuenta_destino_id] = (abonos[x.cuenta_destino_id] ?? 0) + n(x.monto);
       setAbonosPrestamo(abonos);
       const lista = (s.data ?? []) as Saldo[];
       setSaldos(lista);
-      setPorRevisar(n(((rm.data ?? [])[0] as any)?.por_revisar));
-      setBalance((b.data ?? []) as { nombre: string; me_debe: number }[]);
-      setSubs(((su.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) })));
-      setPersonas(co.personas);
+      const revisar = n(((rm.data ?? [])[0] as any)?.por_revisar);
+      setPorRevisar(revisar);
+      const bal = (b.data ?? []) as { nombre: string; me_debe: number }[];
+      setBalance(bal);
+      const suscripciones = ((su.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) }));
+      setSubs(suscripciones);
       setListo(true);
+      recordar({ saldos: lista, porRevisar: revisar, abonosPrestamo: abonos, balance: bal, subs: suscripciones, msi: msiActivas });
       const mias = lista.filter((x) => (x.mia || x.conjunta) && x.activa && x.tipo === "credito");
       const dets = await Promise.all(mias.map((x) => sb.rpc("detalle_cuenta", { p_cuenta: x.id })));
+      if (dets.some((d) => d.error)) return; // se quedan las tarjetas que ya se veían
       const t: Record<string, Tarjeta> = {};
       dets.forEach((d, i) => {
         const v = d.data as any;
@@ -88,21 +105,32 @@ export default function Inicio() {
           pagado_mes: n(v.mes_entradas) + n(v.mes_ingresos), estimado: v.ultimo_corte ? !v.corte_conocido && !v.pago_manual : false };
       });
       setTarjetas(t);
+      recordar({ tarjetas: t });
     }).catch(() => { setFallo(true); setListo(true); });
   }, [mes, intento]);
 
   useEffect(() => {
-    setCargandoG(true);
+    // Si cambias los filtros antes de que llegue la respuesta, la vieja se descarta
+    let vigente = true;
+    const clave = `gastos-${desdeFetch}-${r.hasta}`;
+    const previo = leerCache<{ gastos: Gasto[]; ingresos: Ingreso[] }>(uid, clave);
+    if (previo) { setGastos(previo.gastos); setIngresos(previo.ingresos); setCargandoG(false); } else setCargandoG(true);
     Promise.all([
       sb.rpc("gastos_lista", { p_desde: desdeFetch, p_hasta: r.hasta }),
       sb.from("movimientos").select("fecha, monto, cuenta_id, cuenta:cuentas!movimientos_cuenta_id_fkey(propietario_id)")
         .eq("tipo", "ingreso").eq("creado_por", uid).gte("fecha", desdeFetch).lt("fecha", r.hasta),
     ]).then(([g, i]) => {
-      setFalloG(!!(g.error || i.error));
-      setGastos(((g.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) })));
-      setIngresos(((i.data ?? []) as any[]).filter((x) => x.cuenta?.propietario_id).map((x) => ({ fecha: x.fecha, monto: n(x.monto), cuenta_id: x.cuenta_id })));
+      if (!vigente) return;
+      const error = !!(g.error || i.error);
+      setFalloG(error);
       setCargandoG(false);
-    }).catch(() => { setFalloG(true); setCargandoG(false); });
+      if (error) return;
+      const gs = ((g.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) }));
+      const is = ((i.data ?? []) as any[]).filter((x) => x.cuenta?.propietario_id).map((x) => ({ fecha: x.fecha, monto: n(x.monto), cuenta_id: x.cuenta_id }));
+      setGastos(gs); setIngresos(is);
+      guardarCache(uid, clave, { gastos: gs, ingresos: is });
+    }).catch(() => { if (vigente) { setFalloG(true); setCargandoG(false); } });
+    return () => { vigente = false; };
   }, [desdeFetch, r.hasta, uid, intento]);
 
   // ---------- Cálculos con filtros ----------

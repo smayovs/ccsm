@@ -3,6 +3,14 @@ import { createRoot } from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 import { Proveedor } from "./contexto";
 import App from "./App";
+// Fuentes de la apariencia "Clásica" incluidas en la app (sin pedirlas a Google): la primera
+// pantalla no las espera y funcionan sin conexión. Solo caracteres latinos (incluye á, ñ, ¿).
+import "@fontsource/manrope/latin-600.css";
+import "@fontsource/manrope/latin-700.css";
+import "@fontsource/manrope/latin-800.css";
+import "@fontsource/figtree/latin-400.css";
+import "@fontsource/figtree/latin-500.css";
+import "@fontsource/figtree/latin-600.css";
 import "./estilos.css";
 import { aparienciaGuardada, aplicarApariencia } from "./tema";
 import { registerSW } from "virtual:pwa-register";
