@@ -18,12 +18,18 @@ type Saldo = { id: string; nombre: string; tipo: string; mia: boolean; conjunta:
 type Tarjeta = { id: string; falta: number; fecha_pago: string | null; pagado_mes: number; estimado: boolean };
 type Sub = { id: string; servicio: string; monto: number; frecuencia_meses: number; fecha_referencia: string | null; cuenta_id: string | null };
 type Ingreso = { fecha: string; monto: number; cuenta_id: string };
+type Balance = { nombre: string; me_debe: number };
 type Tablero = { saldos: Saldo[]; porRevisar: number; abonosPrestamo: Record<string, number>; tarjetas: Record<string, Tarjeta>;
-  balance: { nombre: string; me_debe: number }[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona> };
+  balance: Balance[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona> };
 
 const n = (x: unknown) => Number(x ?? 0);
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const mesCap = (m: string) => cap(nombreMes(m).split(" ")[0]);
+// Lo que Inicio muestra de una tarjeta a partir de su detalle_cuenta
+const tarjetaDesde = (id: string, d: any): Tarjeta => ({
+  id, falta: Math.max(0, n(d.pago_corte) - n(d.pagado_desde_corte)), fecha_pago: d.fecha_pago ?? null,
+  pagado_mes: n(d.mes_entradas) + n(d.mes_ingresos), estimado: d.ultimo_corte ? !d.corte_conocido && !d.pago_manual : false,
+});
 
 // onPendientes: el aviso de "Más" usa el mismo resumen del mes que Inicio, sin pedirlo otra vez
 export default function Inicio({ onPendientes }: { onPendientes?: (n: number) => void }) {
@@ -38,10 +44,11 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   // ---------- Estado de hoy (no depende de filtros) ----------
   const [saldos, setSaldos] = useState<Saldo[]>(guardado?.saldos ?? []);
   const [porRevisar, setPorRevisar] = useState(guardado?.porRevisar ?? 0);
-  useEffect(() => { if (guardado) onPendientes?.(guardado.porRevisar); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Solo al abrir: el aviso de "Más" muestra lo guardado mientras llega el resumen nuevo
+  useEffect(() => { if (guardado) onPendientes?.(guardado.porRevisar); }, []);
   const [abonosPrestamo, setAbonosPrestamo] = useState<Record<string, number>>(guardado?.abonosPrestamo ?? {});
   const [tarjetas, setTarjetas] = useState<Record<string, Tarjeta>>(guardado?.tarjetas ?? {});
-  const [balance, setBalance] = useState<{ nombre: string; me_debe: number }[]>(guardado?.balance ?? []);
+  const [balance, setBalance] = useState<Balance[]>(guardado?.balance ?? []);
   const [subs, setSubs] = useState<Sub[]>(guardado?.subs ?? []);
   const [msi, setMsi] = useState<CompraMsi[]>(guardado?.msi ?? []);
   const [personas, setPersonas] = useState<Record<string, Persona>>(guardado?.personas ?? {});
@@ -75,11 +82,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     // El detalle de todas tus tarjetas en una sola consulta, al mismo tiempo que lo demás
     sb.rpc("detalle_tarjetas").then(({ data, error }) => {
       if (error || !data) return; // se quedan las tarjetas que ya se veían
-      const t: Record<string, Tarjeta> = {};
-      for (const [id, v] of Object.entries(data as Record<string, any>)) {
-        t[id] = { id, falta: Math.max(0, n(v.pago_corte) - n(v.pagado_desde_corte)), fecha_pago: v.fecha_pago ?? null,
-          pagado_mes: n(v.mes_entradas) + n(v.mes_ingresos), estimado: v.ultimo_corte ? !v.corte_conocido && !v.pago_manual : false };
-      }
+      const t = Object.fromEntries(Object.entries(data as Record<string, unknown>).map(([id, d]) => [id, tarjetaDesde(id, d)]));
       setTarjetas(t);
       recordar({ tarjetas: t });
     }, () => {});
@@ -104,7 +107,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       const revisar = n(((rm.data ?? [])[0] as any)?.por_revisar);
       setPorRevisar(revisar);
       onPendientes?.(revisar);
-      const bal = (b.data ?? []) as { nombre: string; me_debe: number }[];
+      const bal = (b.data ?? []) as Balance[];
       setBalance(bal);
       const suscripciones = ((su.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) }));
       setSubs(suscripciones);

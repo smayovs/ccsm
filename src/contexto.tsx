@@ -96,9 +96,9 @@ export function Proveedor({ children }: { children: ReactNode }) {
     if (!r || r.some((x) => x.error)) { setFallo(true); setListo(true); return; }
     setFallo(false);
     const [m, c, cat, f] = r;
-    const x: Catalogos = { miembros: (m.data ?? []) as Miembro[], cuentas: (c.data ?? []) as Cuenta[], categorias: (cat.data ?? []) as Categoria[], familiares: (f.data ?? []) as Familiar[] };
-    aplicar(x);
-    guardarCache(uid, "catalogos", x);
+    const catalogos: Catalogos = { miembros: (m.data ?? []) as Miembro[], cuentas: (c.data ?? []) as Cuenta[], categorias: (cat.data ?? []) as Categoria[], familiares: (f.data ?? []) as Familiar[] };
+    aplicar(catalogos);
+    guardarCache(uid, "catalogos", catalogos);
     setListo(true);
   }, [uid, aplicar]);
 

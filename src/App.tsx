@@ -42,7 +42,7 @@ export default function App() {
     // Si abres en Inicio, Inicio ya pide el resumen del mes y avisa (onPendientes): no se pide dos veces
     if (loc.pathname === "/") return;
     sb.rpc("resumen_mes").then(({ data }) => setPendientes(data?.[0]?.por_revisar ?? 0));
-  }, [yo, uid]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [yo, uid]);
 
   if (!listo) return <div className="cargando">Cargando…</div>;
   if (!session) return <Acceso />;

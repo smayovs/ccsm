@@ -11,6 +11,14 @@ import { parteDePareja } from "../dinero";
 type Tipo = "gasto" | "ingreso" | "transferencia" | "reembolso";
 type Comp = "no" | "mitad" | "pct" | "monto" | "todo";
 
+// Cómo se guarda en "repartos" cada forma de compartir con tu pareja
+function modoReparto(comp: Exclude<Comp, "no">, valor: string) {
+  if (comp === "mitad") return { modo: "porcentaje", valor: 50 };
+  if (comp === "todo") return { modo: "porcentaje", valor: 100 };
+  if (comp === "pct") return { modo: "porcentaje", valor: Number(valor) };
+  return { modo: "monto", valor: Number(valor) };
+}
+
 export default function Formulario() {
   const { id } = useParams();
   const [qs] = useSearchParams();
@@ -101,8 +109,9 @@ export default function Formulario() {
   const faltaCalc = nEfectivo <= 0 ? montoNum : Math.round(mensualidadPrev * Math.max(0, Number(meses) - nEfectivo) * 100) / 100;
   // Los gastos de la cuenta conjunta ya son de los dos: no se comparten
   const esConjunta = !!cuentaSel && !cuentaSel.propietario_id;
-  // Lo que se comparte con tu pareja es lo que queda después de las partes de familiares (igual que la base de datos)
-  const { base, parte: parteOtro } = parteDePareja(montoNum, dividir ? sumaPartes : 0, comp, Number(valorComp || 0));
+  // Lo que se comparte con tu pareja es lo que queda después de las partes de familiares (igual que la base de datos).
+  // Con la cuenta conjunta no se comparte: tu parte es todo lo que queda.
+  const { base, parte: parteOtro, tuParte } = parteDePareja(montoNum, dividir ? sumaPartes : 0, esConjunta ? "no" : comp, Number(valorComp || 0));
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault(); setError("");
@@ -141,10 +150,7 @@ export default function Formulario() {
     // Si tu estado de cuenta dice otro número de pago, la fecha se ajusta para que las mensualidades cuadren con tu corte
     if (msiPrevia && nPago !== "" && nEfectivo !== nCalc) fila.fecha = fechaParaPago(cuentaSel!.dia_corte!, nEfectivo);
     if (!id) fila.origen = "App";
-    const reparto = otro && compEf !== "no"
-      ? { user_id: otro.user_id, ...(compEf === "mitad" ? { modo: "porcentaje", valor: 50 } : compEf === "todo" ? { modo: "porcentaje", valor: 100 }
-        : compEf === "pct" ? { modo: "porcentaje", valor: Number(valorComp) } : { modo: "monto", valor: Number(valorComp) }) }
-      : null;
+    const reparto = otro && compEf !== "no" ? { user_id: otro.user_id, ...modoReparto(compEf, valorComp) } : null;
     // Compra a meses que no estaba en lo que debías al dar de alta: se suma a la deuda solo lo que falta pagar
     const ajuste = !id && msiPrevia && msiIncluida === "no" ? (msiFalta !== "" ? Number(msiFalta) : faltaCalc) : null;
     // Todo en un solo paso en la base de datos: o se guarda completo o no se guarda nada
@@ -337,7 +343,7 @@ export default function Formulario() {
                       </div>
                     ))}
                     <div className="fila"><div className="cuerpo"><div className="titulo">Tu parte</div><div className="detalle">Cuenta en tus gastos</div></div>
-                      <div className={"monto" + (base - (comp !== "no" && !esConjunta ? parteOtro : 0) < -0.01 ? " negativo" : "")}>{fmt(base - (comp !== "no" && !esConjunta ? parteOtro : 0))}</div></div>
+                      <div className={"monto" + (tuParte < -0.01 ? " negativo" : "")}>{fmt(tuParte)}</div></div>
                   </div>
                 )}
                 <p className="nota">Cada parte se va a Cobros de esa persona y entra en su mensaje de WhatsApp.</p>
