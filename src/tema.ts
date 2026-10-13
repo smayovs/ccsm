@@ -1,10 +1,11 @@
 // Apariencia elegida por el usuario: paleta (color de acento), modo claro/oscuro, tipografía y tamaño de letra.
 export type Apariencia = { paleta: string; acento?: string; modo: "auto" | "claro" | "oscuro"; fuente: string; tamano: "chico" | "normal" | "grande" | "enorme" };
 
-export const APARIENCIA_INICIAL: Apariencia = { paleta: "marino", modo: "auto", fuente: "clasica", tamano: "normal" };
+export const APARIENCIA_INICIAL: Apariencia = { paleta: "ccsm", modo: "auto", fuente: "clasica", tamano: "normal" };
 
 export const PALETAS: { id: string; nombre: string; acento: string }[] = [
-  { id: "marino", nombre: "Azul marino", acento: "#2357C6" },
+  { id: "ccsm", nombre: "ccsm", acento: "#8F4E8E" },
+  { id: "azul", nombre: "Azul marino", acento: "#2357C6" },
   { id: "turquesa", nombre: "Turquesa", acento: "#0E7C86" },
   { id: "esmeralda", nombre: "Esmeralda", acento: "#1F7A4D" },
   { id: "morado", nombre: "Morado", acento: "#6D4AE0" },
@@ -15,7 +16,7 @@ export const PALETAS: { id: string; nombre: string; acento: string }[] = [
 ];
 
 export const FUENTES: { id: string; nombre: string; detalle: string; display: string; texto: string; google?: string }[] = [
-  { id: "clasica", nombre: "Clásica", detalle: "Manrope y Figtree", display: '"Manrope", "Figtree", system-ui, sans-serif', texto: '"Figtree", system-ui, -apple-system, sans-serif' },
+  { id: "clasica", nombre: "ccsm", detalle: "Manrope, la letra de la marca", display: '"Manrope", system-ui, sans-serif', texto: '"Manrope", system-ui, -apple-system, sans-serif' },
   { id: "sistema", nombre: "Del iPhone", detalle: "San Francisco, la letra de iOS", display: '-apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif', texto: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' },
   { id: "inter", nombre: "Moderna", detalle: "Inter", display: '"Inter", system-ui, sans-serif', texto: '"Inter", system-ui, sans-serif', google: "Inter:wght@400;500;600;700;800" },
   { id: "dm", nombre: "Geométrica", detalle: "DM Sans", display: '"DM Sans", system-ui, sans-serif', texto: '"DM Sans", system-ui, sans-serif', google: "DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800" },
@@ -57,19 +58,30 @@ function cssTema(acentoBase: string) {
   const claro = vars({
     fondo: claroFondo, linea: mix(acentoBase, "#DFE3EA", 0.08),
     ciruela: acento, "ciruela-suave": mix(acentoBase, "#FFFFFF", 0.12),
+    // Las demás paletas usan un solo color: botones y opciones elegidas en el acento, como antes de la marca
+    "acento-fondo": acento, "sobre-acento": claroFondo, seleccion: acento, "sobre-seleccion": claroFondo,
+    secundario: mix(acentoBase, "#FFFFFF", 0.12), "sobre-secundario": acento,
     heroe: mix(acentoBase, "#0B0E14", 0.3), "heroe-2": mix(acentoBase, "#0B0E14", 0.5), "heroe-tinta-2": mix(acentoBase, "#E8ECF3", 0.25),
   });
   const oscuro = vars({
     fondo: oscFondo, superficie: mix(acentoBase, "#151820", 0.08), linea: mix(acentoBase, "#262B36", 0.14),
     ciruela: acentoOsc, "ciruela-suave": mix(acentoBase, oscFondo, 0.25),
+    "acento-fondo": acentoOsc, "sobre-acento": oscFondo, seleccion: acentoOsc, "sobre-seleccion": oscFondo,
+    secundario: mix(acentoBase, oscFondo, 0.25), "sobre-secundario": acentoOsc,
     heroe: mix(acentoBase, "#0B0E14", 0.35), "heroe-2": mix(acentoBase, "#0B0E14", 0.55), "heroe-tinta-2": mix(acentoBase, "#E8ECF3", 0.25),
   });
   return { css: `:root {\n${claro}\n}\n@media (prefers-color-scheme: dark) {\n:root:not([data-modo="claro"]) {\n${oscuro}\n}\n}\n:root[data-modo="oscuro"] {\n${oscuro}\n}\n`, barra: mix(acentoBase, "#0B0E14", 0.3) };
 }
 
+// "marino" era la paleta inicial antes de la marca ccsm y cada dispositivo la guardaba sola al abrir:
+// si no hay color propio, se toma como la inicial de ahora. El azul sigue disponible como "azul".
+export function normalizar(a: Apariencia): Apariencia {
+  return a.paleta === "marino" && !esHex(a.acento) ? { ...a, paleta: APARIENCIA_INICIAL.paleta } : a;
+}
+
 const CLAVE = "ccsm-apariencia";
 export function aparienciaGuardada(): Apariencia {
-  try { const x = JSON.parse(localStorage.getItem(CLAVE) ?? "null"); if (x && typeof x === "object") return { ...APARIENCIA_INICIAL, ...x }; } catch { /* sin almacenamiento */ }
+  try { const x = JSON.parse(localStorage.getItem(CLAVE) ?? "null"); if (x && typeof x === "object") return normalizar({ ...APARIENCIA_INICIAL, ...x }); } catch { /* sin almacenamiento */ }
   return APARIENCIA_INICIAL;
 }
 
@@ -83,13 +95,14 @@ export function cargarFuente(id: string) {
 }
 
 // Aplica la apariencia a toda la app al instante y la recuerda en este dispositivo
-export function aplicarApariencia(a: Apariencia) {
+export function aplicarApariencia(elegida: Apariencia) {
+  const a = normalizar(elegida);
   const raiz = document.documentElement;
   if (a.modo === "auto") raiz.removeAttribute("data-modo"); else raiz.setAttribute("data-modo", a.modo);
   let estilo = document.getElementById("tema-usuario") as HTMLStyleElement | null;
   if (!estilo) { estilo = document.createElement("style"); estilo.id = "tema-usuario"; document.head.appendChild(estilo); }
-  const esDefault = a.paleta === "marino" && !esHex(a.acento);
-  const t = esDefault ? { css: "", barra: "#0F1E3D" } : cssTema(colorAcento(a));
+  const esDefault = a.paleta === "ccsm" && !esHex(a.acento);
+  const t = esDefault ? { css: "", barra: "#101217" } : cssTema(colorAcento(a));
   const f = FUENTES.find((x) => x.id === a.fuente) ?? FUENTES[0];
   cargarFuente(f.id);
   estilo.textContent = t.css + `:root { --display: ${f.display}; --texto: ${f.texto}; }\n`;

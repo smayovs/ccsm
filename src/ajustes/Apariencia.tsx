@@ -50,7 +50,8 @@ export default function AparienciaPantalla() {
           const activa = !propio && a.paleta === p.id;
           return (
             <button key={p.id} type="button" role="radio" aria-checked={activa} className="paleta" onClick={() => cambiar({ paleta: p.id, acento: undefined })}>
-              <span className="muestra-color" style={{ background: p.acento }}>{activa && <Check size={18} color="#fff" />}</span>
+              {/* La de la marca muestra sus dos colores: rosa y gris */}
+              <span className="muestra-color" style={{ background: p.id === "ccsm" ? "linear-gradient(135deg, var(--rosa) 50%, var(--gris) 50%)" : p.acento }}>{activa && <Check size={18} color={p.id === "ccsm" ? "#101217" : "#fff"} />}</span>
               <span>{p.nombre}</span>
             </button>
           );

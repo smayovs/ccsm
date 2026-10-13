@@ -49,8 +49,8 @@ export default defineConfig({
         start_url: "/ccsm/",
         scope: "/ccsm/",
         display: "standalone",
-        background_color: "#F2F4F8",
-        theme_color: "#0F1E3D",
+        background_color: "#101217",
+        theme_color: "#101217",
         icons: [
           { src: "icono-192.png", sizes: "192x192", type: "image/png" },
           { src: "icono-512.png", sizes: "512x512", type: "image/png" },

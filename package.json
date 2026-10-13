@@ -10,7 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@fontsource/figtree": "^5.2.10",
     "@fontsource/manrope": "^5.2.8",
     "@supabase/supabase-js": "^2.58.0",
     "lucide-react": "^1.52.0",
