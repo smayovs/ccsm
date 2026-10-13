@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { sb } from "./supabase";
 import { APARIENCIA_INICIAL, aplicarApariencia } from "./tema";
@@ -49,7 +49,8 @@ export function Proveedor({ children }: { children: ReactNode }) {
   const [familiares, setFamiliares] = useState<Familiar[]>([]);
   const [listo, setListo] = useState(false);
   const [fallo, setFallo] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ id: number; texto: string; saliendo: boolean } | null>(null);
+  const ultimoAviso = useRef(0);
 
   useEffect(() => {
     const limpiarUrl = () => {
@@ -110,15 +111,21 @@ export function Proveedor({ children }: { children: ReactNode }) {
     recargar();
   }, [inicio, uid, recargar, aplicar]);
 
-  const aviso = useCallback((t: string) => {
-    setToast(t);
-    window.setTimeout(() => setToast((x) => (x === t ? null : x)), 2600);
+  // Cada aviso lleva su número: así un aviso nuevo no se cierra con el temporizador del anterior
+  const aviso = useCallback((texto: string) => {
+    const id = ++ultimoAviso.current;
+    setToast({ id, texto, saliendo: false });
+    window.setTimeout(() => setToast((x) => (x?.id === id ? { ...x, saliendo: true } : x)), 2600);
+    window.setTimeout(() => setToast((x) => (x?.id === id ? null : x)), 2750);
   }, []);
 
   return (
     <C.Provider value={{ session, recuperando, terminarRecuperacion: () => setRecuperando(false), uid, yo, otros, cuentas, categorias, familiares, listo: inicio && listo, fallo, recargar, aviso }}>
       {children}
-      <div role="status" aria-live="polite" className={toast ? "toast" : "solo-lector"}>{toast}</div>
+      {/* La zona que VoiceOver escucha siempre existe; el aviso se monta dentro para que entre con animación */}
+      <div role="status" aria-live="polite">
+        {toast && <div key={toast.id} className="toast" data-saliendo={toast.saliendo || undefined}>{toast.texto}</div>}
+      </div>
     </C.Provider>
   );
 }

@@ -21,6 +21,7 @@
   --sombra: 0 1px 2px rgba(14, 23, 38, 0.04), 0 4px 16px rgba(14, 23, 38, 0.05);
   --display: "Manrope", "Figtree", system-ui, sans-serif;
   --texto: "Figtree", system-ui, -apple-system, sans-serif;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
@@ -80,6 +81,10 @@ a { color: var(--ciruela); }
 /* Texto solo para lectores de pantalla (VoiceOver) */
 .solo-lector { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* Respuesta al tocar: un hundimiento leve confirma que la app recibió el toque */
+.boton, .segmentos button, .chips button, .chips-filtro button, .selector-mes button, .nav a.mas-grande span.circulo { transition: transform 160ms var(--ease-out); }
+.boton:not(:disabled):active, .segmentos button:active, .chips button:not(:disabled):active, .chips-filtro button:active, .selector-mes button:active { transform: scale(0.97); }
+.nav a.mas-grande:active span.circulo { transform: scale(0.94); }
 
 .app { max-width: 560px; margin: 0 auto; min-height: 100dvh; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(96px + env(safe-area-inset-bottom)); }
 .num { font-family: var(--display); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
@@ -140,7 +145,14 @@ button.fila:active, a.fila:active { background: var(--ciruela-suave); }
 .aviso.rojo { background: var(--oxido-suave); }
 .aviso.verde { background: var(--sereno-suave); }
 .aviso strong { font-weight: 600; }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom)); background: var(--tinta); color: var(--fondo); padding: 10px 16px; border-radius: 99px; font-size: 0.9rem; z-index: 50; max-width: calc(100% - 32px); text-align: center; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(88px + env(safe-area-inset-bottom)); background: var(--tinta); color: var(--fondo); padding: 10px 16px; border-radius: 99px; font-size: 0.9rem; z-index: 50; max-width: calc(100% - 32px); text-align: center; transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+@starting-style { .toast { opacity: 0; transform: translateX(-50%) translateY(8px); } }
+.toast[data-saliendo] { opacity: 0; transition-duration: 150ms; }
+/* Con movimiento reducido el aviso solo aparece y se desvanece, sin desplazarse */
+@media (prefers-reduced-motion: reduce) {
+  .toast { transition: opacity 200ms ease !important; }
+  @starting-style { .toast { transform: translateX(-50%); } }
+}
 .error { color: var(--oxido); font-size: 0.9rem; margin: 10px 0 0; }
 
 /* Formularios */
