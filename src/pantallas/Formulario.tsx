@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, Campo, Segmentos, SelectorCategoria } from "../ui";
+import { Cabeza, Campo, Cargando, Segmentos, SelectorCategoria } from "../ui";
 import { errorTexto, fechaLarga, fmt, hoyISO, limpiarMonto } from "../util";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 import { facturadas, fechaParaPago } from "../ajustes/saldosTarjeta";
@@ -181,7 +181,7 @@ export default function Formulario() {
     aviso("Tu parte quedó guardada"); nav(-1);
   }
 
-  if (!cargado) return <div className="cargando">Cargando…</div>;
+  if (!cargado) return <Cargando />;
 
   if (ajeno) {
     const r = (ajeno.repartos ?? []).find((x: any) => x.user_id === uid);

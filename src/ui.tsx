@@ -93,6 +93,15 @@ export const Icono = {
   menu: () => <svg viewBox="0 0 24 24" {...trazo}><circle cx="5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="19" cy="12" r="1.3" /></svg>,
 };
 
+// Esqueleto mientras carga una pantalla; VoiceOver anuncia "Cargando"
+export function Cargando() {
+  return (
+    <div className="esqueleto" role="status" aria-label="Cargando">
+      <span className="e-titulo" /><span className="e-tablero" /><span className="e-fila" /><span className="e-fila" /><span className="e-fila" />
+    </div>
+  );
+}
+
 // Evita que un doble toque ejecute dos veces una acción que guarda dinero
 export function useUnaVez() {
   const enCurso = useRef(false);

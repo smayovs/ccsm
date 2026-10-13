@@ -27,7 +27,8 @@
   --gris: #C2C7D0;
   --radio: 16px;
   --radio-chico: 10px;
-  --sombra: 0 1px 2px rgba(16, 18, 23, 0.04), 0 4px 16px rgba(16, 18, 23, 0.05);
+  --sombra: 0 1px 2px rgba(16, 18, 23, 0.05), 0 6px 20px rgba(16, 18, 23, 0.06);
+  --borde-tarjeta: transparent;
   --display: "Manrope", system-ui, sans-serif;
   --texto: "Manrope", system-ui, -apple-system, sans-serif;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -59,6 +60,7 @@
     --heroe-tinta: #EEF0F4;
     --heroe-tinta-2: #B4BAC5;
     --sombra: none;
+    --borde-tarjeta: var(--linea);
     color-scheme: dark;
   }
 }
@@ -87,6 +89,7 @@
     --heroe-tinta: #EEF0F4;
     --heroe-tinta-2: #B4BAC5;
     --sombra: none;
+    --borde-tarjeta: var(--linea);
     color-scheme: dark;
 }
 
@@ -102,6 +105,13 @@ a { color: var(--ciruela); }
 /* Texto solo para lectores de pantalla (VoiceOver) */
 .solo-lector { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+/* Al pasar el cursor (solo con mouse o trackpad) */
+@media (hover: hover) and (pointer: fine) {
+  .boton, button.fila, a.fila, .segmentos button, .chips button, .chips-filtro button, .selector-mes button { transition: transform 160ms var(--ease-out), background-color 150ms ease, filter 150ms ease; }
+  .boton:not(:disabled):hover { filter: brightness(0.96); }
+  button.fila:hover, a.fila:hover { background: color-mix(in srgb, var(--ciruela-suave) 60%, transparent); }
+  .segmentos button:not([aria-pressed="true"]):hover, .chips button:not([aria-pressed="true"]):not(:disabled):hover, .chips-filtro button:not([aria-pressed="true"]):hover, .selector-mes button:hover { background: var(--secundario); }
+}
 /* Respuesta al tocar: un hundimiento leve confirma que la app recibió el toque */
 .boton, .segmentos button, .chips button, .chips-filtro button, .selector-mes button, .nav a.mas-grande span.circulo { transition: transform 160ms var(--ease-out); }
 .boton:not(:disabled):active, .segmentos button:active, .chips button:not(:disabled):active, .chips-filtro button:active, .selector-mes button:active { transform: scale(0.97); }
@@ -112,9 +122,10 @@ a { color: var(--ciruela); }
 
 /* Encabezados */
 .cabeza { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 18px; min-height: 44px; }
-.cabeza h1 { font-family: var(--display); font-weight: 700; font-size: 1.75rem; line-height: 1.1; margin: 0; letter-spacing: -0.02em; }
+.cabeza h1 { font-family: var(--display); font-weight: 700; font-size: 1.75rem; line-height: 1.1; margin: 0; letter-spacing: -0.025em; text-wrap: balance; }
 .cabeza .volver { border: 0; background: none; color: var(--ciruela); padding: 8px 0; font-weight: 600; cursor: pointer; }
-h2 { font-family: var(--display); font-weight: 700; font-size: 1.15rem; margin: 28px 0 8px; letter-spacing: -0.01em; }
+h2 { font-family: var(--display); font-weight: 700; font-size: 1.15rem; margin: 28px 0 8px; letter-spacing: -0.015em; text-wrap: balance; }
+p, .nota, .aviso { text-wrap: pretty; }
 .sub { color: var(--tinta-2); font-size: 0.875rem; }
 .nota { color: var(--tinta-2); font-size: 0.875rem; margin: 6px 0 0; }
 
@@ -136,7 +147,7 @@ h2 { font-family: var(--display); font-weight: 700; font-size: 1.15rem; margin: 
 .trio .v { font-family: var(--display); font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
 
 /* Listas */
-.lista { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio); overflow: hidden; box-shadow: var(--sombra); }
+.lista { background: var(--superficie); border: 1px solid var(--borde-tarjeta); border-radius: var(--radio); overflow: hidden; box-shadow: var(--sombra); }
 .fila { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--linea); width: 100%; text-align: left; background: none; border-left: 0; border-right: 0; border-bottom: 0; text-decoration: none; color: inherit; }
 .fila:first-child { border-top: 0; }
 button.fila, a.fila { cursor: pointer; }
@@ -226,6 +237,14 @@ button.llave { display: block; width: 100%; text-align: left; color: inherit; cu
 .acceso h1 { font-family: var(--display); font-size: 2.2rem; line-height: 1.05; margin: 0 0 8px; letter-spacing: -0.03em; }
 .acceso p { color: var(--tinta-2); margin: 0 0 24px; }
 .cargando { min-height: 60dvh; display: grid; place-items: center; color: var(--tinta-2); }
+/* Esqueleto mientras carga: la forma de la pantalla en lugar de un texto suelto */
+.esqueleto { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; }
+.esqueleto span { display: block; border-radius: var(--radio); background: var(--secundario); animation: latido 1.4s ease-in-out infinite; }
+.esqueleto .e-titulo { width: 45%; height: 30px; border-radius: var(--radio-chico); }
+.esqueleto .e-tablero { height: 150px; border-radius: 22px; }
+.esqueleto .e-fila { height: 58px; }
+.esqueleto .e-fila:nth-child(4) { animation-delay: 0.1s; } .esqueleto .e-fila:nth-child(5) { animation-delay: 0.2s; }
+@keyframes latido { 50% { opacity: 0.55; } }
 details.plegable summary { cursor: pointer; list-style: none; }
 details.plegable summary::-webkit-details-marker { display: none; }
 
@@ -250,7 +269,7 @@ button.enlace { background: none; border: 0; padding: 0; color: var(--ciruela); 
 .rejilla-iconos button[aria-checked="true"] { background: var(--seleccion); border-color: var(--seleccion); color: var(--sobre-seleccion); }
 
 /* ===== Tablero de Inicio ===== */
-.tablero { background: linear-gradient(150deg, var(--heroe) 0%, var(--heroe-2) 100%); color: var(--heroe-tinta); border-radius: 22px; padding: 18px 18px 14px; box-shadow: 0 10px 30px rgba(15, 30, 61, 0.25); }
+.tablero { background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--acento-fondo) 16%, transparent) 0%, transparent 55%), linear-gradient(150deg, var(--heroe) 0%, var(--heroe-2) 100%); color: var(--heroe-tinta); border-radius: 22px; padding: 18px 18px 14px; box-shadow: 0 12px 32px color-mix(in srgb, var(--heroe) 28%, transparent); }
 .tablero-arriba { display: flex; align-items: center; gap: 16px; }
 .tablero-texto { min-width: 0; flex: 1; }
 .tablero .etiqueta { color: var(--heroe-tinta-2); font-size: 0.85rem; }

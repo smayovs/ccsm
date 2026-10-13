@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useApp } from "./contexto";
 import { sb } from "./supabase";
-import { Icono } from "./ui";
+import { Cargando, Icono } from "./ui";
 import { perezoso } from "./perezoso";
 // Lo primero que ves al abrir va en la descarga inicial; el resto se descarga al abrir cada pantalla
 // (la app instalada las guarda todas, así que también funcionan sin conexión)
@@ -44,7 +44,7 @@ export default function App() {
     sb.rpc("resumen_mes").then(({ data }) => setPendientes(data?.[0]?.por_revisar ?? 0));
   }, [yo, uid]);
 
-  if (!listo) return <div className="cargando">Cargando…</div>;
+  if (!listo) return <main className="app"><Cargando /></main>;
   if (!session) return <Acceso />;
   if (recuperando) return <NuevaContrasena />;
   // Si no se pudo cargar (sin conexión), se avisa en lugar de pedir que crees un hogar
@@ -63,7 +63,7 @@ export default function App() {
   return (
     <>
       <main className="app">
-        <Suspense fallback={<div className="cargando">Cargando…</div>}>
+        <Suspense fallback={<Cargando />}>
         <Routes>
           <Route path="/" element={<Inicio onPendientes={setPendientes} />} />
           <Route path="/inicio/personalizar" element={<PersonalizarInicio />} />
