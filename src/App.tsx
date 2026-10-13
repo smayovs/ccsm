@@ -36,10 +36,13 @@ export default function App() {
   const [reintentando, setReintentando] = useState(false);
   const [pendientes, setPendientes] = useState(0);
 
+  const loc = useLocation();
   useEffect(() => {
     if (!yo) return;
+    // Si abres en Inicio, Inicio ya pide el resumen del mes y avisa (onPendientes): no se pide dos veces
+    if (loc.pathname === "/") return;
     sb.rpc("resumen_mes").then(({ data }) => setPendientes(data?.[0]?.por_revisar ?? 0));
-  }, [yo, uid]);
+  }, [yo, uid]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!listo) return <div className="cargando">Cargando…</div>;
   if (!session) return <Acceso />;
@@ -62,7 +65,7 @@ export default function App() {
       <main className="app">
         <Suspense fallback={<div className="cargando">Cargando…</div>}>
         <Routes>
-          <Route path="/" element={<Inicio />} />
+          <Route path="/" element={<Inicio onPendientes={setPendientes} />} />
           <Route path="/inicio/personalizar" element={<PersonalizarInicio />} />
           <Route path="/movimientos" element={<Movimientos />} />
           <Route path="/nuevo" element={<FormularioNuevo />} />
@@ -85,7 +88,7 @@ export default function App() {
           <Route path="/ajustes/apariencia" element={<AparienciaPantalla />} />
           <Route path="/ajustes/tarjeta/:id/cuadrar" element={<CuadrarTarjeta />} />
           <Route path="/ajustes/tarjeta-nueva" element={<NuevaTarjeta />} />
-          <Route path="*" element={<Inicio />} />
+          <Route path="*" element={<Inicio onPendientes={setPendientes} />} />
         </Routes>
         </Suspense>
       </main>

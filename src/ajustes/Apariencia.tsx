@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
+import { olvidarPreferencias } from "../preferencias";
 import { Cabeza, Segmentos } from "../ui";
 import { errorTexto, fmt } from "../util";
 import { Apariencia, APARIENCIA_INICIAL, aparienciaGuardada, aplicarApariencia, colorAcento, esHex, FUENTES, PALETAS, TAMANOS } from "../tema";
@@ -17,6 +18,7 @@ export default function AparienciaPantalla() {
     setA(nueva); setError("");
     aplicarApariencia(nueva);
     const { error } = await sb.from("preferencias").upsert({ user_id: uid, apariencia: nueva, updated_at: new Date().toISOString() });
+    olvidarPreferencias(); // la próxima lectura trae lo recién guardado
     if (error) setError(errorTexto(error));
   }
   const propio = esHex(a.acento);

@@ -1,4 +1,5 @@
 import { sb } from "../supabase";
+import { cargarPreferencias, olvidarPreferencias } from "../preferencias";
 import { hoyISO, mesISO, sumarMes } from "../util";
 
 // Catálogo de secciones de Inicio. "filtrable": responde a los filtros de periodo, cuenta y categoría.
@@ -37,13 +38,16 @@ export function normalizar(guardado: unknown): ConfigInicio {
   return [...lista.map((x) => ({ id: x.id, visible: !!x.visible })), ...SECCIONES.filter((s) => !vistos.has(s.id)).map((s) => ({ id: s.id, visible: s.inicial }))];
 }
 
-export async function cargarConfig(): Promise<ConfigInicio> {
-  const { data } = await sb.from("preferencias").select("inicio").maybeSingle();
-  return normalizar((data as any)?.inicio?.secciones);
+// Usa las preferencias que ya pidió el arranque (preferencias.ts) en lugar de pedirlas otra vez
+export async function cargarConfig(uid: string): Promise<ConfigInicio> {
+  const p = await cargarPreferencias(uid);
+  return normalizar(p?.inicio?.secciones);
 }
 
 export async function guardarConfig(uid: string, secciones: ConfigInicio) {
-  return sb.from("preferencias").upsert({ user_id: uid, inicio: { secciones }, updated_at: new Date().toISOString() });
+  const r = await sb.from("preferencias").upsert({ user_id: uid, inicio: { secciones }, updated_at: new Date().toISOString() });
+  olvidarPreferencias();
+  return r;
 }
 
 // ---------- Filtros (se conservan mientras la app está abierta) ----------

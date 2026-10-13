@@ -25,7 +25,8 @@ const n = (x: unknown) => Number(x ?? 0);
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const mesCap = (m: string) => cap(nombreMes(m).split(" ")[0]);
 
-export default function Inicio() {
+// onPendientes: el aviso de "Más" usa el mismo resumen del mes que Inicio, sin pedirlo otra vez
+export default function Inicio({ onPendientes }: { onPendientes?: (n: number) => void }) {
   const { uid, yo, otros, cuentas, categorias, familiares } = useApp();
   const mes = mesISO();
   const hoy = hoyISO();
@@ -37,6 +38,7 @@ export default function Inicio() {
   // ---------- Estado de hoy (no depende de filtros) ----------
   const [saldos, setSaldos] = useState<Saldo[]>(guardado?.saldos ?? []);
   const [porRevisar, setPorRevisar] = useState(guardado?.porRevisar ?? 0);
+  useEffect(() => { if (guardado) onPendientes?.(guardado.porRevisar); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [abonosPrestamo, setAbonosPrestamo] = useState<Record<string, number>>(guardado?.abonosPrestamo ?? {});
   const [tarjetas, setTarjetas] = useState<Record<string, Tarjeta>>(guardado?.tarjetas ?? {});
   const [balance, setBalance] = useState<{ nombre: string; me_debe: number }[]>(guardado?.balance ?? []);
@@ -65,13 +67,15 @@ export default function Inicio() {
   const desdeFetch = [r.antDesde, flujoDesde].sort()[0];
 
   useEffect(() => {
-    cargarConfig().then(setConfig);
+    cargarConfig(uid).then(setConfig);
+    // El detalle de compras a meses se pide una vez y lo comparten Cobros y Mensualidades
+    const detalleMsi = Promise.resolve(sb.rpc("msi_detalle"));
     // Cobros (5 consultas) va aparte: el resto de Inicio no lo espera
-    cargarCobros().then((co) => { setPersonas(co.personas); recordar({ personas: co.personas }); }, () => {});
+    cargarCobros(detalleMsi).then((co) => { setPersonas(co.personas); recordar({ personas: co.personas }); }, () => {});
     Promise.all([
       sb.rpc("saldos_cuentas"), sb.rpc("resumen_mes", { p_mes: mes }), sb.rpc("balance_hogar"),
       sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id").eq("activa", true),
-      cargarMsi(),
+      cargarMsi(detalleMsi),
       sb.from("movimientos").select("cuenta_destino_id, monto, cuenta_destino:cuentas!movimientos_cuenta_destino_id_fkey(tipo)")
         .in("tipo", ["transferencia", "liquidacion"]).gte("fecha", mes).not("cuenta_destino_id", "is", null),
     ]).then(async ([s, rm, b, su, md, ab]) => {
@@ -88,6 +92,7 @@ export default function Inicio() {
       setSaldos(lista);
       const revisar = n(((rm.data ?? [])[0] as any)?.por_revisar);
       setPorRevisar(revisar);
+      onPendientes?.(revisar);
       const bal = (b.data ?? []) as { nombre: string; me_debe: number }[];
       setBalance(bal);
       const suscripciones = ((su.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) }));

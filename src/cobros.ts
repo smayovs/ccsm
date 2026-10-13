@@ -1,6 +1,7 @@
 import { sb } from "./supabase";
 import { sumarMes } from "./util";
 import { cobradoTras, mensualidadesMsi } from "./dinero";
+import type { DetalleMsi } from "./msi";
 
 export type Cargo = { id: string; mov: string; fecha: string; texto: string; monto: number; pendiente: number; marcado?: boolean };
 export type Persona = { cargos: Cargo[]; marcados: Cargo[]; total: number; porVenir: number; proxima: number; pagado: number };
@@ -9,11 +10,12 @@ export type Cobros = { personas: Record<string, Persona>; movs: Record<string, E
 
 // Cargos de cada persona: compras de contado, compras a meses que se cobran completas,
 // y mensualidades MSI ya facturadas. Los pagos se aplican a lo más antiguo primero.
-export async function cargarCobros(): Promise<Cobros> {
+// "msiDetalle": la respuesta de msi_detalle si ya se pidió (Inicio la comparte con cargarMsi)
+export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
   const [c, pp, d, r, mk] = await Promise.all([
     sb.from("movimientos").select("id, fecha, descripcion, comercio, monto, familiar_id, meses_msi, cobro_completo").eq("tipo", "gasto").not("familiar_id", "is", null),
     sb.from("partes_personas").select("monto, familiar_id, movimiento:movimientos(id, fecha, descripcion, comercio, meses_msi, cobro_completo)"),
-    sb.rpc("msi_detalle"),
+    msiDetalle ?? sb.rpc("msi_detalle"),
     sb.from("movimientos").select("monto, familiar_id").eq("tipo", "reembolso").not("familiar_id", "is", null),
     sb.from("cobros_marcados").select("clave"),
   ]);

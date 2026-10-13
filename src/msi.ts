@@ -9,9 +9,12 @@ export type CompraMsi = {
   partes: ParteMsi[]; fraccionOtros: number;
 };
 
+// Respuesta de msi_detalle; quien ya la pidió la pasa para no pedirla dos veces (Inicio la comparte con Cobros)
+export type DetalleMsi = PromiseLike<{ data: unknown }>;
+
 // Compras a meses con la parte que corresponde a otras personas (familiares, divisiones y tu pareja)
-export async function cargarMsi(): Promise<CompraMsi[]> {
-  const [d, p] = await Promise.all([sb.rpc("msi_detalle"), sb.rpc("msi_partes")]);
+export async function cargarMsi(detalle?: DetalleMsi): Promise<CompraMsi[]> {
+  const [d, p] = await Promise.all([detalle ?? sb.rpc("msi_detalle"), sb.rpc("msi_partes")]) as [{ data: unknown }, { data: unknown }];
   const partes: Record<string, ParteMsi[]> = {};
   for (const x of (p.data ?? []) as any[]) (partes[x.movimiento_id] ??= []).push({ ...x, parte: Number(x.parte) });
   return ((d.data ?? []) as any[]).map((x) => {

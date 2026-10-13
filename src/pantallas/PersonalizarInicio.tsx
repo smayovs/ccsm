@@ -10,7 +10,7 @@ export default function PersonalizarInicio() {
   const { uid, aviso } = useApp();
   const [config, setConfig] = useState<ConfigInicio | null>(null);
   const [error, setError] = useState("");
-  useEffect(() => { cargarConfig().then(setConfig); }, []);
+  useEffect(() => { cargarConfig(uid).then(setConfig); }, [uid]);
 
   async function cambiar(nueva: ConfigInicio) {
     setConfig(nueva); setError("");

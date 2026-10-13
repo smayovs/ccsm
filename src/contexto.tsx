@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { sb } from "./supabase";
 import { APARIENCIA_INICIAL, aplicarApariencia } from "./tema";
 import { borrarCache, guardarCache, leerCache } from "./cache";
+import { cargarPreferencias, olvidarPreferencias } from "./preferencias";
 
 export type Cuenta = {
   id: string; nombre: string; tipo: string; propietario_id: string | null; saldo_inicial: number;
@@ -59,7 +60,7 @@ export function Proveedor({ children }: { children: ReactNode }) {
     sb.auth.getSession().then(({ data }) => { setSession(data.session); setInicio(true); limpiarUrl(); });
     const { data } = sb.auth.onAuthStateChange((e, s) => {
       // Al cerrar sesión no quedan tus datos guardados en el dispositivo
-      if (e === "SIGNED_OUT") borrarCache();
+      if (e === "SIGNED_OUT") { borrarCache(); olvidarPreferencias(); }
       setSession(s);
       if (e === "PASSWORD_RECOVERY") setRecuperando(true);
       limpiarUrl();
@@ -80,10 +81,11 @@ export function Proveedor({ children }: { children: ReactNode }) {
   const recargar = useCallback(async () => {
     if (!uid) { setListo(true); return; }
     // Tu apariencia guardada (colores, letra); si falla se queda la de este dispositivo
-    sb.from("preferencias").select("apariencia").maybeSingle().then(({ data }) => {
-      const ap = (data as any)?.apariencia;
+    // (la misma consulta trae las secciones de Inicio: preferencias.ts la comparte)
+    cargarPreferencias(uid).then((p) => {
+      const ap = p?.apariencia;
       if (ap && Object.keys(ap).length) aplicarApariencia({ ...APARIENCIA_INICIAL, ...ap });
-    }, () => {});
+    });
     const r = await Promise.all([
       sb.from("miembros").select("*"),
       sb.from("cuentas").select("*").order("orden").order("nombre"),
