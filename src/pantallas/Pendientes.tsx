@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorCategoria } from "../ui";
 import { errorTexto, fechaCorta, fmt, hoyISO } from "../util";
 import { cargarProgramados, type IngresoProgramado } from "../ingresos";
-import { SELECT_MOV, textoCategoria } from "./Movimientos";
+import { IconoMov, SELECT_MOV, textoCategoria } from "./Movimientos";
+import { CheckCircle, Handshake, Wallet } from "../phosphor";
 
 export default function Pendientes({ onCambio }: { onCambio: (n: number) => void }) {
   const { uid, categorias, otros, aviso } = useApp();
@@ -44,79 +45,90 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
   }
 
   const nada = !revisar.length && !sinCat.length && !disputas.length && !porConfirmar.length;
+  const cabeza = (titulo: string, n: number, ayuda?: ReactNode) => (
+    <div className="seccion-cabeza">
+      <div><h2>{titulo} <span className="contador">{n}</span></h2>{ayuda && <div className="etiq-periodo">{ayuda}</div>}</div>
+    </div>
+  );
   return (
     <>
       <Cabeza titulo="Pendientes" volver />
-      {nada && <div className="lista"><div className="vacio">Todo en orden: no hay nada por revisar.</div></div>}
+      {nada && (
+        <div className="vacio-grande">
+          <CheckCircle size={44} aria-hidden="true" />
+          <div className="titulo">Todo en orden</div>
+          <p className="nota">No hay nada por revisar: todo está clasificado y confirmado.</p>
+        </div>
+      )}
 
       {porConfirmar.length > 0 && (
-        <>
-          <h2>Ingresos por confirmar</h2>
-          <p className="nota mt-n4 mb-8">Ya pasó su fecha esperada. Confírmalos con el monto real o cámbiales la fecha si no han llegado.</p>
+        <section className="seccion">
+          {cabeza("Ingresos por confirmar", porConfirmar.length, "Ya pasó su fecha esperada: confírmalos con el monto real o cámbiales la fecha.")}
           <div className="lista">
             {porConfirmar.map((p) => (
               <Link className="fila" key={p.id} to={`/ingreso-programado/${p.id}`}>
+                <span className="ico cuenta-ahorro" aria-hidden="true"><Wallet size={20} /></span>
                 <div className="cuerpo"><div className="titulo">{p.descripcion}</div><div className="detalle">Esperado el {fechaCorta(p.fecha)}</div></div>
                 <div className="monto positivo">~{fmt(p.monto)}</div>
               </Link>
             ))}
           </div>
-        </>
+        </section>
       )}
 
       {revisar.length > 0 && (
-        <>
-          <h2>Por clasificar</h2>
-          <p className="nota mt-n4 mb-8">Entraron por Apple Pay sin regla o con una tarjeta que no reconocí. Tócalos para corregir; si el comercio es frecuente, agrégalo a <Link to="/ajustes/reglas">Reglas</Link>.</p>
+        <section className="seccion">
+          {cabeza("Por clasificar", revisar.length, <>Entraron por Apple Pay sin regla o con una tarjeta que no reconocí. Si el comercio es frecuente, agrégalo a <Link to="/ajustes/reglas">Reglas</Link>.</>)}
           <div className="lista">
             {revisar.map((m) => (
               <Link className="fila" key={m.id} to={`/editar/${m.id}`}>
+                <IconoMov m={m} />
                 <div className="cuerpo"><div className="titulo">{m.comercio || m.descripcion || "Sin descripción"}</div>
-                  <div className="detalle">{fechaCorta(m.fecha)} · {m.cuenta?.nombre ?? "Cuenta sin identificar"} · {textoCategoria(m)}</div></div>
+                  <div className="detalle">{fechaCorta(m.fecha)} · {m.cuenta?.nombre ?? "Cuenta sin identificar"}{textoCategoria(m) ? ` · ${textoCategoria(m)}` : ""}</div></div>
                 <div className="monto">{fmt(m.monto)}</div>
               </Link>
             ))}
           </div>
-        </>
+        </section>
       )}
 
       {sinCat.length > 0 && (
-        <>
-          <h2>Tu parte sin categoría</h2>
-          <p className="nota mt-n4 mb-8">Gastos compartidos contigo cuya categoría no existe en tu lista. Elige en qué categoría cuentan.</p>
+        <section className="seccion">
+          {cabeza("Tu parte sin categoría", sinCat.length, "Gastos compartidos contigo cuya categoría no existe en tu lista: elige en cuál cuentan.")}
           {sinCat.map((r) => (
-            <div key={r.movimiento_id} className="lista p-12-14-0 mb-10">
-              <div className="flex separar mb-10">
-                <div><div className="peso-600">{r.movimiento?.descripcion || r.movimiento?.comercio || "Gasto compartido"}</div>
+            <div key={r.movimiento_id} className="panel mb-10">
+              <div className="flex centrar-v gap-8 mb-10">
+                <span className="ico" aria-hidden="true"><Handshake size={20} /></span>
+                <div className="crece"><div className="peso-600">{r.movimiento?.descripcion || r.movimiento?.comercio || "Gasto compartido"}</div>
                   <div className="sub">{fechaCorta(r.movimiento?.fecha)} · pagó {nombres[r.movimiento?.creado_por] ?? "tu pareja"}</div></div>
                 <div className="num peso-700">{fmt(r.monto)}</div>
               </div>
               <SelectorCategoria cats={categorias} tipo="gasto" uid={uid} valor={eleccion[r.movimiento_id] ?? null}
                 onCambio={(id) => setEleccion({ ...eleccion, [r.movimiento_id]: id })} />
-              <div className="pb-12"><button className="boton chico" onClick={() => asignar(r.movimiento_id)}>Asignar</button></div>
+              <button className="boton chico ancho" disabled={!eleccion[r.movimiento_id]} onClick={() => asignar(r.movimiento_id)}>Asignar categoría</button>
             </div>
           ))}
-        </>
+        </section>
       )}
 
       {disputas.length > 0 && (
-        <>
-          <h2>En disputa</h2>
-          <div className="lista">
-            {disputas.map((r) => (
-              <div className="fila envolver" key={r.movimiento_id}>
-                <div className="cuerpo">
-                  <div className="titulo">{r.movimiento?.descripcion || r.movimiento?.comercio || "Gasto"} · {fmt(r.movimiento?.monto)}</div>
-                  <div className="detalle">{nombres[r.user_id]}: “{r.nota || "No está de acuerdo con el reparto"}” · le tocan {fmt(r.monto)}</div>
-                </div>
-                <div className="flex gap-8">
-                  <Link className="boton chico claro" to={`/editar/${r.movimiento_id}`}>Ajustar</Link>
-                  <button className="boton chico" onClick={() => resolver(r.movimiento_id, r.user_id)}>Resuelto</button>
-                </div>
+        <section className="seccion">
+          {cabeza("En disputa", disputas.length, "Tu pareja no está de acuerdo con su parte: ajústala o márcala como resuelta.")}
+          {disputas.map((r) => (
+            <div className="panel mb-10" key={r.movimiento_id}>
+              <div className="flex centrar-v gap-8">
+                <span className="ico cuenta-credito" aria-hidden="true"><Handshake size={20} /></span>
+                <div className="crece"><div className="peso-600">{r.movimiento?.descripcion || r.movimiento?.comercio || "Gasto"}</div>
+                  <div className="sub">{fechaCorta(r.movimiento?.fecha)} · total {fmt(r.movimiento?.monto)} · a {nombres[r.user_id]} le tocan {fmt(r.monto)}</div></div>
               </div>
-            ))}
-          </div>
-        </>
+              <p className="cita">“{r.nota || "No está de acuerdo con el reparto"}”</p>
+              <div className="acciones mt-0">
+                <Link className="boton chico claro" to={`/editar/${r.movimiento_id}`}>Ajustar reparto</Link>
+                <button className="boton chico" onClick={() => resolver(r.movimiento_id, r.user_id)}>Resuelto</button>
+              </div>
+            </div>
+          ))}
+        </section>
       )}
       {error && <p className="error" role="alert">{error}</p>}
     </>

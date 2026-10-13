@@ -670,3 +670,22 @@ h2 { font-size: 1.05rem; }
 .reparto-claro .reparto-cabeza b, .reparto-claro .reparto-leyenda b { color: var(--tinta); }
 .reparto-claro .reparto-leyenda { color: var(--tinta-2); }
 .reparto-claro .reparto-barra span, .reparto-claro .reparto-leyenda i { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tinta) 12%, transparent); }
+
+/* ===== Pendientes ===== */
+.contador { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 7px; margin-left: 4px; border-radius: 99px; background: var(--secundario); color: var(--sobre-secundario); font-size: 0.78rem; font-weight: 700; vertical-align: 2px; font-variant-numeric: tabular-nums; }
+.vacio-grande { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 48px 20px; color: var(--sereno); }
+.vacio-grande .titulo { font-family: var(--display); font-weight: 700; font-size: 1.2rem; color: var(--tinta); }
+.cita { margin: 10px 0 12px; padding: 10px 12px; border-radius: var(--radio-chico); background: var(--fondo); color: var(--tinta); font-size: 0.9rem; }
+
+/* ===== Formularios en grupos ===== */
+.panel-titulo { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.02em; color: var(--tinta-2); margin: 0 0 10px; }
+.panel + .panel { margin-top: 12px; }
+.boton-icono.acento { background: var(--acento-fondo); color: var(--sobre-acento); }
+
+/* ===== Categorías ===== */
+.cat-editable + .cat-editable { border-top: 1px solid var(--linea); }
+.cat-editable .fila { border-top: 0; }
+.cat-editable.abierta > .fila { background: var(--ciruela-suave); }
+.cat-editor { padding: 12px 14px 14px; }
+.subs-editables { display: flex; flex-direction: column; gap: 8px; }
+.boton-icono:disabled { opacity: 0.45; cursor: default; }

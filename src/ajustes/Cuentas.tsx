@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
 import { Cabeza, Campo, useUnaVez } from "../ui";
+import { CaretRight, Plus } from "../phosphor";
 import { errorTexto, hoyISO, TIPOS_CUENTA, VISIBILIDAD, limpiarMonto } from "../util";
 
 type Edit = Omit<Cuenta, "saldo_inicial" | "dia_corte" | "dia_pago" | "limite_credito" | "pago_mensual"> & {
@@ -63,6 +64,8 @@ export default function Cuentas() {
         <Cabeza titulo={edit.id ? "Editar cuenta" : "Nueva cuenta"} />
         {deOtro ? <p>Esta cuenta es de tu pareja; solo ella puede editarla.</p> : (
           <form onSubmit={(e) => { e.preventDefault(); unaVez(guardar)(e); }}>
+            <section className="panel mt-0">
+            <div className="panel-titulo">Datos</div>
             <Campo etiqueta="Nombre"><input value={edit.nombre} onChange={(e) => setEdit({ ...edit, nombre: e.target.value })} placeholder="TDC Santander LikeU" /></Campo>
             <Campo etiqueta="Tipo">
               <select value={edit.tipo} onChange={(e) => setEdit({ ...edit, tipo: e.target.value })}>
@@ -77,38 +80,59 @@ export default function Cuentas() {
               </Campo>
               <Campo etiqueta="Al día" ayuda="Solo cuentan movimientos desde esta fecha."><input type="date" value={edit.fecha_saldo_inicial} onChange={(e) => setEdit({ ...edit, fecha_saldo_inicial: e.target.value })} /></Campo>
             </div>
+            </section>
             {credito && (
-              <>
+              <section className="panel">
+                <div className="panel-titulo">Tarjeta</div>
                 <div className="dos">
                   <Campo etiqueta="Día de corte"><input inputMode="numeric" value={edit.dia_corte} onChange={(e) => setEdit({ ...edit, dia_corte: e.target.value.replace(/\D/g, "") })} placeholder="10" /></Campo>
                   <Campo etiqueta="Día límite de pago"><input inputMode="numeric" value={edit.dia_pago} onChange={(e) => setEdit({ ...edit, dia_pago: e.target.value.replace(/\D/g, "") })} placeholder="30" /></Campo>
                 </div>
                 <Campo etiqueta="Límite de crédito"><input inputMode="decimal" value={edit.limite_credito} onChange={(e) => setEdit({ ...edit, limite_credito: limpiarMonto(e.target.value) })} /></Campo>
-              </>
+              </section>
             )}
             {prestamo && (
-              <>
+              <section className="panel">
+                <div className="panel-titulo">Pagos</div>
                 <div className="dos">
                   <Campo etiqueta="Pago mensual (opcional)"><input inputMode="decimal" value={edit.pago_mensual} onChange={(e) => setEdit({ ...edit, pago_mensual: limpiarMonto(e.target.value) })} placeholder="$3,500" /></Campo>
                   <Campo etiqueta="Día de pago"><input inputMode="numeric" value={edit.dia_pago} onChange={(e) => setEdit({ ...edit, dia_pago: e.target.value.replace(/\D/g, "") })} placeholder="15" /></Campo>
                 </div>
                 <p className="nota mt-n6">Cada pago regístralo como <b>Transferencia</b> de tu cuenta de débito a este préstamo; así baja la deuda. Si aplica intereses, regístralos como gasto en esta cuenta.</p>
-              </>
+              </section>
             )}
-            {!prestamo && <Campo etiqueta="Nombre en Wallet" ayuda="Una palabra del nombre de la tarjeta en Wallet (ej. LikeU). Así Apple Pay sabe a qué cuenta cargar.">
-              <input value={edit.nombre_wallet ?? ""} onChange={(e) => setEdit({ ...edit, nombre_wallet: e.target.value })} />
-            </Campo>}
-            {!edit.id && otros.length > 0 && (
-              <label className="casilla"><input type="checkbox" checked={edit.conjunta} onChange={(e) => setEdit({ ...edit, conjunta: e.target.checked })} /> Cuenta conjunta (los dos registran y la ven completa)</label>
+            {!prestamo && (
+              <section className="panel">
+                <div className="panel-titulo">Apple Pay</div>
+                <Campo etiqueta="Nombre en Wallet" ayuda="Una palabra del nombre de la tarjeta en Wallet (ej. LikeU). Así Apple Pay sabe a qué cuenta cargar.">
+                  <input value={edit.nombre_wallet ?? ""} onChange={(e) => setEdit({ ...edit, nombre_wallet: e.target.value })} />
+                </Campo>
+              </section>
             )}
-            {!edit.conjunta && edit.propietario_id !== null && (
-              <Campo etiqueta="¿Qué ve tu pareja?">
-                <select value={edit.visibilidad} onChange={(e) => setEdit({ ...edit, visibilidad: e.target.value })}>
-                  {Object.entries(VISIBILIDAD).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-                </select>
-              </Campo>
+            {((!edit.id && otros.length > 0) || (!edit.conjunta && edit.propietario_id !== null)) && (
+              <section className="panel">
+                <div className="panel-titulo">Con tu pareja</div>
+                {!edit.id && otros.length > 0 && (
+                  <label className="fila p-0 sin-borde-arriba mb-14">
+                    <div className="cuerpo"><div className="titulo">Cuenta conjunta</div><div className="detalle">Los dos registran en ella y la ven completa</div></div>
+                    <span className="interruptor"><input type="checkbox" checked={edit.conjunta} onChange={(e) => setEdit({ ...edit, conjunta: e.target.checked })} /><span /></span>
+                  </label>
+                )}
+                {!edit.conjunta && edit.propietario_id !== null && (
+                  <Campo etiqueta="¿Qué ve tu pareja?">
+                    <select value={edit.visibilidad} onChange={(e) => setEdit({ ...edit, visibilidad: e.target.value })}>
+                      {Object.entries(VISIBILIDAD).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                    </select>
+                  </Campo>
+                )}
+              </section>
             )}
-            <label className="casilla"><input type="checkbox" checked={edit.activa} onChange={(e) => setEdit({ ...edit, activa: e.target.checked })} /> Activa (desactívala si la cancelaste)</label>
+            <div className="lista mt-14">
+              <label className="fila">
+                <div className="cuerpo"><div className="titulo">Activa</div><div className="detalle">Desactívala si la cancelaste: se oculta de los menús y conserva sus movimientos</div></div>
+                <span className="interruptor"><input type="checkbox" checked={edit.activa} onChange={(e) => setEdit({ ...edit, activa: e.target.checked })} /><span /></span>
+              </label>
+            </div>
             <div className="acciones">
               <button type="button" className="boton claro" onClick={() => setEdit(null)}>Cancelar</button>
               <button className="boton">Guardar</button>
@@ -140,22 +164,22 @@ export default function Cuentas() {
   ];
   return (
     <>
-      <Cabeza titulo="Cuentas" volver accion={<div className="flex gap-6">
+      <Cabeza titulo="Cuentas" volver accion={<div className="flex gap-8 centrar-v">
         {mias.length > 1 && <button className={"boton chico" + (ordenando ? "" : " claro")} onClick={() => setOrdenando(!ordenando)}>{ordenando ? "Listo" : "Ordenar"}</button>}
-        {!ordenando && <button className="boton chico" onClick={() => setEligiendo(!eligiendo)}>Agregar</button>}
+        {!ordenando && <button className="boton-icono acento" aria-label="Agregar cuenta" aria-expanded={eligiendo} onClick={() => setEligiendo(!eligiendo)}><Plus size={22} /></button>}
       </div>} />
       {ordenando && <p className="nota mt-n8">Usa las flechas para cambiar el orden dentro de cada grupo. Así se ven en Inicio y en los menús.</p>}
       {eligiendo && (
         <div className="lista mb-16">
-          <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><IconoCuenta tipo="credito" /><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Nombre, corte, pago y límite; lo demás se acumula solo</div></div><span aria-hidden="true">›</span></button>
-          <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva()); }}><IconoCuenta tipo="debito" /><div className="cuerpo"><div className="titulo">Débito, ahorro, efectivo o inversión</div><div className="detalle">Solo nombre y saldo de hoy</div></div><span aria-hidden="true">›</span></button>
-          <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva("prestamo")); }}><IconoCuenta tipo="prestamo" /><div className="cuerpo"><div className="titulo">Deuda o préstamo</div><div className="detalle">Crédito de auto, hipoteca, préstamo personal o dinero que debes a alguien</div></div><span aria-hidden="true">›</span></button>
+          <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><IconoCuenta tipo="credito" /><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Nombre, corte, pago y límite; lo demás se acumula solo</div></div><CaretRight size={16} className="flecha" aria-hidden="true" /></button>
+          <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva()); }}><IconoCuenta tipo="debito" /><div className="cuerpo"><div className="titulo">Débito, ahorro, efectivo o inversión</div><div className="detalle">Solo nombre y saldo de hoy</div></div><CaretRight size={16} className="flecha" aria-hidden="true" /></button>
+          <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva("prestamo")); }}><IconoCuenta tipo="prestamo" /><div className="cuerpo"><div className="titulo">Deuda o préstamo</div><div className="detalle">Crédito de auto, hipoteca, préstamo personal o dinero que debes a alguien</div></div><CaretRight size={16} className="flecha" aria-hidden="true" /></button>
         </div>
       )}
       {todas.length === 0 && <p>Agrega tus cuentas con el saldo de hoy: débito, cada tarjeta de crédito y tu cuenta de ahorro.</p>}
       {grupos.map(([t, l]) => l.length > 0 && (
-        <section key={t}>
-          <h2>{t}</h2>
+        <section key={t} className="seccion">
+          <div className="seccion-cabeza"><div><h2>{t} <span className="contador">{l.length}</span></h2></div></div>
           <div className="lista">
             {l.map((c, i) => ordenando && c.propietario_id === uid ? (
               <div className="fila" key={c.id}>
@@ -176,7 +200,7 @@ export default function Cuentas() {
                     {c.propietario_id === uid && ` · ${VISIBILIDAD[c.visibilidad].split(":")[0]}`}
                   </div>
                 </div>
-                <span aria-hidden="true">›</span>
+                <CaretRight size={16} className="flecha" aria-hidden="true" />
               </button>
             ))}
           </div>

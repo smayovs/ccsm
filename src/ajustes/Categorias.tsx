@@ -4,6 +4,7 @@ import { useApp, type Categoria } from "../contexto";
 import { Cabeza, Segmentos } from "../ui";
 import { errorTexto, fmt, limpiarMonto } from "../util";
 import { IconoCategoria, nombreIcono, SelectorIcono } from "../iconos";
+import { CaretDown, CaretRight, Plus } from "../phosphor";
 
 export default function Categorias() {
   const { uid, categorias, recargar, aviso } = useApp();
@@ -13,6 +14,8 @@ export default function Categorias() {
   const [nuevaSub, setNuevaSub] = useState("");
   const [verArchivadas, setVerArchivadas] = useState(false);
   const [error, setError] = useState("");
+  // Renombrar en la misma fila (antes era una ventana del sistema)
+  const [editando, setEditando] = useState<{ id: string; nombre: string } | null>(null);
 
   const delHogar = vista === "hogar";
   const tipo = vista === "ingreso" ? "ingreso" : "gasto";
@@ -35,49 +38,75 @@ export default function Categorias() {
     padre ? setNuevaSub("") : setNueva("");
     aviso("Categoría agregada"); await recargar();
   }
-  async function renombrar(c: Categoria) {
-    const n = window.prompt("Nuevo nombre", c.nombre)?.trim();
-    if (n && n !== c.nombre) { await act(c.id, { nombre: n }); aviso("Nombre cambiado: los movimientos ya registrados se actualizan solos"); }
+  async function guardarNombre(c: Categoria) {
+    const n = editando?.nombre.trim();
+    setEditando(null);
+    if (!n || n === c.nombre) return;
+    await act(c.id, { nombre: delHogar && !c.padre_id && !n.startsWith("Hogar: ") ? "Hogar: " + n : n });
+    aviso("Nombre cambiado: los movimientos ya registrados se actualizan solos");
   }
+  const sinPrefijo = (n: string) => (delHogar ? n.replace(/^Hogar: /, "") : n);
+  // Campo para renombrar en línea: Enter guarda, Escape cancela
+  const campoNombre = (c: Categoria) => (
+    <div className="flex gap-8 crece">
+      <input className="buscador m-0 crece" autoFocus aria-label={`Nuevo nombre de ${sinPrefijo(c.nombre)}`} value={editando!.nombre}
+        onChange={(e) => setEditando({ id: c.id, nombre: e.target.value })}
+        onKeyDown={(e) => { if (e.key === "Enter") guardarNombre(c); if (e.key === "Escape") setEditando(null); }} />
+      <button className="boton chico" onClick={() => guardarNombre(c)}>Guardar</button>
+    </div>
+  );
 
   return (
     <>
       <Cabeza titulo="Categorías" volver />
       <Segmentos etiqueta="Tipo" valor={vista} onCambio={(v) => { setVista(v); setAbierta(null); }}
         opciones={[{ v: "gasto", t: "Mis gastos" }, { v: "ingreso", t: "Mis ingresos" }, { v: "hogar", t: "Hogar" }]} />
-      <p className="nota mt-n4">Toca una categoría para cambiar su icono y sus subcategorías.</p>
+      <p className="nota mt-n4">Toca una categoría para cambiar su nombre, icono y subcategorías.</p>
       <div className="lista mt-12">
+        {padres.length === 0 && <div className="vacio">Aún no hay categorías aquí.</div>}
         {padres.map((p) => {
           const subs = propias.filter((c) => c.padre_id === p.id && (verArchivadas || !c.archivada)).sort((a, b) => a.orden - b.orden);
           const open = abierta === p.id;
           return (
-            <div key={p.id} className="borde-arriba">
-              <div className="fila sin-borde-arriba">
+            <div key={p.id} className={"cat-editable" + (open ? " abierta" : "")}>
+              <button className="fila" onClick={() => { setAbierta(open ? null : p.id); setEditando(null); setNuevaSub(""); }} aria-expanded={open}>
                 <IconoCategoria nombre={p.nombre} icono={p.icono} />
-                <button className="cuerpo sin-fondo sin-borde texto-izq p-0 cursor" onClick={() => setAbierta(open ? null : p.id)} aria-expanded={open}>
-                  <div className="titulo">{p.archivada && <span className="etiq">Archivada</span>}{delHogar ? p.nombre.replace(/^Hogar: /, "") : p.nombre}</div>
-                  <div className="detalle">{subs.length ? subs.map((s) => s.nombre).join(", ") : "Sin subcategorías"}</div>
-                </button>
-              </div>
+                <div className="cuerpo">
+                  <div className="titulo">{p.archivada && <span className="etiq">Archivada</span>}{sinPrefijo(p.nombre)}</div>
+                  <div className="detalle">{subs.length ? subs.map((x) => x.nombre).join(", ") : "Sin subcategorías"}</div>
+                </div>
+                {open ? <CaretDown size={16} className="flecha" aria-hidden="true" /> : <CaretRight size={16} className="flecha" aria-hidden="true" />}
+              </button>
               {open && (
-                <div className="p-0-14-14">
-                  <div className="sub mb-6">Icono</div>
-                  <SelectorIcono valor={nombreIcono(p.nombre, p.icono)} onCambio={(v) => act(p.id, { icono: v })} />
-                  <div className="sub m-14-0-2">Subcategorías</div>
-                  {subs.map((s) => (
-                    <div key={s.id} className="flex centrar-v gap-8 p-6-0">
-                      <span className="crece">{s.archivada && <span className="etiq">Archivada</span>}{s.nombre}</span>
-                      <button className="boton chico claro" onClick={() => renombrar(s)}>Renombrar</button>
-                      <button className="boton chico claro" onClick={() => act(s.id, { archivada: !s.archivada })}>{s.archivada ? "Restaurar" : "Archivar"}</button>
+                <div className="cat-editor">
+                  <div className="sub mb-6">Nombre</div>
+                  {editando?.id === p.id ? campoNombre(p) : (
+                    <div className="flex centrar-v gap-8">
+                      <span className="crece peso-600">{sinPrefijo(p.nombre)}</span>
+                      <button className="boton chico claro" onClick={() => setEditando({ id: p.id, nombre: sinPrefijo(p.nombre) })}>Renombrar</button>
                     </div>
-                  ))}
-                  <div className="flex gap-8 mt-8">
-                    <input className="buscador m-0 crece" aria-label="Nueva subcategoría" placeholder="Nueva subcategoría" value={nuevaSub} onChange={(e) => setNuevaSub(e.target.value)} />
-                    <button className="boton chico" onClick={() => crear(p)}>Agregar</button>
+                  )}
+                  <div className="sub mt-14 mb-6">Icono</div>
+                  <SelectorIcono valor={nombreIcono(p.nombre, p.icono)} onCambio={(v) => act(p.id, { icono: v })} />
+                  <div className="sub mt-14 mb-6">Subcategorías</div>
+                  <div className="subs-editables">
+                    {subs.map((x) => (
+                      <div key={x.id} className="flex centrar-v gap-8">
+                        {editando?.id === x.id ? campoNombre(x) : <>
+                          <span className="crece">{x.archivada && <span className="etiq">Archivada</span>}{x.nombre}</span>
+                          <button className="boton chico claro" onClick={() => setEditando({ id: x.id, nombre: x.nombre })}>Renombrar</button>
+                          <button className="boton chico claro" onClick={() => act(x.id, { archivada: !x.archivada })}>{x.archivada ? "Restaurar" : "Archivar"}</button>
+                        </>}
+                      </div>
+                    ))}
+                    <div className="flex gap-8">
+                      <input className="buscador m-0 crece" aria-label="Nueva subcategoría" placeholder="Nueva subcategoría" value={nuevaSub}
+                        onChange={(e) => setNuevaSub(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") crear(p); }} />
+                      <button className="boton-icono acento" aria-label="Agregar subcategoría" disabled={!nuevaSub.trim()} onClick={() => crear(p)}><Plus size={20} /></button>
+                    </div>
                   </div>
                   <div className="acciones">
-                    <button className="boton chico claro" onClick={() => renombrar(p)}>Renombrar categoría</button>
-                    <button className="boton chico claro" onClick={() => act(p.id, { archivada: !p.archivada })}>{p.archivada ? "Restaurar" : "Archivar"}</button>
+                    <button className="boton chico claro" onClick={() => act(p.id, { archivada: !p.archivada })}>{p.archivada ? "Restaurar categoría" : "Archivar categoría"}</button>
                   </div>
                 </div>
               )}
@@ -85,13 +114,16 @@ export default function Categorias() {
           );
         })}
       </div>
-      <div className="flex gap-8 mt-14">
-        <input className="buscador m-0 crece" aria-label={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} placeholder={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} value={nueva}
-          onChange={(e) => setNueva(delHogar && e.target.value && !e.target.value.startsWith("Hogar: ") ? "Hogar: " + e.target.value : e.target.value)} />
-        <button className="boton chico" onClick={() => crear(null)}>Agregar</button>
-      </div>
-      <p className="nota">Archivar oculta la categoría de los menús sin perder los movimientos que ya la usan. Al renombrar, los movimientos registrados se actualizan solos.</p>
-      <div className="acciones"><button className="boton claro" onClick={() => setVerArchivadas(!verArchivadas)}>{verArchivadas ? "Ocultar archivadas" : "Ver archivadas"}</button></div>
+      <section className="seccion">
+        <div className="seccion-cabeza"><div><h2>Nueva categoría</h2></div></div>
+        <div className="flex gap-8">
+          <input className="buscador m-0 crece" aria-label={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} placeholder={delHogar ? "Por ejemplo: Renta" : "Por ejemplo: Mascotas"} value={sinPrefijo(nueva)}
+            onChange={(e) => setNueva(delHogar && e.target.value ? "Hogar: " + e.target.value : e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") crear(null); }} />
+          <button className="boton-icono acento" aria-label="Agregar categoría" disabled={!nueva.trim()} onClick={() => crear(null)}><Plus size={20} /></button>
+        </div>
+      </section>
+      <p className="nota mt-14">Archivar oculta la categoría de los menús sin perder los movimientos que ya la usan. Al renombrar, los movimientos registrados se actualizan solos.</p>
+      <p className="texto-centro mt-14"><button className="enlace-chico boton-texto" onClick={() => setVerArchivadas(!verArchivadas)}>{verArchivadas ? "Ocultar archivadas" : "Ver archivadas"}</button></p>
       {error && <p className="error" role="alert">{error}</p>}
     </>
   );

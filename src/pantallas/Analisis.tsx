@@ -68,6 +68,7 @@ export default function Analisis() {
   const bajo = cerrados.length ? cerrados.reduce((a, b) => (b.monto < a.monto ? b : a)) : null;
   const ultimoCerrado = cerrados[cerrados.length - 1];
 
+  const vsProm = ultimoCerrado && promedio > 0 ? ultimoCerrado.monto / promedio - 1 : null;
   return (
     <>
       <Cabeza titulo="Análisis" volver />
@@ -78,52 +79,53 @@ export default function Analisis() {
         <div className="lista"><div className="vacio">Sin gastos registrados en este periodo.</div></div>
       ) : (
         <>
-          <section className="panel mt-0">
-            <div className="panel-cabeza">
-              <h2>{nombreSel ?? "Gasto por mes"}</h2>
-              {sel && <button className="enlace-chico boton-texto" onClick={() => setSel(null)}>Ver todo</button>}
-            </div>
-            <BarrasMes datos={porMes} promedio={promedio} />
-            <div className="stats">
-              <div><div className="k">Total</div><div className="v">{fmt(total, false)}</div></div>
-              <div><div className="k">Promedio mensual</div><div className="v">{fmt(promedio, false)}</div></div>
+          <section className="tablero" aria-label="Resumen del periodo">
+            <div className="etiqueta">{nombreSel ?? "Todo tu gasto"} · últimos {meses} meses</div>
+            <div className="cifra">{fmt(total, false)}</div>
+            <div className="sub">Promedio mensual <b>{fmt(promedio, false)}</b>
+              {vsProm !== null && <> · {ultimoCerrado!.etiqueta} {vsProm >= 0 ? "+" : "−"}{Math.round(Math.abs(vsProm) * 100)}% vs. promedio</>}</div>
+            <div className="tablero-trio">
               <div><div className="k">Mediana</div><div className="v">{fmt(mediana, false)}</div></div>
-              {alto && <div><div className="k">Mes más alto</div><div className="v">{fmt(alto.monto, false)}<small>{alto.etiqueta}</small></div></div>}
-              {bajo && <div><div className="k">Mes más bajo</div><div className="v">{fmt(bajo.monto, false)}<small>{bajo.etiqueta}</small></div></div>}
-              {ultimoCerrado && promedio > 0 && (
-                <div><div className="k">{ultimoCerrado.etiqueta} vs. promedio</div>
-                  <div className={"v " + (ultimoCerrado.monto > promedio ? "negativo" : "positivo")}>
-                    {ultimoCerrado.monto >= promedio ? "+" : "−"}{Math.round(Math.abs(ultimoCerrado.monto / promedio - 1) * 100)}%</div></div>
-              )}
+              <div><div className="k">Mes más alto</div><div className="v">{alto ? fmt(alto.monto, false) : "—"}</div>{alto && <div className="k">{alto.etiqueta}</div>}</div>
+              <div><div className="k">Mes más bajo</div><div className="v">{bajo ? fmt(bajo.monto, false) : "—"}</div>{bajo && <div className="k">{bajo.etiqueta}</div>}</div>
             </div>
-            <p className="nota">El promedio y la mediana usan los meses cerrados; el mes en curso aparece en la gráfica pero no cuenta. Cuenta solo tu parte de cada gasto; las compras a meses cuentan completas en el mes de compra.</p>
           </section>
 
-          <h2>Desglose</h2>
-          <Segmentos etiqueta="Agrupar por" valor={vista} onCambio={(v) => { setVista(v); setSel(null); }} opciones={[
-            { v: "categoria", t: "Categorías" }, { v: "cuenta", t: "Cuentas" }]} />
-          {vista === "categoria" ? (
-            <section className="panel mt-0"><DesgloseCategorias cats={cats} total={totalGeneral} sel={sel} onSel={setSel} /></section>
-          ) : (
-          <div className="lista">
-            {grupos.map((g) => {
-              const pct = totalGeneral > 0 ? g.total / totalGeneral : 0;
-              const prom = g.total / Math.max(1, Number(meses));
-              const activo = sel === g.clave;
-              return (
-                <button key={g.clave} className={"fila analisis" + (activo ? " activa" : "")} aria-pressed={activo} onClick={() => setSel(activo ? null : g.clave)}>
-                  {g.tipo ? <IconoCuenta tipo={g.tipo} /> : <IconoCategoria nombre="Otros" />}
-                  <div className="cuerpo">
-                    <div className="cat-linea"><span className="cat-nombre">{g.nombre}</span><span className="cat-monto">{fmt(g.total, false)}</span></div>
-                    <div className="cat-riel"><span style={{ width: `${(g.total / Math.max(1, grupos[0].total)) * 100}%` }} /></div>
-                    <div className="detalle">{Math.round(pct * 1000) / 10}% del total · {fmt(prom, false)}/mes</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          )}
-          <p className="nota">Toca una {vista === "categoria" ? "categoría o subcategoría" : "cuenta"} para ver su gasto mes a mes en la gráfica.</p>
+          <section className="seccion">
+            <div className="seccion-cabeza">
+              <div><h2>Mes a mes</h2><div className="etiq-periodo">La línea marca el promedio de los meses cerrados</div></div>
+              {sel && <button className="enlace-chico boton-texto" onClick={() => setSel(null)}>Ver todo</button>}
+            </div>
+            <div className="panel"><BarrasMes datos={porMes} promedio={promedio} /></div>
+          </section>
+
+          <section className="seccion">
+            <div className="seccion-cabeza"><div><h2>Desglose</h2><div className="etiq-periodo">Toca uno para ver su gasto mes a mes</div></div></div>
+            <Segmentos etiqueta="Agrupar por" valor={vista} onCambio={(v) => { setVista(v); setSel(null); }} opciones={[
+              { v: "categoria", t: "Categorías" }, { v: "cuenta", t: "Cuentas" }]} />
+            {vista === "categoria" ? (
+              <div className="panel"><DesgloseCategorias cats={cats} total={totalGeneral} sel={sel} onSel={setSel} /></div>
+            ) : (
+              <div className="lista">
+                {grupos.map((g) => {
+                  const pct = totalGeneral > 0 ? g.total / totalGeneral : 0;
+                  const prom = g.total / Math.max(1, Number(meses));
+                  const activo = sel === g.clave;
+                  return (
+                    <button key={g.clave} className={"fila analisis" + (activo ? " activa" : "")} aria-pressed={activo} onClick={() => setSel(activo ? null : g.clave)}>
+                      {g.tipo ? <IconoCuenta tipo={g.tipo} /> : <IconoCategoria nombre="Otros" />}
+                      <div className="cuerpo">
+                        <div className="cat-linea"><span className="cat-nombre">{g.nombre}</span><span className="cat-monto">{fmt(g.total, false)}</span></div>
+                        <div className="cat-riel"><span style={{ width: `${(g.total / Math.max(1, grupos[0].total)) * 100}%` }} /></div>
+                        <div className="detalle">{Math.round(pct * 1000) / 10}% del total · {fmt(prom, false)}/mes</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+          <p className="nota mt-14">Cuenta solo tu parte de cada gasto; las compras a meses cuentan completas en el mes de compra. El promedio, la mediana y los meses alto y bajo usan los meses cerrados; el mes en curso aparece en la gráfica pero no cuenta.</p>
         </>
       )}
     </>
