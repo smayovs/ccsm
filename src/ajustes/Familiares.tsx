@@ -49,7 +49,7 @@ export default function Familiares() {
         ))}
       </div>
       <form onSubmit={agregar} style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <input className="buscador" style={{ margin: 0, flex: 1 }} placeholder="Nombre (ej. Hermana, Luis del trabajo)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        <input className="buscador" style={{ margin: 0, flex: 1 }} aria-label="Nombre del familiar" placeholder="Nombre (ej. Hermana, Luis del trabajo)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
         <button className="boton chico">Agregar</button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}

@@ -6,11 +6,11 @@
   --linea: #DFE4EC;
   --ciruela: #2357C6;        /* acento principal (azul) */
   --ciruela-suave: #E4EBFA;
-  --sereno: #0F8A5F;         /* positivo / ingresos */
+  --sereno: #0B7A53;         /* positivo / ingresos */
   --sereno-suave: #DDF3EA;
-  --oxido: #C93B2B;          /* negativo / alertas */
+  --oxido: #BA3626;          /* negativo / alertas */
   --oxido-suave: #FBE4E0;
-  --ambar: #A86A00;
+  --ambar: #946000;
   --ambar-suave: #FBF0D9;
   --heroe: #0F1E3D;          /* tarjeta principal de Inicio */
   --heroe-2: #1B3264;
@@ -77,6 +77,8 @@ body {
 button, input, select, textarea { font: inherit; color: inherit; }
 a { color: var(--ciruela); }
 :focus-visible { outline: 2px solid var(--ciruela); outline-offset: 2px; }
+/* Texto solo para lectores de pantalla (VoiceOver) */
+.solo-lector { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 .app { max-width: 560px; margin: 0 auto; min-height: 100dvh; padding: calc(env(safe-area-inset-top) + 12px) 16px calc(96px + env(safe-area-inset-bottom)); }
@@ -172,6 +174,7 @@ button.fila:active, a.fila:active { background: var(--ciruela-suave); }
 .selector-mes span:first-letter { text-transform: uppercase; }
 .buscador { width: 100%; padding: 11px 14px; border: 1px solid var(--linea); border-radius: 99px; background: var(--superficie); font-size: max(16px, 1rem); margin-bottom: 10px; }
 .codigo { font-family: var(--display); font-weight: 700; font-size: 2rem; letter-spacing: 0.12em; text-align: center; padding: 14px; border-radius: var(--radio); background: var(--superficie); border: 1px dashed var(--ciruela); user-select: all; }
+button.llave { display: block; width: 100%; text-align: left; color: inherit; cursor: pointer; }
 .llave { font-family: ui-monospace, Menlo, monospace; font-size: 0.85rem; word-break: break-all; padding: 12px; border-radius: var(--radio-chico); background: var(--superficie); border: 1px solid var(--linea); user-select: all; }
 
 /* Navegación inferior */

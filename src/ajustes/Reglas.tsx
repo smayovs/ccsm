@@ -51,7 +51,7 @@ export default function Reglas() {
         {error && <p className="error" role="alert">{error}</p>}
       </form>
       <h2>Reglas ({lista.length})</h2>
-      <input className="buscador" type="search" placeholder="Buscar" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className="buscador" type="search" aria-label="Buscar reglas" placeholder="Buscar" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="lista">
         {visibles.map((r) => (
           <div className="fila" key={r.id}>

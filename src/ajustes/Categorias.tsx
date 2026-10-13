@@ -72,7 +72,7 @@ export default function Categorias() {
                     </div>
                   ))}
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <input className="buscador" style={{ margin: 0, flex: 1 }} placeholder="Nueva subcategoría" value={nuevaSub} onChange={(e) => setNuevaSub(e.target.value)} />
+                    <input className="buscador" style={{ margin: 0, flex: 1 }} aria-label="Nueva subcategoría" placeholder="Nueva subcategoría" value={nuevaSub} onChange={(e) => setNuevaSub(e.target.value)} />
                     <button className="boton chico" onClick={() => crear(p)}>Agregar</button>
                   </div>
                   <div className="acciones">
@@ -86,7 +86,7 @@ export default function Categorias() {
         })}
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <input className="buscador" style={{ margin: 0, flex: 1 }} placeholder={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} value={nueva}
+        <input className="buscador" style={{ margin: 0, flex: 1 }} aria-label={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} placeholder={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} value={nueva}
           onChange={(e) => setNueva(delHogar && e.target.value && !e.target.value.startsWith("Hogar: ") ? "Hogar: " + e.target.value : e.target.value)} />
         <button className="boton chico" onClick={() => crear(null)}>Agregar</button>
       </div>

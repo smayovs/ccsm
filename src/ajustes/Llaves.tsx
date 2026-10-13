@@ -34,12 +34,12 @@ export default function Llaves() {
       <Cabeza titulo="Atajos del iPhone" volver />
       <p className="nota" style={{ marginTop: -8 }}>Tus atajos (el manual y el de Apple Pay) usan esta dirección y una llave personal. La llave registra a tu nombre, así que trátala como una contraseña.</p>
       <h2>Dirección</h2>
-      <div className="llave" onClick={() => copiar(URL_ATAJOS, "Dirección")}>{URL_ATAJOS}</div>
+      <button type="button" className="llave" onClick={() => copiar(URL_ATAJOS, "Dirección")} aria-label={`Copiar dirección: ${URL_ATAJOS}`}>{URL_ATAJOS}</button>
 
       <h2>Llave nueva</h2>
       {nueva ? (
         <>
-          <div className="llave" onClick={() => copiar(nueva, "Llave")}>{nueva}</div>
+          <button type="button" className="llave" onClick={() => copiar(nueva, "Llave")}>{nueva}</button>
           <p className="nota">Cópiala ahora y pégala en tus atajos: por seguridad no se vuelve a mostrar. Si la pierdes, crea otra y revoca esta.</p>
           <div className="acciones">
             <button className="boton" onClick={() => copiar(nueva, "Llave")}>Copiar llave</button>

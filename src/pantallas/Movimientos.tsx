@@ -215,7 +215,7 @@ export default function Movimientos() {
           </div>
         </>
       ) : <SelectorMes mes={mes} onCambio={setMes} />}
-      <input className="buscador" type="search" placeholder="Buscar comercio, categoría, cuenta…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className="buscador" type="search" aria-label="Buscar movimientos" placeholder="Buscar comercio, categoría, cuenta…" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="filtros-desliza"><Segmentos etiqueta="Filtrar" valor={filtro} onCambio={setFiltro} opciones={[
         { v: "todo", t: "Todo" }, { v: "gasto", t: "Gastos" }, { v: "mensualidad", t: "Mensualidades" }, { v: "suscripcion", t: "Suscripciones" }, { v: "ingreso", t: "Ingresos" },
         ...(otros.length ? [{ v: "compartido" as const, t: "Compartidos" }] : []), { v: "otros", t: "Transferencias" },

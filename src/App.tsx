@@ -98,7 +98,7 @@ export default function App() {
           <NavLink to="/movimientos"><Icono.lista />Movimientos</NavLink>
           <NavLink to="/nuevo" className="mas-grande" aria-label="Agregar movimiento"><span className="circulo"><Icono.mas /></span></NavLink>
           <NavLink to="/hogar"><Icono.hogar />Hogar</NavLink>
-          <NavLink to="/mas"><Icono.menu />Más{pendientes > 0 && <span className="punto" aria-label={`${pendientes} pendientes`} />}</NavLink>
+          <NavLink to="/mas"><Icono.menu />Más{pendientes > 0 && <><span className="punto" aria-hidden="true" /><span className="solo-lector">, {pendientes} pendientes</span></>}</NavLink>
         </div>
       </nav>
     </>

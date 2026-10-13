@@ -118,7 +118,7 @@ export function Proveedor({ children }: { children: ReactNode }) {
   return (
     <C.Provider value={{ session, recuperando, terminarRecuperacion: () => setRecuperando(false), uid, yo, otros, cuentas, categorias, familiares, listo: inicio && listo, fallo, recargar, aviso }}>
       {children}
-      {toast && <div className="toast" role="status">{toast}</div>}
+      <div role="status" aria-live="polite" className={toast ? "toast" : "solo-lector"}>{toast}</div>
     </C.Provider>
   );
 }
