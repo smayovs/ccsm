@@ -1,5 +1,6 @@
 import { sb } from "./supabase";
 import { sumarMes } from "./util";
+import { cobradoTras, mensualidadesMsi } from "./dinero";
 
 export type Cargo = { id: string; mov: string; fecha: string; texto: string; monto: number; pendiente: number; marcado?: boolean };
 export type Persona = { cargos: Cargo[]; marcados: Cargo[]; total: number; porVenir: number; proxima: number; pagado: number };
@@ -41,17 +42,15 @@ export async function cargarCobros(): Promise<Cobros> {
     if (!m.meses_msi || m.cobro_completo || !x) {
       lista.push({ id: clave, mov: m.mov, fecha: m.fecha, texto: m.meses_msi ? `${texto} (a ${m.meses_msi} meses, cobro completo)` : texto, monto: Number(m.monto), pendiente: Number(m.monto) });
     } else {
-      const mensual = Math.round((Number(m.monto) / x.meses) * 100) / 100;
       // La primera mensualidad absorbe los centavos, igual que el banco y la base de datos (_msi_cobrado)
-      const primera = Math.round((Number(m.monto) - mensual * (x.meses - 1)) * 100) / 100;
+      const mens = mensualidadesMsi(Number(m.monto), x.meses);
       for (let k = 1; k <= x.facturadas; k++) {
-        const v = k === 1 ? primera : mensual;
-        lista.push({ id: `${clave}|${k}`, mov: m.mov, fecha: sumarMes(x.primer_mes, k - 1), texto: `${texto} (MSI ${k} de ${x.meses})`, monto: v, pendiente: v });
+        lista.push({ id: `${clave}|${k}`, mov: m.mov, fecha: sumarMes(x.primer_mes, k - 1), texto: `${texto} (MSI ${k} de ${x.meses})`, monto: mens[k - 1], pendiente: mens[k - 1] });
       }
-      const venir = x.facturadas > 0 ? mensual * x.restantes : Number(m.monto);
+      const venir = Number(m.monto) - cobradoTras(Number(m.monto), x.meses, x.facturadas);
       estado[clave].porVenir = venir;
       porVenir[m.familiar_id] = (porVenir[m.familiar_id] ?? 0) + venir;
-      if (x.restantes > 0) proxima[m.familiar_id] = (proxima[m.familiar_id] ?? 0) + (x.facturadas === 0 ? primera : mensual);
+      if (x.restantes > 0) proxima[m.familiar_id] = (proxima[m.familiar_id] ?? 0) + mens[x.facturadas];
     }
   }
 

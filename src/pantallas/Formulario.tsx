@@ -6,6 +6,7 @@ import { Cabeza, Campo, Segmentos, SelectorCategoria } from "../ui";
 import { errorTexto, fechaLarga, fmt, hoyISO, limpiarMonto } from "../util";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 import { facturadas, fechaParaPago } from "../ajustes/saldosTarjeta";
+import { parteDePareja } from "../dinero";
 
 type Tipo = "gasto" | "ingreso" | "transferencia" | "reembolso";
 type Comp = "no" | "mitad" | "pct" | "monto" | "todo";
@@ -101,9 +102,7 @@ export default function Formulario() {
   // Los gastos de la cuenta conjunta ya son de los dos: no se comparten
   const esConjunta = !!cuentaSel && !cuentaSel.propietario_id;
   // Lo que se comparte con tu pareja es lo que queda después de las partes de familiares (igual que la base de datos)
-  const base = montoNum - (dividir ? sumaPartes : 0);
-  const parteOtro = comp === "mitad" ? Math.round(base * 50) / 100 : comp === "todo" ? base
-    : comp === "pct" ? Math.round(base * Number(valorComp || 0)) / 100 : comp === "monto" ? Number(valorComp || 0) : 0;
+  const { base, parte: parteOtro } = parteDePareja(montoNum, dividir ? sumaPartes : 0, comp, Number(valorComp || 0));
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault(); setError("");
