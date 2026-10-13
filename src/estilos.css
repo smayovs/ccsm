@@ -161,7 +161,9 @@ button.fila:active, a.fila:active { background: var(--ciruela-suave); }
 .positivo { color: var(--sereno); }
 .negativo { color: var(--oxido); }
 .vacio { padding: 22px 16px; text-align: center; color: var(--tinta-2); }
-.fecha-grupo { font-size: 0.82rem; color: var(--tinta-2); margin: 18px 4px 6px; }
+.fecha-grupo { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 0.82rem; color: var(--tinta-2); margin: 18px 4px 6px; }
+.fecha-grupo > span:first-child:first-letter { text-transform: uppercase; }
+.fecha-grupo .num { font-weight: 600; }
 .fecha-grupo:first-letter { text-transform: uppercase; }
 
 .etiq { display: inline-block; font-size: 0.72rem; font-weight: 600; padding: 1px 7px; border-radius: 99px; margin-right: 4px; background: var(--ciruela-suave); color: var(--ciruela); vertical-align: 1px; }

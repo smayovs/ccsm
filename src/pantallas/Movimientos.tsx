@@ -6,7 +6,7 @@ import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorMes, Segmentos } from "../ui";
 import { cobroEnMes, conDia, fechaCorta, fechaLarga, fmt, hoyISO, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
-import { ArrowsLeftRight, CalendarDots, HandCoins, Handshake } from "../phosphor";
+import { ArrowsLeftRight, CalendarDots, HandCoins, Handshake, MagnifyingGlass, SlidersHorizontal } from "../phosphor";
 import { IconoCategoria } from "../iconos";
 
 export const SELECT_MOV = `*, cuenta:cuentas!movimientos_cuenta_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_fkey(nombre),
@@ -67,6 +67,9 @@ export default function Movimientos() {
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState("");
   const [q, setQ] = useState(params.get("q") ?? "");
+  // Controles secundarios plegados: el buscador detrás de la lupa y cuenta/periodo en un panel
+  const [buscando, setBuscando] = useState(!!params.get("q"));
+  const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [filtro, setFiltro] = useState<"todo" | "gasto" | "mensualidad" | "suscripcion" | "ingreso" | "compartido" | "otros">(params.get("filtro") === "gasto" ? "gasto" : "todo");
 
   const ordenTipo = ["credito", "debito", "ahorro", "efectivo", "inversion", "prestamo"];
@@ -187,16 +190,42 @@ export default function Movimientos() {
     setCorteFin(null);
   };
   const preset = (d: string, h: string) => { setRDesde(d); setRHasta(h); };
+  // Lo que suma cada fila tal como se ve (tu parte; las mensualidades por su parte). No cuentan los programados
+  // ni las compras a meses cuya primera mensualidad cae el mes siguiente.
+  const valor = (m: Mov) => (m.programada || (m.movId && m.msiK < 1) ? 0 : lineaMov(m, uid, nombres).signo * montoMostrado(m));
+  const entro = filtrados.reduce((a, m) => a + Math.max(0, valor(m)), 0);
+  const salio = filtrados.reduce((a, m) => a + Math.max(0, -valor(m)), 0);
+  const nomCuenta = cuentas.find((c) => c.id === cuentaFiltro)?.nombre;
+  const resumenFiltros = [nomCuenta ?? "Todas las cuentas", enCorte ? "Periodo de corte" : modo === "rango" ? "Por fechas" : "Por mes"];
+  const conFiltros = !!cuentaFiltro || modo !== "mes";
 
   return (
     <>
-      <Cabeza titulo="Movimientos" />
-      <div className="filtros-desliza"><Segmentos etiqueta="Cuenta" valor={cuentaFiltro} onCambio={elegirCuenta} opciones={[
-        { v: "", t: "Todas" }, ...listaCuentas.map((c) => ({ v: c.id, t: c.nombre })),
-      ]} /></div>
-      <Segmentos etiqueta="Periodo" valor={enCorte ? "corte" : modo === "corte" ? "mes" : modo} onCambio={(v) => { setModo(v); setCorteFin(null); }} opciones={[
-        { v: "mes", t: "Por mes" }, { v: "rango", t: "Por fechas" }, ...(diaCorte ? [{ v: "corte" as const, t: "Periodo de corte" }] : []),
-      ]} />
+      <Cabeza titulo="Movimientos" accion={
+        <button className="boton-icono" aria-label={buscando ? "Cerrar búsqueda" : "Buscar movimientos"} aria-expanded={buscando}
+          onClick={() => { if (buscando) setQ(""); setBuscando(!buscando); }}><MagnifyingGlass size={22} /></button>
+      } />
+      {buscando && <input className="buscador" type="search" autoFocus aria-label="Buscar movimientos" placeholder="Buscar comercio, categoría, cuenta…" value={q} onChange={(e) => setQ(e.target.value)} />}
+      <div className="filtros-inicio">
+        <button type="button" className={"filtros-resumen" + (conFiltros ? " activos" : "")} aria-expanded={filtrosAbiertos} onClick={() => setFiltrosAbiertos(!filtrosAbiertos)}>
+          <SlidersHorizontal size={16} aria-hidden="true" />
+          <span>{resumenFiltros[0]}</span><span className="sep">·</span><span>{resumenFiltros[1]}</span>
+        </button>
+        {filtrosAbiertos && (
+          <div className="filtros-panel">
+            <div className="sub">Cuenta</div>
+            <div className="chips-filtro">
+              <button type="button" aria-pressed={!cuentaFiltro} onClick={() => elegirCuenta("")}>Todas</button>
+              {listaCuentas.map((c) => <button type="button" key={c.id} aria-pressed={cuentaFiltro === c.id} onClick={() => elegirCuenta(c.id)}>{c.nombre}</button>)}
+            </div>
+            <div className="sub">Periodo</div>
+            <Segmentos etiqueta="Periodo" valor={enCorte ? "corte" : modo === "corte" ? "mes" : modo} onCambio={(v) => { setModo(v); setCorteFin(null); }} opciones={[
+              { v: "mes", t: "Por mes" }, { v: "rango", t: "Por fechas" }, ...(diaCorte ? [{ v: "corte" as const, t: "Periodo de corte" }] : []),
+            ]} />
+            {!diaCorte && <p className="nota mt-n6">Elige una tarjeta de crédito para ver sus periodos de corte.</p>}
+          </div>
+        )}
+      </div>
       {enCorte ? (
         <>
           <div className="selector-mes">
@@ -221,7 +250,6 @@ export default function Movimientos() {
           </div>
         </>
       ) : <SelectorMes mes={mes} onCambio={setMes} />}
-      <input className="buscador" type="search" aria-label="Buscar movimientos" placeholder="Buscar comercio, categoría, cuenta…" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="filtros-desliza"><Segmentos etiqueta="Filtrar" valor={filtro} onCambio={setFiltro} opciones={[
         { v: "todo", t: "Todo" }, { v: "gasto", t: "Gastos" }, { v: "mensualidad", t: "Mensualidades" }, { v: "suscripcion", t: "Suscripciones" }, { v: "ingreso", t: "Ingresos" },
         ...(otros.length ? [{ v: "compartido" as const, t: "Compartidos" }] : []), { v: "otros", t: "Transferencias" },
@@ -233,17 +261,22 @@ export default function Movimientos() {
           <div><div className="k">Movimientos</div><div className="v">{filtrados.length}</div></div>
         </div>
       )}
-      {["gasto", "mensualidad", "suscripcion"].includes(filtro) && grupos.length > 0 && (
-        <div className="total-filtro">
-          <span>{filtro === "mensualidad" ? "Mensualidades" : filtro === "suscripcion" ? "Suscripciones" : "Gastos"} · {textoPeriodo}{filtro === "suscripcion" && programadas.length ? " (incluye programadas)" : ""}</span>
-          <b>{fmt(filtrados.reduce((a, m) => a + (m.tipo === "gasto" && !(m.movId && m.msiK < 1) ? montoMostrado(m) : 0), 0))}</b>
+      {!enCorte && !cargando && grupos.length > 0 && (
+        <div className="trio mt-0 mb-4" aria-label={`Resumen de ${textoPeriodo}`}>
+          <div><div className="k">Entró</div><div className="v positivo">{fmt(entro, false)}</div></div>
+          <div><div className="k">Salió</div><div className="v">{fmt(salio, false)}</div></div>
+          <div><div className="k">Neto</div><div className={"v " + (entro - salio < 0 ? "negativo" : "")}>{entro - salio < 0 ? "−" : ""}{fmt(Math.abs(entro - salio), false)}</div></div>
         </div>
       )}
+      {!enCorte && !cargando && grupos.length > 0 && <p className="nota mt-0 mb-8">Tu parte de cada movimiento{filtro !== "todo" || q || cuentaFiltro ? ", con los filtros elegidos" : ""}. Los programados no cuentan hasta que llegan.</p>}
       {cargando ? <div className="vacio">Cargando…</div> : fallo ? <p className="error" role="alert">{fallo}</p> : grupos.length === 0 ? (
         <div className="lista"><div className="vacio">{cuentaFiltro ? "Nada en esta cuenta en este periodo." : "Nada registrado en este periodo."} <Link to="/nuevo">Agrega un movimiento</Link>.</div></div>
       ) : grupos.map(([fecha, lista]) => (
         <section key={fecha}>
-          <div className="fecha-grupo">{fechaLarga(fecha)}{enCorte && fecha === finCorte && lista.some((m) => m.movId && !m.compra) ? " · corte" : ""}</div>
+          <div className="fecha-grupo">
+            <span>{fechaLarga(fecha)}{enCorte && fecha === finCorte && lista.some((m) => m.movId && !m.compra) ? " · corte" : ""}</span>
+            {(() => { const t = lista.reduce((a, m) => a + valor(m), 0); return Math.abs(t) >= 0.005 ? <span className={"num" + (t > 0 ? " positivo" : "")}>{t > 0 ? "+" : "−"}{fmt(Math.abs(t))}</span> : null; })()}
+          </div>
           <div className="lista">
             {lista.map((m) => {
               if (m.ipId) return (
