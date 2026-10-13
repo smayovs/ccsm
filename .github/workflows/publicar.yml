@@ -20,6 +20,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+            # Si una prueba de los cálculos de dinero falla, no se publica
+      - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
