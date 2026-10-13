@@ -86,6 +86,29 @@ export default function AparienciaPantalla() {
       ]} />
       <p className="nota mt-n6">Automático sigue el modo de tu iPhone.</p>
 
+      <h2>Tarjeta del resumen</h2>
+      <Segmentos etiqueta="Tarjeta del resumen" valor={a.tarjeta ?? "oscura"} onCambio={(v) => cambiar({ tarjeta: v })} opciones={[
+        { v: "oscura", t: "Oscura" }, { v: "color", t: "Del color" }, { v: "clara", t: "Clara" },
+      ]} />
+      <p className="nota mt-n6">«Del color» usa el color principal de tu paleta; se ve mejor con las de dos colores.</p>
+
+      <h2>Cifras y espacio</h2>
+      <div className="lista">
+        <label className="fila">
+          <div className="cuerpo"><div className="titulo">Mostrar centavos</div><div className="detalle">Apagado, las cifras se redondean al peso: $1,240 en lugar de $1,240.00.</div></div>
+          <span className="interruptor"><input type="checkbox" checked={a.centavos !== false} onChange={(e) => cambiar({ centavos: e.target.checked })} /><span /></span>
+        </label>
+      </div>
+      <div className="sub mt-14 mb-6">Densidad</div>
+      <Segmentos etiqueta="Densidad" valor={a.densidad ?? "comoda"} onCambio={(v) => cambiar({ densidad: v })} opciones={[
+        { v: "comoda", t: "Cómoda" }, { v: "compacta", t: "Compacta" },
+      ]} />
+      <div className="sub mb-6">Animaciones</div>
+      <Segmentos etiqueta="Animaciones" valor={a.movimiento ?? "auto"} onCambio={(v) => cambiar({ movimiento: v })} opciones={[
+        { v: "auto", t: "Automáticas" }, { v: "reducido", t: "Reducidas" },
+      ]} />
+      <p className="nota mt-n6">Automáticas sigue el ajuste de movimiento reducido de tu iPhone.</p>
+
       <h2>Tipografía</h2>
       <div className="lista" role="radiogroup" aria-label="Tipografía">
         {FUENTES.map((f) => (

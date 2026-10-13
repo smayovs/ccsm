@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, Campo } from "../ui";
-import { diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, mesISO, sumarMes, TIPOS_CUENTA } from "../util";
+import { conDia, diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, sumarMes, TIPOS_CUENTA } from "../util";
 import { IconoMov, lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
 import { cargarCobros, textoEstado, type EstadoMov } from "../cobros";
 
@@ -34,6 +34,15 @@ export default function Cuenta() {
   const [movs, setMovs] = useState<Mov[]>([]);
   const [fallo, setFallo] = useState("");
   const [cobros, setCobros] = useState<Record<string, EstadoMov[]>>({});
+  // Tarjetas: cuántos periodos de corte hacia atrás se ven (0 = el periodo abierto, desde el último corte)
+  const [atras, setAtras] = useState(0);
+  const [cargandoMovs, setCargandoMovs] = useState(true);
+  // Compras a meses de esta tarjeta (se piden una vez): de ellas salen las mensualidades de cada corte
+  const [comprasMsi, setComprasMsi] = useState<Mov[]>([]);
+  useEffect(() => {
+    sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").eq("cuenta_id", id).not("meses_msi", "is", null)
+      .then(({ data }) => setComprasMsi(data ?? []));
+  }, [id]);
   const nombres = useMemo(() => Object.fromEntries([...otros, ...(yo ? [yo] : [])].map((m) => [m.user_id, m.nombre])), [otros, yo]);
 
   const cargar = useCallback(async () => {
@@ -41,15 +50,32 @@ export default function Cuenta() {
     if (r.error) { setFallo(errorTexto(r.error)); return; }
     const det = r.data as Detalle;
     setD(det);
-    const desde = det.tipo === "credito" && det.ultimo_corte ? det.ultimo_corte : null;
-    let q = sb.from("movimientos").select(SELECT_MOV).or(`cuenta_id.eq.${id},cuenta_destino_id.eq.${id}`);
-    q = (desde ? q.gt("fecha", desde) : q.gte("fecha", mesISO())).lte("fecha", hoyISO());
-    const m = await q.order("fecha", { ascending: false }).order("created_at", { ascending: false });
-    setMovs((m.data ?? []).filter((x: any) => x.origen !== "Saldo inicial"));
     cargarCobros().then((c) => setCobros(c.movs));
   }, [id]);
 
   useEffect(() => { cargar(); }, [cargar]);
+
+  // Periodo de corte a "atras" periodos del abierto: (inicio, fin], los dos días de corte
+  const periodoCorte = (det: Detalle, k: number) => {
+    const fin = k === 1 ? det.ultimo_corte! : conDia(sumarMes(mesISO(det.ultimo_corte!), -(k - 1)), det.dia_corte!);
+    return { ini: conDia(sumarMes(mesISO(fin), -1), det.dia_corte!), fin };
+  };
+  useEffect(() => {
+    if (!d) return;
+    let vigente = true;
+    setCargandoMovs(true);
+    let q = sb.from("movimientos").select(SELECT_MOV).or(`cuenta_id.eq.${id},cuenta_destino_id.eq.${id}`);
+    if (d.tipo === "credito" && d.ultimo_corte) {
+      if (atras === 0 || !d.dia_corte) q = q.gt("fecha", d.ultimo_corte).lte("fecha", hoyISO());
+      else { const p = periodoCorte(d, atras); q = q.gt("fecha", p.ini).lte("fecha", p.fin); }
+    } else q = q.gte("fecha", mesISO()).lte("fecha", hoyISO());
+    q.order("fecha", { ascending: false }).order("created_at", { ascending: false }).then((m) => {
+      if (!vigente) return;
+      setMovs((m.data ?? []).filter((x: any) => x.origen !== "Saldo inicial"));
+      setCargandoMovs(false);
+    });
+    return () => { vigente = false; };
+  }, [d, atras, id]);
 
 
 
@@ -57,31 +83,46 @@ export default function Cuenta() {
   if (!d) return (<><Cabeza titulo="Cuenta" volver /><div className="vacio">Cargando…</div></>);
 
   const credito = d.tipo === "credito" && d.ultimo_corte;
+  const pAtras = credito && atras > 0 && d.dia_corte ? periodoCorte(d, atras) : null;
+  const entraMov = (m: Mov) => m.cuenta_destino_id === id || ["ingreso", "reembolso"].includes(m.tipo);
+  // Tarjetas: el corte que se ve (el abierto cierra en el próximo corte) y sus mensualidades, igual que Movimientos en modo corte.
+  // Las compras a meses del periodo llevan el número de mensualidad que factura ese corte (0 si entran al siguiente).
+  const corteVisto = credito && d.dia_corte ? (pAtras ?? (d.proximo_corte ? { ini: d.ultimo_corte!, fin: d.proximo_corte } : null)) : null;
+  const filas: Mov[] = corteVisto ? [
+    ...movs.map((m) => (m.meses_msi && m.tipo === "gasto" ? { ...m, msiK: mensualidadEn(m.fecha, mesISO(corteVisto.fin), d.dia_corte!), compra: true } : m)),
+    ...msiAnteriores(comprasMsi, masDias(corteVisto.ini, 1)).flatMap((x) => {
+      const k = mensualidadEn(x.fecha, mesISO(corteVisto.fin), d.dia_corte!);
+      return k >= 1 && k <= x.meses_msi ? [{ ...x, id: `${x.id}-${k}`, movId: x.id, msiK: k, fecha: corteVisto.fin }] : [];
+    }),
+  ].sort((a, b) => b.fecha.localeCompare(a.fecha)) : movs;
+  // Lo que suma al estado de cuenta: las mensualidades por su parte y lo demás completo
+  const cargoDe = (m: Mov) => (m.movId || m.compra ? (m.msiK >= 1 ? montoMensualidad(Number(m.monto), m.meses_msi, m.msiK) : 0) : Number(m.monto));
   const deuda = Math.max(0, -n(d.saldo));
   const limite = n(d.limite);
   const usado = limite > 0 ? deuda / limite : 0;
 
   const lista = (
     <div className="lista">
-      {movs.length === 0 && <div className="vacio">{credito ? "Sin movimientos desde el corte." : "Sin movimientos este mes."}</div>}
-      {movs.map((m) => {
+      {filas.length === 0 && <div className="vacio">{cargandoMovs ? "Cargando…" : credito ? (atras ? "Sin movimientos en este periodo." : "Sin movimientos desde el corte.") : "Sin movimientos este mes."}</div>}
+      {filas.map((m) => {
         const l = lineaMov(m, uid, nombres);
-        const entra = m.cuenta_destino_id === id || ["ingreso", "reembolso"].includes(m.tipo);
+        const entra = entraMov(m);
         const editable = m.tipo !== "liquidacion" && (l.mio || l.miParte);
         const Fila: any = editable ? Link : "div";
         return (
-          <Fila className="fila" key={m.id} {...(editable ? { to: `/editar/${m.id}` } : {})}>
+          <Fila className="fila" key={m.id} {...(editable ? { to: `/editar/${m.movId ?? m.id}` } : {})}>
             <IconoMov m={m} />
             <div className="cuerpo">
               <div className="titulo">{l.titulo}</div>
               <div className="detalle">
-                {m.meses_msi && <span className="etiq">{m.meses_msi} MSI</span>}
+                {m.movId ? <span className="etiq">Mensualidad {m.msiK} de {m.meses_msi}</span>
+                  : m.meses_msi ? <span className="etiq">{m.meses_msi} MSI{m.compra ? (m.msiK >= 1 ? " · 1.ª en este corte" : " · empieza el siguiente corte") : ""}</span> : null}
                 {m.en_saldo_inicial && <span className="etiq">Ya en el saldo</span>}
                 {(cobros[m.id] ?? []).map((e) => <EtiqPersona key={e.familiar_id} nombre={familiares.find((f) => f.id === e.familiar_id)?.nombre ?? "Otra persona"} e={e} />)}
                 {fechaCorta(m.fecha)}{l.detalle && m.tipo !== "gasto" ? ` · ${l.detalle}` : textoCat(m)}
               </div>
             </div>
-            <div className={"monto " + (entra ? "positivo" : "")}>{entra ? "+" : "−"}{fmt(m.monto)}</div>
+            <div className={"monto " + (entra ? "positivo" : "")}>{entra ? "+" : "−"}{fmt(m.movId ? montoMensualidad(Number(m.monto), m.meses_msi, m.msiK) : m.monto)}</div>
           </Fila>
         );
       })}
@@ -239,7 +280,24 @@ export default function Cuenta() {
         </>
       )}
 
-      <h2>Movimientos desde el corte</h2>
+      <h2>Movimientos</h2>
+      <div className="selector-mes">
+        <button onClick={() => setAtras(atras + 1)} disabled={!d.dia_corte || atras >= 36} aria-label="Periodo de corte anterior">‹</button>
+        <span>{atras === 0 ? `Desde el corte del ${fechaCorta(d.ultimo_corte!)}` : `Corte del ${fechaCorta(pAtras!.fin)}`}</span>
+        <button onClick={() => setAtras(atras - 1)} disabled={atras === 0} aria-label="Periodo de corte siguiente">›</button>
+      </div>
+      {pAtras && (
+        <>
+          <p className="nota mt-n6 mb-8">Del {fechaCorta(masDias(pAtras.ini, 1))} al {fechaCorta(pAtras.fin)}. Incluye las mensualidades de compras a meses que factura ese corte. Los cargos suman cada mensualidad por su parte, como el estado de cuenta.</p>
+          {!cargandoMovs && (
+            <div className="trio mt-0 mb-14">
+              <div><div className="k">Cargos</div><div className="v">{fmt(filas.filter((m) => !entraMov(m)).reduce((a, m) => a + cargoDe(m), 0), false)}</div></div>
+              <div><div className="k">Pagos y abonos</div><div className="v positivo">{fmt(filas.filter(entraMov).reduce((a, m) => a + Number(m.monto), 0), false)}</div></div>
+              <div><div className="k">Movimientos</div><div className="v">{filas.length}</div></div>
+            </div>
+          )}
+        </>
+      )}
       {lista}
       {fallo && <p className="error" role="alert">{fallo}</p>}
       <div className="acciones"><Link className="boton claro" to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link></div>

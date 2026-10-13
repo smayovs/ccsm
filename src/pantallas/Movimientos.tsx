@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorMes, Segmentos } from "../ui";
-import { cobroEnMes, conDia, fechaCorta, fechaLarga, fmt, hoyISO, masDias, mesISO, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
+import { cobroEnMes, conDia, fechaCorta, fechaLarga, fmt, hoyISO, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
 import { ArrowsLeftRight, CalendarDots, HandCoins, Handshake } from "../phosphor";
 import { IconoCategoria } from "../iconos";
 
@@ -129,13 +129,7 @@ export default function Movimientos() {
 
   // Mensualidad k de una compra a meses en el mes "m", según el día de corte de su tarjeta (igual que el banco y el resto de la app)
   const corteDe = (cid: string | null) => cuentas.find((c) => c.id === cid)?.dia_corte ?? 31;
-  const kEn = (x: Mov, m: string) => {
-    const [y, mo, d] = x.fecha.split("-").map(Number);
-    const [my, mm] = m.split("-").map(Number);
-    const ult = new Date(Date.UTC(y, mo, 0)).getUTCDate();
-    const desfase = d <= Math.min(corteDe(x.cuenta_id), ult) ? 0 : 1;
-    return (my - y) * 12 + (mm - mo) - desfase + 1;
-  };
+  const kEn = (x: Mov, m: string) => mensualidadEn(x.fecha, m, corteDe(x.cuenta_id));
   const comprasMsi = [...msiPrevias, ...movs.filter((m) => m.meses_msi && m.tipo === "gasto")];
   // Mensualidades de compras anteriores: en el modo corte, las que factura ese estado de cuenta (al día de corte)
   const cuotas: Mov[] = enCorte
@@ -174,7 +168,7 @@ export default function Movimientos() {
   }
   // Resumen del estado de cuenta (montos completos, como los cobra el banco)
   const cargos = enCorte ? filtrados.filter((m) => m.tipo === "gasto" && !m.programada && !(m.movId && m.msiK < 1) && m.cuenta_id === cuentaFiltro)
-    .reduce((a, m) => a + (m.movId ? Number(m.monto) / m.meses_msi : Number(m.monto)), 0) : 0;
+    .reduce((a, m) => a + (m.movId ? montoMensualidad(Number(m.monto), m.meses_msi, m.msiK) : Number(m.monto)), 0) : 0;
   const abonos = enCorte ? filtrados.filter((m) => (m.cuenta_destino_id === cuentaFiltro && ["transferencia", "liquidacion"].includes(m.tipo))
     || (m.cuenta_id === cuentaFiltro && ["ingreso", "reembolso"].includes(m.tipo))).reduce((a, m) => a + Number(m.monto), 0) : 0;
   const textoPeriodo = enCorte ? `${fechaCorta(iniCorte!)} – ${fechaCorta(finCorte!)}` : modo === "rango" ? `${fechaCorta(desde)} – ${fechaCorta(masDias(hasta, -1))}` : nombreMes(mes);

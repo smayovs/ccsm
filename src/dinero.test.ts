@@ -69,3 +69,14 @@ describe("mensualidadesMsi: cada mensualidad de una compra a meses", () => {
     expect(mensualidadesMsi(1200, 12)).toEqual(Array(12).fill(100));
   });
 });
+
+describe("montoMensualidad", () => {
+  it("redondea cada mensualidad y la primera absorbe los centavos, como la base", async () => {
+    const { montoMensualidad } = await import("./util");
+    expect(montoMensualidad(6060.81, 18, 1)).toBe(336.74);
+    expect(montoMensualidad(6060.81, 18, 2)).toBe(336.71);
+    // la suma de todas da el total exacto
+    const total = Array.from({ length: 18 }, (_, i) => montoMensualidad(6060.81, 18, i + 1)).reduce((a, b) => a + b, 0);
+    expect(Math.round(total * 100) / 100).toBe(6060.81);
+  });
+});

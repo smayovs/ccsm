@@ -1,5 +1,8 @@
+import { mostrarCentavos } from "./util";
+
 // Apariencia elegida por el usuario: paleta (color de acento), modo claro/oscuro, tipografía y tamaño de letra.
-export type Apariencia = { paleta: string; acento?: string; modo: "auto" | "claro" | "oscuro"; fuente: string; tamano: "chico" | "normal" | "grande" | "enorme"; discreto?: boolean };
+export type Apariencia = { paleta: string; acento?: string; modo: "auto" | "claro" | "oscuro"; fuente: string; tamano: "chico" | "normal" | "grande" | "enorme"; discreto?: boolean;
+  centavos?: boolean; tarjeta?: "oscura" | "color" | "clara"; densidad?: "comoda" | "compacta"; movimiento?: "auto" | "reducido" };
 
 export const APARIENCIA_INICIAL: Apariencia = { paleta: "ccsm", modo: "auto", fuente: "clasica", tamano: "normal" };
 
@@ -133,6 +136,11 @@ export function aplicarApariencia(elegida: Apariencia) {
   const a = normalizar(elegida);
   const raiz = document.documentElement;
   if (a.modo === "auto") raiz.removeAttribute("data-modo"); else raiz.setAttribute("data-modo", a.modo);
+  // Estilo de la tarjeta del resumen, densidad y animaciones: estilos.css los lee de estos atributos
+  raiz.dataset.tarjeta = a.tarjeta ?? "oscura";
+  raiz.dataset.densidad = a.densidad ?? "comoda";
+  raiz.dataset.movimiento = a.movimiento ?? "auto";
+  mostrarCentavos(a.centavos !== false);
   let estilo = document.getElementById("tema-usuario") as HTMLStyleElement | null;
   if (!estilo) { estilo = document.createElement("style"); estilo.id = "tema-usuario"; document.head.appendChild(estilo); }
   const esDefault = a.paleta === "ccsm" && !esHex(a.acento);

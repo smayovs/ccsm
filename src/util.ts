@@ -2,11 +2,14 @@
 let montosOcultos = false;
 export const ocultarMontos = (si: boolean) => { montosOcultos = si; };
 export const montosEstanOcultos = () => montosOcultos;
+// Sin centavos (Apariencia): las cifras se redondean al peso; los formularios siguen aceptando centavos
+let conCentavos = true;
+export const mostrarCentavos = (si: boolean) => { conCentavos = si; };
 
 export const fmt = (n: number | null | undefined, decimales = true) =>
   montosOcultos ? "$•••" : Number(n ?? 0).toLocaleString("es-MX", {
     style: "currency", currency: "MXN",
-    minimumFractionDigits: decimales ? 2 : 0, maximumFractionDigits: decimales ? 2 : 0,
+    minimumFractionDigits: decimales && conCentavos ? 2 : 0, maximumFractionDigits: decimales && conCentavos ? 2 : 0,
   });
 
 // Cancún no cambia de horario: UTC-5 todo el año
@@ -28,6 +31,21 @@ export const conDia = (mes: string, d: number) => {
 export const msiAnteriores = <T extends { fecha: string }>(compras: T[], desde: string) => {
   const limite = sumarMes(mesISO(desde), -48);
   return compras.filter((x) => x.fecha < desde && x.fecha >= limite);
+};
+// Número de mensualidad (1, 2, …) que una compra a meses del día "fecha" factura en el estado de cuenta del mes "m",
+// según el día de corte de su tarjeta: lo comprado después del corte entra al corte siguiente. 0 o menos: aún no empieza.
+export const mensualidadEn = (fecha: string, m: string, diaCorte: number) => {
+  const [y, mo, d] = fecha.split("-").map(Number);
+  const [my, mm] = m.split("-").map(Number);
+  const ult = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  const desfase = d <= Math.min(diaCorte, ult) ? 0 : 1;
+  return (my - y) * 12 + (mm - mo) - desfase + 1;
+};
+// Monto de la mensualidad k, como la cobra el banco y la base (_msi_cobrado): todas redondeadas al centavo
+// y la primera absorbe los centavos que sobran
+export const montoMensualidad = (monto: number, meses: number, k: number) => {
+  const r = Math.round((monto / meses) * 100) / 100;
+  return k === 1 ? Math.round((monto - r * (meses - 1)) * 100) / 100 : r;
 };
 export const nombreMes = (m: string) =>
   new Date(m.slice(0, 10) + "T12:00:00Z").toLocaleDateString("es-MX", { month: "long", year: "numeric", timeZone: "UTC" });

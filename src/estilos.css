@@ -617,3 +617,40 @@ h2 { font-size: 1.05rem; }
 .sin-fondo { background: none !important; }
 .texto-centro { text-align: center !important; }
 .texto-izq { text-align: left !important; }
+
+/* ===== Opciones de Apariencia ===== */
+/* Tarjeta del resumen del color de la paleta: texto del color que se lee sobre el acento */
+:root[data-tarjeta="color"] .tablero {
+  --heroe: var(--acento-fondo); --heroe-tinta: var(--sobre-acento); --heroe-tinta-2: color-mix(in srgb, var(--sobre-acento) 72%, transparent); --acento-anillo: var(--sobre-acento);
+  background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--seleccion) 45%, transparent) 0%, transparent 60%), var(--acento-fondo);
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--acento-fondo) 35%, transparent);
+}
+:root[data-tarjeta="color"] .tablero-trio, :root[data-tarjeta="color"] .reparto { border-top-color: color-mix(in srgb, var(--sobre-acento) 16%, transparent); }
+:root[data-tarjeta="color"] .tablero-trio > div + div { border-left-color: color-mix(in srgb, var(--sobre-acento) 16%, transparent); }
+:root[data-tarjeta="color"] .tablero-trio .v.pos, :root[data-tarjeta="color"] .tablero-trio .v.neg, :root[data-tarjeta="color"] .tablero .cifra.alerta { color: inherit; }
+:root[data-tarjeta="color"] .anillo .pista { stroke: color-mix(in srgb, var(--sobre-acento) 16%, transparent); }
+:root[data-tarjeta="color"] .reparto-barra span, :root[data-tarjeta="color"] .reparto-leyenda i { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--sobre-acento) 35%, transparent); }
+/* Tarjeta del resumen clara, como las demás tarjetas */
+:root[data-tarjeta="clara"] .tablero {
+  --heroe: var(--superficie); --heroe-tinta: var(--tinta); --heroe-tinta-2: var(--tinta-2); --acento-anillo: var(--ciruela);
+  background: radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--acento-fondo) 18%, transparent) 0%, transparent 55%), var(--superficie);
+  border: 1px solid var(--borde-tarjeta); box-shadow: var(--sombra);
+}
+:root[data-tarjeta="clara"] .tablero-trio, :root[data-tarjeta="clara"] .reparto { border-top-color: var(--linea); }
+:root[data-tarjeta="clara"] .tablero-trio > div + div { border-left-color: var(--linea); }
+:root[data-tarjeta="clara"] .tablero-trio .v.pos { color: var(--sereno); }
+:root[data-tarjeta="clara"] .tablero-trio .v.neg, :root[data-tarjeta="clara"] .tablero .cifra.alerta { color: var(--oxido); }
+:root[data-tarjeta="clara"] .anillo .pista { stroke: var(--linea); }
+/* Densidad compacta: menos aire para ver más sin desplazar */
+:root[data-densidad="compacta"] .fila { padding: 8px 12px; gap: 10px; }
+:root[data-densidad="compacta"] .ico { width: 32px; height: 32px; border-radius: 9px; }
+:root[data-densidad="compacta"] .seccion { margin-top: 18px; }
+:root[data-densidad="compacta"] h2 { margin: 20px 0 6px; }
+:root[data-densidad="compacta"] .menu-grupo h2 { margin: 16px 4px 6px; }
+:root[data-densidad="compacta"] .panel { padding: 10px 12px 8px; }
+:root[data-densidad="compacta"] .tablero { padding: 14px 14px 10px; }
+:root[data-densidad="compacta"] .cabeza { margin-bottom: 12px; }
+:root[data-densidad="compacta"] .semana-tarjeta { min-height: 116px; padding: 10px; }
+/* Animaciones reducidas desde la app, igual que con el ajuste del iPhone */
+:root[data-movimiento="reducido"] * { transition: none !important; animation: none !important; }
+:root[data-movimiento="reducido"] .toast { transition: opacity 200ms ease !important; }
