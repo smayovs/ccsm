@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowDownRight, ArrowUpRight, CalendarClock, CreditCard, HandCoins, Repeat, Settings2 } from "lucide-react";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { cobroEnMes, diasEntre, fechaCorta, fmt, hoyISO, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
+import { cobroEnMes, diasEntre, fechaCorta, fmt, hoyISO, masDias, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
 import { IconoCategoria, IconoCuenta } from "../iconos";
 import { BarrasDobles, BarrasFlujo, BarrasMes, RitmoGasto } from "../graficas";
 import { agruparCategorias, DesgloseCategorias } from "../desglose";
@@ -69,7 +69,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
 
   const r = rango(filtros);
   // Los 6 meses que terminan en el último mes del periodo (para Ingresos vs. gastos)
-  const ultimoDia = (() => { const d = new Date(r.hasta + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
+  const ultimoDia = masDias(r.hasta, -1);
   const flujoDesde = sumarMes(mesISO(ultimoDia), -5);
   const desdeFetch = [r.antDesde, flujoDesde].sort()[0];
 

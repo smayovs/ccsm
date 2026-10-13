@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorMes, Segmentos } from "../ui";
-import { cobroEnMes, fechaCorta, fechaLarga, fmt, hoyISO, mesISO, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
+import { cobroEnMes, conDia, fechaCorta, fechaLarga, fmt, hoyISO, masDias, mesISO, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
 import { ArrowLeftRight, CalendarClock, HandCoins, Handshake } from "lucide-react";
 import { IconoCategoria } from "../iconos";
 
@@ -42,12 +42,6 @@ export function lineaMov(m: Mov, uid: string, nombres: Record<string, string>) {
   return { titulo, detalle: partes.join(" · "), signo, monto, nota, mio, miParte };
 }
 
-// Día d en el mes m (ajustado al último día)
-const conDia = (m: string, d: number) => {
-  const ult = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).getUTCDate();
-  return `${m.slice(0, 8)}${String(Math.min(d, ult)).padStart(2, "0")}`;
-};
-const masDias = (f: string, n: number) => { const d = new Date(f + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 // Fecha de corte del periodo que contiene "f" (el corte en o después de f)
 const corteQueCierra = (f: string, corte: number) => { const c = conDia(mesISO(f), corte); return f <= c ? c : conDia(sumarMes(mesISO(f), 1), corte); };
 

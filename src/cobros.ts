@@ -1,5 +1,5 @@
 import { sb } from "./supabase";
-import { sumarMes } from "./util";
+import { fmt, sumarMes } from "./util";
 import { cobradoTras, mensualidadesMsi } from "./dinero";
 import type { DetalleMsi } from "./msi";
 
@@ -78,7 +78,7 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
 // Texto corto del estado de un cargo de otra persona
 export function textoEstado(e: EstadoMov | undefined): { t: string; listo: boolean } | null {
   if (!e) return null;
-  if (e.pendiente > 0.004) return { t: `te debe ${Math.round(e.pendiente).toLocaleString("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 })}`, listo: false };
+  if (e.pendiente > 0.004) return { t: `te debe ${fmt(e.pendiente, false)}`, listo: false };
   if (e.porVenir > 0.004) return { t: e.cobrado > 0 ? "al corriente" : "sin mensualidades aún", listo: false };
   return { t: "ya te pagó", listo: true };
 }

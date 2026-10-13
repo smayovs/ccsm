@@ -2,10 +2,9 @@ import { useState } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import { useApp } from "../contexto";
 import { Segmentos } from "../ui";
-import { fechaCorta } from "../util";
+import { fechaCorta, masDias } from "../util";
 import { Filtros, filtrosIniciales, NOMBRE_PERIODO, Periodo, rango } from "./secciones";
 
-const masDias = (f: string, k: number) => { const d = new Date(f + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); };
 
 export function textoPeriodo(f: Filtros) {
   if (f.periodo !== "rango") return NOMBRE_PERIODO[f.periodo];

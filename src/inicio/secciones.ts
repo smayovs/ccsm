@@ -1,6 +1,6 @@
 import { sb } from "../supabase";
 import { cargarPreferencias, olvidarPreferencias } from "../preferencias";
-import { hoyISO, mesISO, sumarMes } from "../util";
+import { diasEntre, hoyISO, masDias, mesISO, sumarMes } from "../util";
 
 // Catálogo de secciones de Inicio. "filtrable": responde a los filtros de periodo, cuenta y categoría.
 export type IdSeccion =
@@ -58,9 +58,6 @@ let filtrosActuales: Filtros | null = null;
 export const filtrosIniciales = (): Filtros => ({ periodo: "mes", desde: mesISO(), hasta: hoyISO(), cuentas: [], categoria: "", sub: "" });
 export const leerFiltros = () => filtrosActuales ?? filtrosIniciales();
 export const recordarFiltros = (f: Filtros) => { filtrosActuales = f; };
-
-const masDias = (f: string, k: number) => { const d = new Date(f + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); };
-const diasEntre = (a: string, b: string) => Math.round((Date.parse(b + "T12:00:00Z") - Date.parse(a + "T12:00:00Z")) / 864e5);
 
 // Rango [desde, hasta) del periodo elegido y del periodo anterior de la misma duración
 export function rango(f: Filtros): { desde: string; hasta: string; antDesde: string; antHasta: string; meses: number; unMes: boolean } {

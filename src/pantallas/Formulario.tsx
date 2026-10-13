@@ -104,7 +104,7 @@ export default function Formulario() {
   const msiPrevia = !esAplazado && tipo === "gasto" && Number(meses) > 1 && cuentaSel?.tipo === "credito" && !!cuentaSel.dia_corte && fecha < cuentaSel.fecha_saldo_inicial;
   const nCalc = msiPrevia ? facturadas(fecha, cuentaSel!.dia_corte!, Number(meses)) : 0;
   const nEfectivo = nPago !== "" ? Math.min(Number(nPago), Number(meses)) : nCalc;
-  const mensualidadPrev = Number(meses) > 0 ? Math.round((Number(String(monto).replace(/[^\d.]/g, "")) / Number(meses)) * 100) / 100 : 0;
+  const mensualidadPrev = Number(meses) > 0 ? Math.round((montoNum / Number(meses)) * 100) / 100 : 0;
   // Sin mensualidades cobradas falta el total exacto (la primera mensualidad absorbe los centavos)
   const faltaCalc = nEfectivo <= 0 ? montoNum : Math.round(mensualidadPrev * Math.max(0, Number(meses) - nEfectivo) * 100) / 100;
   // Los gastos de la cuenta conjunta ya son de los dos: no se comparten

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { facturadas, fechaParaPago, ultimoCorte } from "./ajustes/saldosTarjeta";
-import { hoyISO, msiAnteriores, proximoCobro, sumarMes } from "./util";
+import { conDia, hoyISO, masDias, msiAnteriores, proximoCobro, sumarMes } from "./util";
 
 // Mismos casos que se verificaron contra _msi_facturadas y _proxima_fecha en la base de datos
 
@@ -74,6 +74,43 @@ describe("msiAnteriores: compras a meses de antes del periodo cuya mensualidad p
 
   it("funciona con periodos que no empiezan el día 1 (periodo de corte)", () => {
     expect(msiAnteriores(compras, "2026-10-06").map((x) => x.id)).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("masDias: suma o resta días a una fecha", () => {
+  it("cruza el fin de mes", () => {
+    expect(masDias("2026-10-31", 1)).toBe("2026-11-01");
+  });
+
+  it("cruza el fin de año hacia atrás", () => {
+    expect(masDias("2027-01-01", -1)).toBe("2026-12-31");
+  });
+
+  it("respeta el 29 de febrero en año bisiesto", () => {
+    expect(masDias("2028-02-28", 1)).toBe("2028-02-29");
+  });
+
+  it("con 0 días devuelve la misma fecha", () => {
+    expect(masDias("2026-10-12", 0)).toBe("2026-10-12");
+  });
+});
+
+describe("conDia: el día d de un mes, sin pasarse de su último día", () => {
+  it("un día normal del mes", () => {
+    expect(conDia("2026-10-01", 15)).toBe("2026-10-15");
+  });
+
+  it("día 31 en un mes de 30 días cae el 30", () => {
+    expect(conDia("2026-11-01", 31)).toBe("2026-11-30");
+  });
+
+  it("día 31 en febrero cae el 28 o el 29 en bisiesto", () => {
+    expect(conDia("2027-02-01", 31)).toBe("2027-02-28");
+    expect(conDia("2028-02-01", 31)).toBe("2028-02-29");
+  });
+
+  it("días de un dígito llevan cero a la izquierda", () => {
+    expect(conDia("2026-10-01", 5)).toBe("2026-10-05");
   });
 });
 

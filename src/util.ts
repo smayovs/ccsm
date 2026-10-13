@@ -11,6 +11,13 @@ export const sumarMes = (m: string, k: number) => {
   const [y, mo] = m.split("-").map(Number);
   return new Date(Date.UTC(y, mo - 1 + k, 1)).toISOString().slice(0, 10);
 };
+export const masDias = (f: string, k: number) => { const d = new Date(f + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); };
+// Día d del mes de "mes" (AAAA-MM-…), ajustado a su último día: el 31 en noviembre es el 30
+export const conDia = (mes: string, d: number) => {
+  const [y, m] = mes.split("-").map(Number);
+  const ultimo = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${mes.slice(0, 8)}${String(Math.min(d, ultimo)).padStart(2, "0")}`;
+};
 // Compras a meses de antes del periodo [desde, …) cuya mensualidad aún puede caer dentro (hasta 48 meses atrás).
 // Movimientos pide todas las compras a meses una vez y elige aquí, en lugar de volver a pedirlas en cada mes.
 export const msiAnteriores = <T extends { fecha: string }>(compras: T[], desde: string) => {

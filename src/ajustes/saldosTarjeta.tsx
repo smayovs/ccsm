@@ -1,18 +1,14 @@
 import { sb } from "../supabase";
 import { Campo, Segmentos } from "../ui";
-import { fmt, hoyISO, limpiarMonto, mesISO, sumarMes } from "../util";
+import { conDia, fmt, hoyISO, limpiarMonto, masDias, mesISO, sumarMes } from "../util";
 
 // ---------- Fechas de corte (misma regla que la base de datos) ----------
-const ultimoDia = (mes: string) => { const [y, m] = mes.split("-").map(Number); return new Date(Date.UTC(y, m, 0)).getUTCDate(); };
-const conDia = (mes: string, d: number) => `${mes.slice(0, 8)}${String(Math.min(d, ultimoDia(mes))).padStart(2, "0")}`;
-
 // Fecha del último corte que ya ocurrió (hoy cuenta si es día de corte)
 export function ultimoCorte(corte: number, hoy = hoyISO()) {
   const mes = mesISO(hoy);
   const f = conDia(mes, corte);
   return f <= hoy ? f : conDia(sumarMes(mes, -1), corte);
 }
-const masUnDia = (f: string) => { const d = new Date(f + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); };
 
 // Mensualidades ya cobradas (facturadas) de una compra, igual que _msi_facturadas en la base
 export function facturadas(fecha: string, corte: number, meses: number, hoy = hoyISO()) {
@@ -25,7 +21,7 @@ export function facturadas(fecha: string, corte: number, meses: number, hoy = ho
 // Fecha que hace que la compra lleve exactamente n mensualidades cobradas al último corte
 export function fechaParaPago(corte: number, n: number, hoy = hoyISO()) {
   const ult = ultimoCorte(corte, hoy);
-  if (n <= 0) return masUnDia(ult);
+  if (n <= 0) return masDias(ult, 1);
   return sumarMes(mesISO(ult), -(n - 1));
 }
 
