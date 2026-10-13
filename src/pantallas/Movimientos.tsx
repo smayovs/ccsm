@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
@@ -50,19 +51,22 @@ type Modo = "mes" | "rango" | "corte";
 export default function Movimientos() {
   const { uid, otros, yo, cuentas } = useApp();
   const hoy = hoyISO();
-  const [cuentaFiltro, setCuentaFiltro] = useState("");
+  // Inicio puede abrir esta pantalla con su periodo y filtros (?mes=, ?desde=&hasta=, ?cuenta=, ?filtro=, ?q=)
+  const [params] = useSearchParams();
+  const pDesde = params.get("desde"), pHasta = params.get("hasta"), pMes = params.get("mes");
+  const [cuentaFiltro, setCuentaFiltro] = useState(params.get("cuenta") ?? "");
   const [subs, setSubs] = useState<any[]>([]);
   const [todasMsi, setTodasMsi] = useState<Mov[]>([]);
-  const [modo, setModo] = useState<Modo>("mes");
-  const [mes, setMes] = useState(mesISO());
-  const [rDesde, setRDesde] = useState(sumarMes(mesISO(), -2));
-  const [rHasta, setRHasta] = useState(hoy);
+  const [modo, setModo] = useState<Modo>(pDesde && pHasta ? "rango" : "mes");
+  const [mes, setMes] = useState(pMes ? mesISO(pMes) : mesISO());
+  const [rDesde, setRDesde] = useState(pDesde ?? sumarMes(mesISO(), -2));
+  const [rHasta, setRHasta] = useState(pHasta ?? hoy);
   const [corteFin, setCorteFin] = useState<string | null>(null);
   const [movs, setMovs] = useState<Mov[]>([]);
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState("");
-  const [q, setQ] = useState("");
-  const [filtro, setFiltro] = useState<"todo" | "gasto" | "mensualidad" | "suscripcion" | "ingreso" | "compartido" | "otros">("todo");
+  const [q, setQ] = useState(params.get("q") ?? "");
+  const [filtro, setFiltro] = useState<"todo" | "gasto" | "mensualidad" | "suscripcion" | "ingreso" | "compartido" | "otros">(params.get("filtro") === "gasto" ? "gasto" : "todo");
 
   const ordenTipo = ["credito", "debito", "ahorro", "efectivo", "inversion", "prestamo"];
   const listaCuentas = cuentas.filter((c) => c.activa || c.id === cuentaFiltro)

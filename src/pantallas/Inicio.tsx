@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, CalendarDots, CreditCard, HandCoins, Repeat, SquaresFour } from "../phosphor";
+import { ArrowDownRight, ArrowUpRight, CalendarDots, CaretRight, CreditCard, HandCoins, Handshake, Repeat, SquaresFour, Tray } from "../phosphor";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { cobroEnMes, diasEntre, fechaCorta, fmt, hoyISO, masDias, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
@@ -21,11 +21,19 @@ type Ingreso = { fecha: string; monto: number; cuenta_id: string };
 type Balance = { nombre: string; me_debe: number };
 type Parte = { user_id: string; nombre: string; color: "rosa" | "gris" | null; es_yo: boolean; parte: number };
 type Tablero = { saldos: Saldo[]; porRevisar: number; abonosPrestamo: Record<string, number>; tarjetas: Record<string, Tarjeta>;
-  balance: Balance[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona> };
+  balance: Balance[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona>; cuando: number };
 
 const n = (x: unknown) => Number(x ?? 0);
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const mesCap = (m: string) => cap(nombreMes(m).split(" ")[0]);
+// "Actualizado hace 3 min" a partir de la hora de la última carga completa
+const haceCuanto = (t: number) => {
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return "Actualizado hace un momento";
+  if (min < 60) return `Actualizado hace ${min} min`;
+  const h = Math.floor(min / 60);
+  return h < 24 ? `Actualizado hace ${h} h` : `Actualizado el ${fechaCorta(new Date(t).toISOString().slice(0, 10))}`;
+};
 // Lo que Inicio muestra de una tarjeta a partir de su detalle_cuenta
 const tarjetaDesde = (id: string, d: any): Tarjeta => ({
   id, falta: Math.max(0, n(d.pago_corte) - n(d.pagado_desde_corte)), fecha_pago: d.fecha_pago ?? null,
@@ -58,6 +66,21 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const [fallo, setFallo] = useState(false);
   const [falloG, setFalloG] = useState(false);
   const [intento, setIntento] = useState(0);
+  // Cuándo se cargó todo por última vez (lo guardado lo trae) y si se está actualizando ahora
+  const [actualizado, setActualizado] = useState<number | null>(guardado?.cuando ?? null);
+  const [actualizando, setActualizando] = useState(true);
+  const [, setReloj] = useState(0);
+  useEffect(() => { const t = setInterval(() => setReloj((x) => x + 1), 30000); return () => clearInterval(t); }, []);
+  // Al volver a la app, si lo que ves tiene más de 5 minutos, se actualiza solo
+  const actualizadoRef = useRef(actualizado);
+  actualizadoRef.current = actualizado;
+  useEffect(() => {
+    const alVolver = () => {
+      if (document.visibilityState === "visible" && (!actualizadoRef.current || Date.now() - actualizadoRef.current > 5 * 60000)) setIntento((x) => x + 1);
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    return () => document.removeEventListener("visibilitychange", alVolver);
+  }, []);
   const [config, setConfig] = useState<ConfigInicio>(configInicial());
   // Meta de gasto mensual (null mientras carga) y reparto de los gastos compartidos del periodo
   const [metaConfig, setMetaConfig] = useState<Meta | null>(null);
@@ -80,6 +103,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   useEffect(() => {
     cargarConfig(uid).then(setConfig);
     cargarMeta(uid).then(setMetaConfig);
+    setActualizando(true);
     // El detalle de compras a meses se pide una vez y lo comparten Cobros y Mensualidades
     const detalleMsi = Promise.resolve(sb.rpc("msi_detalle"));
     // Cobros (5 consultas) va aparte: el resto de Inicio no lo espera
@@ -101,6 +125,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       const error = !!(s.error || rm.error || b.error || su.error || ab.error);
       setFallo(error);
       // Sin conexión se queda lo que ya se veía (lo guardado) en lugar de ceros
+      setActualizando(false);
       if (error) { setListo(true); return; }
       const msiActivas = md.filter((x) => x.estado === "Activa");
       setMsi(msiActivas);
@@ -117,8 +142,10 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       const suscripciones = ((su.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) }));
       setSubs(suscripciones);
       setListo(true);
-      recordar({ saldos: lista, porRevisar: revisar, abonosPrestamo: abonos, balance: bal, subs: suscripciones, msi: msiActivas });
-    }).catch(() => { setFallo(true); setListo(true); });
+      const cuando = Date.now();
+      setActualizado(cuando);
+      recordar({ saldos: lista, porRevisar: revisar, abonosPrestamo: abonos, balance: bal, subs: suscripciones, msi: msiActivas, cuando });
+    }).catch(() => { setFallo(true); setListo(true); setActualizando(false); });
   }, [mes, intento]);
 
   useEffect(() => {
@@ -176,6 +203,17 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const partes = reparto.map((p) => ({ ...p, color: p.color ?? (p.es_yo ? "gris" : "rosa") }))
     .sort((a, b) => Number(a.color !== "rosa") - Number(b.color !== "rosa"));
   const totalCompartido = partes.reduce((a, p) => a + p.parte, 0);
+  const visiblesInicio = config.filter((c) => c.visible);
+  const conSemana = visiblesInicio.some((c) => c.id === "proximos");
+  const conAvisos = visiblesInicio.some((c) => c.id === "avisos");
+  // Movimientos con el mismo periodo y filtros del resumen
+  const verMovimientos = (() => {
+    const q = new URLSearchParams({ filtro: "gasto" });
+    if (r.unMes) q.set("mes", r.desde); else { q.set("desde", r.desde); q.set("hasta", masDias(r.hasta, -1)); }
+    if (filtros.cuentas.length === 1) q.set("cuenta", filtros.cuentas[0]);
+    if (filtros.categoria) q.set("q", filtros.categoria === "sin" ? "Sin categoría" : categorias.find((c) => c.id === filtros.categoria)?.nombre ?? "");
+    return `/movimientos?${q}`;
+  })();
 
   // ---------- Estado de hoy ----------
   const enFiltroCta = (id: string) => !filtros.cuentas.length || filtros.cuentas.includes(id);
@@ -227,26 +265,37 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const vacioFiltro = <div className="vacio p-8-0">{cargandoG ? "Cargando…" : "Sin gastos con estos filtros."}</div>;
 
   const secciones: Record<IdSeccion, () => ReactNode> = {
-    proximos: () => proximos.length > 0 ? (
-      <section className="seccion">
-        {cabeza("Próximos pagos")}
-        <div className="lista">
-          {proximos.map((p, i) => {
-            const d = diasEntre(hoy, p.f);
-            return (
-              <Link className="fila" key={i} to={p.tipo === "sub" ? "/suscripciones" : `/cuenta/${p.id}`}>
-                <span className="ico" aria-hidden="true">{p.tipo === "sub" ? <Repeat size={20} /> : p.tipo === "prestamo" ? <HandCoins size={20} /> : <CreditCard size={20} />}</span>
-                <div className="cuerpo"><div className="titulo">{p.t}</div>
-                  <div className="detalle">{d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : `En ${d} días`} · {fechaCorta(p.f)}</div></div>
-                <div className={"monto" + (d <= 3 ? " negativo" : "")}>{fmt(p.m)}</div>
+    // Esta semana: pagos próximos y, si Avisos está activa, los avisos; en tarjetas que se deslizan de lado
+    proximos: () => {
+      const tarjetasSemana = [
+        ...(conAvisos && porRevisar > 0 ? [{ k: "rev", to: "/pendientes", I: Tray, t: `${porRevisar} por revisar`, d: "Sin clasificar o sin categoría", m: "", tono: "urgente" }] : []),
+        ...proximos.map((p, i) => {
+          const d = diasEntre(hoy, p.f);
+          return { k: "p" + i, to: p.tipo === "sub" ? "/suscripciones" : `/cuenta/${p.id}`, I: p.tipo === "sub" ? Repeat : p.tipo === "prestamo" ? HandCoins : CreditCard, t: p.t,
+            d: `${d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : `En ${d} días`} · ${fechaCorta(p.f)}`, m: fmt(p.m), tono: d <= 3 ? "urgente" : "" };
+        }),
+        ...(conAvisos && otros.length ? balance.filter((b) => Math.abs(b.me_debe) >= 0.5).map((b) => ({ k: "b" + b.nombre, to: "/hogar", I: Handshake,
+          t: b.me_debe > 0 ? `${b.nombre} te debe` : `Le debes a ${b.nombre}`, d: "Gastos compartidos", m: fmt(Math.abs(b.me_debe)), tono: b.me_debe > 0 ? "verde" : "" })) : []),
+      ];
+      return tarjetasSemana.length > 0 ? (
+        <section className="seccion">
+          {cabeza("Esta semana")}
+          <div className="semana">
+            {tarjetasSemana.map((x) => (
+              <Link key={x.k} className={"semana-tarjeta " + x.tono} to={x.to}>
+                <span className="ico" aria-hidden="true"><x.I size={18} /></span>
+                <div className="st-titulo">{x.t}</div>
+                <div className="st-detalle">{x.d}</div>
+                {x.m && <div className="st-monto">{x.m}</div>}
               </Link>
-            );
-          })}
-        </div>
-      </section>
-    ) : listo ? <p className="nota flex gap-6 centrar-v mt-14"><CalendarDots size={16} /> Sin pagos en los próximos días.</p> : null,
+            ))}
+          </div>
+        </section>
+      ) : listo ? <p className="nota flex gap-6 centrar-v mt-14"><CalendarDots size={16} /> Sin pagos ni avisos en los próximos días.</p> : null;
+    },
 
-    avisos: () => (
+    // Con Esta semana activa, los avisos van dentro de ella
+    avisos: () => conSemana ? null : (
       <>
         {porRevisar > 0 && <Link className="aviso rojo" to="/pendientes"><span><strong>{porRevisar} por revisar:</strong> movimientos sin clasificar o partes compartidas sin categoría.</span></Link>}
         {otros.length > 0 && balance.map((b) => Math.abs(b.me_debe) >= 0.5 && (
@@ -261,8 +310,10 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       <section className="tablero" aria-label="Resumen">
         <div className="tablero-arriba">
           <div className="tablero-texto">
-            <div className="etiqueta">Llevas gastado · {periodo}{filtros.cuentas.length || conCategoria ? " (con filtros)" : ""}</div>
-            <div className={"cifra" + (conMeta && quedaMeta < 0 ? " alerta" : "")}>{fmt(gastado, false)}</div>
+            <Link to={verMovimientos} className="tablero-enlace" aria-label={`Llevas gastado ${fmt(gastado, false)}, ${periodo}. Ver los gastos`}>
+              <div className="etiqueta">Llevas gastado · {periodo}{filtros.cuentas.length || conCategoria ? " (con filtros)" : ""}</div>
+              <div className={"cifra" + (conMeta && quedaMeta < 0 ? " alerta" : "")}>{fmt(gastado, false)} <CaretRight size={20} className="tablero-flecha" aria-hidden="true" /></div>
+            </Link>
             {conMeta ? (
               quedaMeta >= 0
                 ? <div className="sub">{porIngresos ? <>De tus ingresos del mes ({fmt(meta, false)})</> : <>De tu meta de {fmt(meta, false)}</>} te quedan <b>{fmt(quedaMeta, false)}</b> por gastar, unos <b>{fmt(quedaMeta / diasRestantes, false)}</b> por día.</div>
@@ -598,7 +649,6 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     },
   };
 
-  const visiblesInicio = config.filter((c) => c.visible);
   // Los filtros van justo arriba de la primera sección que responde a ellos (normalmente el resumen)
   const primeraFiltrable = visiblesInicio.find((c) => SECCIONES.find((s) => s.id === c.id)?.filtrable)?.id;
 
@@ -608,6 +658,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
         <div>
           <div className="sub">Hola, {yo?.nombre}</div>
           <h1>{cap(nombreMes(mes).replace(" de ", " "))}</h1>
+          <div className="actualizado" aria-live="polite">{actualizando ? "Actualizando…" : actualizado ? haceCuanto(actualizado) : ""}</div>
         </div>
         <Link to="/inicio/personalizar" className="boton-icono" aria-label="Personalizar inicio"><SquaresFour size={22} /></Link>
       </header>

@@ -289,6 +289,24 @@ button.enlace { background: none; border: 0; padding: 0; color: var(--ciruela); 
 .tablero-trio .v.pos { color: #7BE0B5; }
 .tablero-trio .v.neg { color: #FFB4A6; }
 .tablero-meta { display: inline-block; margin-top: 8px; font-size: 0.82rem; font-weight: 600; color: var(--rosa); text-decoration: none; }
+.tablero-enlace { display: block; color: inherit; text-decoration: none; }
+.tablero-flecha { vertical-align: 0.1em; opacity: 0.55; }
+.actualizado { font-size: 0.76rem; color: var(--tinta-2); margin-top: 3px; min-height: 1em; }
+/* Esta semana: tarjetas que se deslizan de lado */
+.semana { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: 16px; overscroll-behavior-x: contain; margin: 0 -16px; padding: 2px 16px 8px; scrollbar-width: none; }
+.semana::-webkit-scrollbar { display: none; }
+.semana-tarjeta { flex: 0 0 152px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 2px; min-height: 136px; padding: 12px; border-radius: var(--radio); background: var(--superficie); border: 1px solid var(--borde-tarjeta); box-shadow: var(--sombra); color: inherit; text-decoration: none; transition: transform 160ms var(--ease-out); }
+.semana-tarjeta:active { transform: scale(0.97); }
+.semana-tarjeta .ico { width: 34px; height: 34px; border-radius: 10px; margin-bottom: 8px; }
+.st-titulo { font-weight: 600; font-size: 0.9rem; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.st-detalle { font-size: 0.76rem; color: var(--tinta-2); }
+.st-monto { margin-top: auto; padding-top: 6px; font-family: var(--display); font-weight: 700; font-variant-numeric: tabular-nums; }
+.semana-tarjeta.urgente { background: var(--oxido-suave); border-color: transparent; }
+.semana-tarjeta.urgente .ico { background: color-mix(in srgb, var(--oxido) 14%, transparent); color: var(--oxido); }
+.semana-tarjeta.urgente .st-monto { color: var(--oxido); }
+.semana-tarjeta.verde { background: var(--sereno-suave); border-color: transparent; }
+.semana-tarjeta.verde .ico { background: color-mix(in srgb, var(--sereno) 14%, transparent); color: var(--sereno); }
+.semana-tarjeta.verde .st-monto { color: var(--sereno); }
 /* Gastos compartidos: la parte de cada quien con su color de la marca */
 .reparto { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
 .reparto-cabeza { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; color: var(--heroe-tinta-2); }
