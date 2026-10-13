@@ -37,11 +37,11 @@ export default function Cobros() {
   return (
     <>
       <Cabeza titulo="Cobros" volver />
-      <p className="nota" style={{ marginTop: -8, marginBottom: 14 }}>Lo que te deben las personas a las que les compras o prestas. Marca con la casilla lo que ya te pagaron; o usa "Registrar pago" si quieres que el dinero entre a una cuenta (se descuenta de lo más antiguo).</p>
+      <p className="nota mt-n8 mb-14">Lo que te deben las personas a las que les compras o prestas. Marca con la casilla lo que ya te pagaron; o usa "Registrar pago" si quieres que el dinero entre a una cuenta (se descuenta de lo más antiguo).</p>
       {cargando ? <div className="vacio">Cargando…</div> : personas.length === 0 ? (
         <div className="lista"><div className="vacio">Nadie te debe nada. Al registrar un gasto, elige “¿Para quién?” para que aparezca aquí.</div></div>
       ) : personas.map((p) => (
-        <section key={p.id} style={{ marginBottom: 14 }}>
+        <section key={p.id} className="mb-14">
           <div className="lista">
             <button className="fila" onClick={() => setAbierto(abierto === p.id ? null : p.id)} aria-expanded={abierto === p.id}>
               <div className="cuerpo">
@@ -79,7 +79,7 @@ export default function Cobros() {
                   </div>
                 ))}
                 {p.pagado > 0 && <div className="fila"><div className="cuerpo"><div className="detalle">Te ha pagado {fmt(p.pagado)} en total</div></div></div>}
-                <div className="fila" style={{ gap: 8, flexWrap: "wrap" }}>
+                <div className="fila gap-8 envolver">
                   {p.total > 0.004 && <a className="boton chico" href={`https://wa.me/?text=${encodeURIComponent(mensaje(p))}`} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>}
                   <Link className="boton chico claro" to={`/nuevo?tipo=reembolso&familiar=${p.id}`}>Registrar pago</Link>
                   <Link className="boton chico claro" to="/ajustes/familiares">Cambiar nombre</Link>

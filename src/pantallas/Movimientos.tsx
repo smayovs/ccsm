@@ -4,7 +4,7 @@ import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorMes, Segmentos } from "../ui";
 import { cobroEnMes, conDia, fechaCorta, fechaLarga, fmt, hoyISO, masDias, mesISO, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
-import { ArrowLeftRight, CalendarClock, HandCoins, Handshake } from "lucide-react";
+import { ArrowsLeftRight, CalendarDots, HandCoins, Handshake } from "../phosphor";
 import { IconoCategoria } from "../iconos";
 
 export const SELECT_MOV = `*, cuenta:cuentas!movimientos_cuenta_id_fkey(nombre), destino:cuentas!movimientos_cuenta_destino_id_fkey(nombre),
@@ -198,7 +198,7 @@ export default function Movimientos() {
             <span>{textoPeriodo}</span>
             <button onClick={() => setCorteFin(conDia(sumarMes(mesISO(finCorte!), 1), diaCorte!))} aria-label="Periodo siguiente">›</button>
           </div>
-          <p className="nota" style={{ marginTop: -6 }}>{finCorte! >= hoy ? `Periodo abierto: cierra el ${fechaLarga(finCorte!)}.` : `Estado de cuenta con corte el ${fechaLarga(finCorte!)}.`} Incluye las mensualidades que se facturan en ese corte.</p>
+          <p className="nota mt-n6">{finCorte! >= hoy ? `Periodo abierto: cierra el ${fechaLarga(finCorte!)}.` : `Estado de cuenta con corte el ${fechaLarga(finCorte!)}.`} Incluye las mensualidades que se facturan en ese corte.</p>
         </>
       ) : modo === "rango" ? (
         <>
@@ -206,7 +206,7 @@ export default function Movimientos() {
             <label className="campo"><span>Desde</span><input type="date" value={rDesde} max={rHasta} onChange={(e) => e.target.value && setRDesde(e.target.value)} /></label>
             <label className="campo"><span>Hasta</span><input type="date" value={rHasta} min={rDesde} onChange={(e) => e.target.value && setRHasta(e.target.value)} /></label>
           </div>
-          <div className="chips" style={{ marginTop: -6, marginBottom: 12 }}>
+          <div className="chips mt-n6 mb-12">
             <button className="boton chico claro" onClick={() => preset(masDias(hoy, -6), hoy)}>7 días</button>
             <button className="boton chico claro" onClick={() => preset(masDias(hoy, -29), hoy)}>30 días</button>
             <button className="boton chico claro" onClick={() => preset(sumarMes(mesISO(), -2), hoy)}>3 meses</button>
@@ -221,7 +221,7 @@ export default function Movimientos() {
         ...(otros.length ? [{ v: "compartido" as const, t: "Compartidos" }] : []), { v: "otros", t: "Transferencias" },
       ]} /></div>
       {enCorte && !cargando && (
-        <div className="trio" style={{ marginTop: 0, marginBottom: 14 }}>
+        <div className="trio mt-0 mb-14">
           <div><div className="k">Cargos del periodo</div><div className="v">{fmt(cargos, false)}</div></div>
           <div><div className="k">Pagos y abonos</div><div className="v positivo">{fmt(abonos, false)}</div></div>
           <div><div className="k">Movimientos</div><div className="v">{filtrados.length}</div></div>
@@ -242,7 +242,7 @@ export default function Movimientos() {
             {lista.map((m) => {
               if (m.programada) return (
                 <Link className="fila programada" key={m.id} to="/suscripciones">
-                  <span className="ico" aria-hidden="true"><CalendarClock size={20} /></span>
+                  <span className="ico" aria-hidden="true"><CalendarDots size={20} /></span>
                   <div className="cuerpo">
                     <div className="titulo">{m.descripcion}</div>
                     <div className="detalle"><span className="etiq">Programada</span>Suscripción{m.cuenta?.nombre ? ` · ${m.cuenta.nombre}` : ""}{m.fecha < hoy ? " · no ha llegado" : ""}</div>
@@ -287,7 +287,7 @@ export default function Movimientos() {
 }
 
 export function IconoMov({ m }: { m: Mov }) {
-  if (m.tipo === "transferencia") return <span className="ico" aria-hidden="true"><ArrowLeftRight size={20} /></span>;
+  if (m.tipo === "transferencia") return <span className="ico" aria-hidden="true"><ArrowsLeftRight size={20} /></span>;
   if (m.tipo === "liquidacion") return <span className="ico" aria-hidden="true"><Handshake size={20} /></span>;
   if (m.tipo === "reembolso") return <span className="ico cuenta-ahorro" aria-hidden="true"><HandCoins size={20} /></span>;
   const c = m.categoria;

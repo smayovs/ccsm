@@ -20,7 +20,7 @@ export function SelectorDivision({ d, onCambio, total, nota }: { d: Division; on
   const nombre = (id: string) => familiares.find((x) => x.id === id)?.nombre ?? "";
   return (
     <div className="caja-dividir">
-      <div className="sub" style={{ marginBottom: 8 }}>¿Entre quiénes?</div>
+      <div className="sub mb-8">¿Entre quiénes?</div>
       <div className="chips">
         <button type="button" aria-pressed={d.conmigo} onClick={() => onCambio({ ...d, conmigo: !d.conmigo })} disabled={d.modo === "montos"}>Yo</button>
         {familiares.filter((f) => f.activo || d.seleccion.includes(f.id)).map((f) => (

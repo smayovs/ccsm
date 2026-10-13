@@ -30,7 +30,7 @@ export default function Msi() {
         <div><div className="k">De eso te deben</div><div className="v positivo">{fmt(teDeben, false)}</div></div>
         <div><div className="k">Te toca a ti</div><div className="v">{fmt(debes - teDeben, false)}</div></div>
       </div>
-      <p className="nota" style={{ marginTop: -4 }}>Lo que falta por pagar de todas tus compras a meses. “Te deben” es la parte de compras que hiciste para otras personas o que dividiste con ellas.</p>
+      <p className="nota mt-n4">Lo que falta por pagar de todas tus compras a meses. “Te deben” es la parte de compras que hiciste para otras personas o que dividiste con ellas.</p>
 
       {personas.length > 0 && (
         <>
@@ -55,7 +55,7 @@ export default function Msi() {
         <div className="tm-fila tm-cabeza"><span>Mes</span><span /><span>Pagas</span><span>Te deben</span></div>
         {proy.map((p) => (
           <div key={p.mes} className="tm-fila">
-            <span className="sub" style={{ textTransform: "capitalize" }}>{mesCorto(p.mes)}</span>
+            <span className="sub capitalizar">{mesCorto(p.mes)}</span>
             <div className="barra doble" aria-hidden="true">
               <span style={{ width: `${((p.total - p.otros) / max) * 100}%` }} />
               <span className="otros" style={{ width: `${(p.otros / max) * 100}%` }} />
@@ -65,7 +65,7 @@ export default function Msi() {
           </div>
         ))}
       </div>
-      <p className="nota"><i className="punto-serie" /> Tu parte <i className="punto-serie otros" style={{ marginLeft: 10 }} /> Parte de otros. Cada mensualidad cuenta en el mes de corte de su tarjeta.</p>
+      <p className="nota"><i className="punto-serie" /> Tu parte <i className="punto-serie otros ml-10" /> Parte de otros. Cada mensualidad cuenta en el mes de corte de su tarjeta.</p>
 
       <h2>Compras</h2>
       <div className="lista">
@@ -88,9 +88,9 @@ export default function Msi() {
         <div className="acciones"><button className="boton claro" onClick={() => setVerLiquidadas(!verLiquidadas)}>{verLiquidadas ? "Ocultar liquidadas" : "Ver también las liquidadas"}</button></div>
       )}
       {tarjetas.length > 0 && (
-        <div className="aviso" style={{ display: "block" }}>
+        <div className="aviso bloque">
           <span><b>¿No te cuadra una tarjeta?</b> Corrige sus compras a meses con <b>Cuadrar con mi estado de cuenta</b>:</span>
-          <div className="chips" style={{ marginTop: 8, marginBottom: 0 }}>
+          <div className="chips mt-8 mb-0">
             {tarjetas.map((t) => <Link key={t.id} className="boton chico claro" to={`/ajustes/tarjeta/${t.id}/cuadrar`}>{t.nombre}</Link>)}
           </div>
         </div>

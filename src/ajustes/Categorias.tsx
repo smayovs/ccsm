@@ -45,34 +45,34 @@ export default function Categorias() {
       <Cabeza titulo="Categorías" volver />
       <Segmentos etiqueta="Tipo" valor={vista} onCambio={(v) => { setVista(v); setAbierta(null); }}
         opciones={[{ v: "gasto", t: "Mis gastos" }, { v: "ingreso", t: "Mis ingresos" }, { v: "hogar", t: "Hogar" }]} />
-      <p className="nota" style={{ marginTop: -4 }}>Toca una categoría para cambiar su icono y sus subcategorías.</p>
-      <div className="lista" style={{ marginTop: 12 }}>
+      <p className="nota mt-n4">Toca una categoría para cambiar su icono y sus subcategorías.</p>
+      <div className="lista mt-12">
         {padres.map((p) => {
           const subs = propias.filter((c) => c.padre_id === p.id && (verArchivadas || !c.archivada)).sort((a, b) => a.orden - b.orden);
           const open = abierta === p.id;
           return (
-            <div key={p.id} style={{ borderTop: "1px solid var(--linea)" }}>
-              <div className="fila" style={{ borderTop: 0 }}>
+            <div key={p.id} className="borde-arriba">
+              <div className="fila sin-borde-arriba">
                 <IconoCategoria nombre={p.nombre} icono={p.icono} />
-                <button className="cuerpo" style={{ background: "none", border: 0, textAlign: "left", padding: 0, cursor: "pointer" }} onClick={() => setAbierta(open ? null : p.id)} aria-expanded={open}>
+                <button className="cuerpo sin-fondo sin-borde texto-izq p-0 cursor" onClick={() => setAbierta(open ? null : p.id)} aria-expanded={open}>
                   <div className="titulo">{p.archivada && <span className="etiq">Archivada</span>}{delHogar ? p.nombre.replace(/^Hogar: /, "") : p.nombre}</div>
                   <div className="detalle">{subs.length ? subs.map((s) => s.nombre).join(", ") : "Sin subcategorías"}</div>
                 </button>
               </div>
               {open && (
-                <div style={{ padding: "0 14px 14px" }}>
-                  <div className="sub" style={{ marginBottom: 6 }}>Icono</div>
+                <div className="p-0-14-14">
+                  <div className="sub mb-6">Icono</div>
                   <SelectorIcono valor={nombreIcono(p.nombre, p.icono)} onCambio={(v) => act(p.id, { icono: v })} />
-                  <div className="sub" style={{ margin: "14px 0 2px" }}>Subcategorías</div>
+                  <div className="sub m-14-0-2">Subcategorías</div>
                   {subs.map((s) => (
-                    <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
-                      <span style={{ flex: 1 }}>{s.archivada && <span className="etiq">Archivada</span>}{s.nombre}</span>
+                    <div key={s.id} className="flex centrar-v gap-8 p-6-0">
+                      <span className="crece">{s.archivada && <span className="etiq">Archivada</span>}{s.nombre}</span>
                       <button className="boton chico claro" onClick={() => renombrar(s)}>Renombrar</button>
                       <button className="boton chico claro" onClick={() => act(s.id, { archivada: !s.archivada })}>{s.archivada ? "Restaurar" : "Archivar"}</button>
                     </div>
                   ))}
-                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                    <input className="buscador" style={{ margin: 0, flex: 1 }} aria-label="Nueva subcategoría" placeholder="Nueva subcategoría" value={nuevaSub} onChange={(e) => setNuevaSub(e.target.value)} />
+                  <div className="flex gap-8 mt-8">
+                    <input className="buscador m-0 crece" aria-label="Nueva subcategoría" placeholder="Nueva subcategoría" value={nuevaSub} onChange={(e) => setNuevaSub(e.target.value)} />
                     <button className="boton chico" onClick={() => crear(p)}>Agregar</button>
                   </div>
                   <div className="acciones">
@@ -85,8 +85,8 @@ export default function Categorias() {
           );
         })}
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <input className="buscador" style={{ margin: 0, flex: 1 }} aria-label={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} placeholder={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} value={nueva}
+      <div className="flex gap-8 mt-14">
+        <input className="buscador m-0 crece" aria-label={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} placeholder={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} value={nueva}
           onChange={(e) => setNueva(delHogar && e.target.value && !e.target.value.startsWith("Hogar: ") ? "Hogar: " + e.target.value : e.target.value)} />
         <button className="boton chico" onClick={() => crear(null)}>Agregar</button>
       </div>

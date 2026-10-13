@@ -30,12 +30,12 @@ export default function Familiares() {
   return (
     <>
       <Cabeza titulo="Personas" volver />
-      <p className="nota" style={{ marginTop: -8 }}>Si cambias un nombre, se actualiza en todos sus gastos y cobros. Familiares, amigos o cualquier persona a la que le compres o prestes con tus tarjetas o tu dinero. Lo suyo no cuenta en tus gastos y se va a Cobros. Tu pareja no va aquí: lo de ustedes se maneja con gastos compartidos.</p>
-      <div className="lista" style={{ marginTop: 14 }}>
+      <p className="nota mt-n8">Si cambias un nombre, se actualiza en todos sus gastos y cobros. Familiares, amigos o cualquier persona a la que le compres o prestes con tus tarjetas o tu dinero. Lo suyo no cuenta en tus gastos y se va a Cobros. Tu pareja no va aquí: lo de ustedes se maneja con gastos compartidos.</p>
+      <div className="lista mt-14">
         {familiares.map((f) => (
           editando === f.id ? (
-            <form className="fila" key={f.id} onSubmit={renombrar} style={{ gap: 8 }}>
-              <input className="buscador" style={{ margin: 0, flex: 1 }} value={nuevo} onChange={(e) => setNuevo(e.target.value)} autoFocus aria-label="Nuevo nombre" />
+            <form className="fila gap-8" key={f.id} onSubmit={renombrar}>
+              <input className="buscador m-0 crece" value={nuevo} onChange={(e) => setNuevo(e.target.value)} autoFocus aria-label="Nuevo nombre" />
               <button type="button" className="boton chico claro" onClick={() => setEditando(null)}>Cancelar</button>
               <button className="boton chico">Guardar</button>
             </form>
@@ -48,8 +48,8 @@ export default function Familiares() {
           )
         ))}
       </div>
-      <form onSubmit={agregar} style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <input className="buscador" style={{ margin: 0, flex: 1 }} aria-label="Nombre del familiar" placeholder="Nombre (ej. Hermana, Luis del trabajo)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <form onSubmit={agregar} className="flex gap-8 mt-14">
+        <input className="buscador m-0 crece" aria-label="Nombre del familiar" placeholder="Nombre (ej. Hermana, Luis del trabajo)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
         <button className="boton chico">Agregar</button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}

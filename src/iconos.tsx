@@ -1,21 +1,23 @@
 import {
-  Baby, Banknote, Bed, Beer, Bike, BookOpen, Briefcase, Building2, Bus, Car, Church, CircleDollarSign, Coffee, Coins, CreditCard,
-  Croissant, Droplet, Dumbbell, Film, Flame, Flower2, Fuel, Gamepad2, Gift, Globe, GraduationCap, Hammer, HandCoins, HandHeart,
-  Heart, HeartPulse, Home, Landmark, Laptop, Lightbulb, Music, Package, Palette, PartyPopper, PawPrint, PiggyBank, Pill, Pizza,
-  Plane, Receipt, Repeat, Scissors, Shield, Shirt, ShoppingBag, ShoppingCart, Smartphone, Sofa, Sparkles, Stethoscope, Store, Tag,
-  Ticket, Train, TrendingUp, Tv, Umbrella, Users, Utensils, Wallet, Wifi, Wine, Wrench, Zap, type LucideIcon,
-} from "lucide-react";
+  Airplane, Baby, Bank, Barbell, BeerStein, Bed, Bicycle, BookOpen, Bread, Briefcase, Buildings, Bus, Car, Church, Coffee, Coins,
+  Confetti, Couch, CreditCard, CurrencyCircleDollar, DeviceMobile, Drop, FilmSlate, Flame, Flower, ForkKnife, GameController, GasPump,
+  Gift, Globe, GraduationCap, Hammer, HandCoins, HandHeart, Heart, Heartbeat, House, Laptop, Lightbulb, Lightning, Money, MusicNotes,
+  Package, Palette, PawPrint, PiggyBank, Pill, Pizza, Receipt, Repeat, Scissors, Shield, ShoppingBag, ShoppingCart, Sparkle,
+  Stethoscope, Storefront, Tag, Television, Ticket, Train, TrendUp, TShirt, Umbrella, Users, Wallet, WifiHigh, Wine, Wrench,
+  type Icon,
+} from "./phosphor";
 
-// Catálogo de iconos que se pueden elegir para una categoría (nombre guardado → icono)
-export const ICONOS: Record<string, LucideIcon> = {
-  ShoppingCart, Store, Utensils, Coffee, Croissant, Pizza, Beer, Wine,
-  Home, Sofa, Bed, Zap, Droplet, Flame, Wifi, Smartphone, Tv, Laptop, Lightbulb, Wrench, Hammer,
-  Car, Fuel, Bus, Train, Bike, Plane, Globe,
-  Shirt, ShoppingBag, Scissors, Sparkles, Palette, Flower2,
-  Heart, HeartPulse, Stethoscope, Pill, Dumbbell, Shield, Umbrella,
+// Catálogo de iconos que se pueden elegir para una categoría. La clave es el nombre que se guarda en la base
+// (viene de la librería anterior y no se cambia para no tocar las categorías ya guardadas) → icono de Phosphor.
+export const ICONOS: Record<string, Icon> = {
+  ShoppingCart, Store: Storefront, Utensils: ForkKnife, Coffee, Croissant: Bread, Pizza, Beer: BeerStein, Wine,
+  Home: House, Sofa: Couch, Bed, Zap: Lightning, Droplet: Drop, Flame, Wifi: WifiHigh, Smartphone: DeviceMobile, Tv: Television, Laptop, Lightbulb, Wrench, Hammer,
+  Car, Fuel: GasPump, Bus, Train, Bike: Bicycle, Plane: Airplane, Globe,
+  Shirt: TShirt, ShoppingBag, Scissors, Sparkles: Sparkle, Palette, Flower2: Flower,
+  Heart, HeartPulse: Heartbeat, Stethoscope, Pill, Dumbbell: Barbell, Shield, Umbrella,
   GraduationCap, BookOpen, Baby, PawPrint, Users,
-  Gift, PartyPopper, Music, Film, Gamepad2, Ticket, Repeat, Package,
-  Briefcase, Building2, Landmark, Wallet, Banknote, Coins, CircleDollarSign, HandCoins, PiggyBank, TrendingUp, CreditCard, Receipt,
+  Gift, PartyPopper: Confetti, Music: MusicNotes, Film: FilmSlate, Gamepad2: GameController, Ticket, Repeat, Package,
+  Briefcase, Building2: Buildings, Landmark: Bank, Wallet, Banknote: Money, Coins, CircleDollarSign: CurrencyCircleDollar, HandCoins, PiggyBank, TrendingUp: TrendUp, CreditCard, Receipt,
   Church, HandHeart, Tag,
 };
 
@@ -44,16 +46,16 @@ export function nombreIcono(nombre: string, icono?: string | null) {
 
 export function IconoCategoria({ nombre, icono, tam = 20 }: { nombre: string; icono?: string | null; tam?: number }) {
   const I = ICONOS[nombreIcono(nombre, icono)];
-  return <span className="ico" aria-hidden="true"><I size={tam} strokeWidth={1.9} /></span>;
+  return <span className="ico" aria-hidden="true"><I size={tam} /></span>;
 }
 
-const POR_TIPO: Record<string, LucideIcon> = {
-  debito: Landmark, credito: CreditCard, ahorro: PiggyBank, efectivo: Banknote, inversion: TrendingUp, prestamo: HandCoins,
+const POR_TIPO: Record<string, Icon> = {
+  debito: Bank, credito: CreditCard, ahorro: PiggyBank, efectivo: Money, inversion: TrendUp, prestamo: HandCoins,
 };
 
 export function IconoCuenta({ tipo, conjunta = false, tam = 20 }: { tipo: string; conjunta?: boolean; tam?: number }) {
   const I = conjunta ? Users : POR_TIPO[tipo] ?? Wallet;
-  return <span className={"ico cuenta-" + tipo} aria-hidden="true"><I size={tam} strokeWidth={1.9} /></span>;
+  return <span className={"ico cuenta-" + tipo} aria-hidden="true"><I size={tam} /></span>;
 }
 
 export function SelectorIcono({ valor, onCambio }: { valor: string; onCambio: (v: string) => void }) {
@@ -61,7 +63,7 @@ export function SelectorIcono({ valor, onCambio }: { valor: string; onCambio: (v
     <div className="rejilla-iconos" role="radiogroup" aria-label="Icono">
       {Object.entries(ICONOS).map(([k, I]) => (
         <button key={k} type="button" role="radio" aria-checked={valor === k} aria-label={k} onClick={() => onCambio(k)}>
-          <I size={22} strokeWidth={1.9} />
+          <I size={22} />
         </button>
       ))}
     </div>

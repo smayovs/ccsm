@@ -125,7 +125,7 @@ export default function Suscripciones() {
   return (
     <>
       <Cabeza titulo="Suscripciones" volver accion={<button className="boton chico" onClick={() => abrir({ ...vacia })}>Agregar</button>} />
-      <div className="trio" style={{ gridTemplateColumns: "1fr 1fr" }} title={miAlMes < alMes - 0.5 ? `Total de servicios: ${fmt(alMes)} al mes` : undefined}>
+      <div className="trio cols-2" title={miAlMes < alMes - 0.5 ? `Total de servicios: ${fmt(alMes)} al mes` : undefined}>
         <div><div className="k">{miAlMes < alMes - 0.5 ? "Tu parte al mes" : "Al mes"}</div><div className="v">{fmt(miAlMes)}</div></div>
         <div><div className="k">{miAlMes < alMes - 0.5 ? "Tu parte al año" : "Al año"}</div><div className="v">{fmt(miAlMes * 12, false)}</div></div>
       </div>

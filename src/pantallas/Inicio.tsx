@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, CalendarClock, CreditCard, HandCoins, Repeat, Settings2 } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, CalendarDots, CreditCard, HandCoins, Repeat, SlidersHorizontal } from "../phosphor";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { cobroEnMes, diasEntre, fechaCorta, fmt, hoyISO, masDias, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
@@ -199,12 +199,12 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       {cuerpo}
     </section>
   );
-  const vacioFiltro = <div className="vacio" style={{ padding: "8px 0" }}>{cargandoG ? "Cargando…" : "Sin gastos con estos filtros."}</div>;
+  const vacioFiltro = <div className="vacio p-8-0">{cargandoG ? "Cargando…" : "Sin gastos con estos filtros."}</div>;
 
   const secciones: Record<IdSeccion, () => ReactNode> = {
     proximos: () => proximos.length > 0 ? (
       <>
-        <h2 style={{ marginTop: 4 }}>Próximos pagos</h2>
+        <h2 className="mt-4">Próximos pagos</h2>
         <div className="lista">
           {proximos.map((p, i) => {
             const d = diasEntre(hoy, p.f);
@@ -219,7 +219,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           })}
         </div>
       </>
-    ) : listo ? <p className="nota" style={{ display: "flex", gap: 6, alignItems: "center" }}><CalendarClock size={16} /> Sin pagos en los próximos días.</p> : null,
+    ) : listo ? <p className="nota flex gap-6 centrar-v"><CalendarDots size={16} /> Sin pagos en los próximos días.</p> : null,
 
     avisos: () => (
       <>
@@ -300,7 +300,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     },
 
     mensualidades: () => msi.length > 0 ? panel("Mensualidades", <>
-      <div className="stats" style={{ borderTop: 0, marginTop: 0, paddingTop: 0, marginBottom: 10 }}>
+      <div className="stats sin-borde-arriba mt-0 pt-0 mb-10">
         <div><div className="k">Este mes</div><div className="v">{fmt(msiHoy, false)}</div></div>
         <div><div className="k">Debes en total</div><div className="v">{fmt(debesMsi, false)}</div></div>
         <div><div className="k">De eso te deben</div><div className="v positivo">{fmt(teDebenMsi, false)}</div></div>
@@ -319,7 +319,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
 
     categorias: () => panel("En qué se va", grupos.length ? <>
       <DesgloseCategorias cats={todasCats ? grupos : grupos.slice(0, 6)} total={gastado} />
-      {grupos.length > 6 && <button className="boton claro chico ancho" style={{ marginTop: 12 }} onClick={() => setTodasCats(!todasCats)}>{todasCats ? "Ver menos" : `Ver las ${grupos.length} categorías`}</button>}
+      {grupos.length > 6 && <button className="boton claro chico ancho mt-12" onClick={() => setTodasCats(!todasCats)}>{todasCats ? "Ver menos" : `Ver las ${grupos.length} categorías`}</button>}
     </> : vacioFiltro, ["/analisis", "Análisis"], true),
 
     cuentas: () => {
@@ -368,7 +368,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           ))}
         </div>
         <p className="nota">Te deben hoy <b>{fmt(total, false)}</b>.</p>
-      </> : <div className="vacio" style={{ padding: "8px 0" }}>Nadie te debe nada.</div>, ["/cobros", "Cobros"]);
+      </> : <div className="vacio p-8-0">Nadie te debe nada.</div>, ["/cobros", "Cobros"]);
     },
 
     comparativo: () => {
@@ -461,13 +461,13 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
         </div>
         {busca.cat && (
           <>
-            <div className="comp-total" style={{ marginTop: 4 }}>
+            <div className="comp-total mt-4">
               <div><div className="k">Total</div><div className="v">{fmt(total, false)}</div></div>
               <div><div className="k">Gastos</div><div className="v">{lista.length}</div></div>
               <div><div className="k">Promedio</div><div className="v">{fmt(lista.length ? total / lista.length : 0, false)}</div></div>
             </div>
             {!busca.sub && porSub.length > 1 && (
-              <div className="msi-tarjetas" style={{ marginBottom: 8 }}>{porSub.map((s) => <span key={s.clave}><b>{s.nombre}</b> {fmt(s.total, false)}</span>)}</div>
+              <div className="msi-tarjetas mb-8">{porSub.map((s) => <span key={s.clave}><b>{s.nombre}</b> {fmt(s.total, false)}</span>)}</div>
             )}
             {lista.length ? (
               <div className="lista plana">
@@ -479,7 +479,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
                   </Link>
                 ))}
               </div>
-            ) : <div className="vacio" style={{ padding: "8px 0" }}>Sin gastos en esta categoría en el periodo.</div>}
+            ) : <div className="vacio p-8-0">Sin gastos en esta categoría en el periodo.</div>}
             {lista.length > 15 && <p className="nota">Se muestran los 15 más recientes de {lista.length}.</p>}
           </>
         )}
@@ -502,7 +502,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           ))}
         </div>
         <p className="nota">Total del mes: <b>{fmt(total, false)}</b>.</p>
-      </> : <div className="vacio" style={{ padding: "8px 0" }}>Sin suscripciones este mes.</div>, ["/suscripciones", "Suscripciones"]);
+      </> : <div className="vacio p-8-0">Sin suscripciones este mes.</div>, ["/suscripciones", "Suscripciones"]);
     },
 
     comercios: () => {
@@ -556,7 +556,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           <div className="sub">Hola, {yo?.nombre}</div>
           <h1>{cap(nombreMes(mes).replace(" de ", " "))}</h1>
         </div>
-        <Link to="/inicio/personalizar" className="boton chico claro" aria-label="Personalizar inicio"><Settings2 size={16} /> Personalizar</Link>
+        <Link to="/inicio/personalizar" className="boton chico claro" aria-label="Personalizar inicio"><SlidersHorizontal size={16} /> Personalizar</Link>
       </header>
       <BarraFiltros f={filtros} onCambio={setFiltros} />
       {(fallo || falloG) && (

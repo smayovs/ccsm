@@ -84,14 +84,6 @@ export function SelectorCategoria({ cats, tipo, valor, onCambio, incluirHogar = 
   );
 }
 
-const trazo = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-export const Icono = {
-  inicio: () => <svg viewBox="0 0 24 24" {...trazo}><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5h-5v5H5a1 1 0 0 1-1-1z" /></svg>,
-  lista: () => <svg viewBox="0 0 24 24" {...trazo}><path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01" /></svg>,
-  mas: () => <svg viewBox="0 0 24 24" {...trazo} strokeWidth={2.4}><path d="M12 5v14M5 12h14" /></svg>,
-  hogar: () => <svg viewBox="0 0 24 24" {...trazo}><circle cx="9" cy="12" r="5" /><circle cx="15" cy="12" r="5" /></svg>,
-  menu: () => <svg viewBox="0 0 24 24" {...trazo}><circle cx="5" cy="12" r="1.3" /><circle cx="12" cy="12" r="1.3" /><circle cx="19" cy="12" r="1.3" /></svg>,
-};
 
 // Esqueleto mientras carga una pantalla; VoiceOver anuncia "Cargando"
 export function Cargando() {

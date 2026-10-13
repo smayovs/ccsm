@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check } from "../phosphor";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { olvidarPreferencias } from "../preferencias";
@@ -39,7 +39,7 @@ export default function AparienciaPantalla() {
           <div><div className="k">Ahorro</div><div className="v">{fmt(19520, false)}</div></div>
         </div>
       </section>
-      <div className="acciones" style={{ marginTop: 10 }}>
+      <div className="acciones mt-10">
         <span className="boton" role="presentation">Botón principal</span>
         <span className="boton claro" role="presentation">Secundario</span>
       </div>
@@ -70,7 +70,7 @@ export default function AparienciaPantalla() {
       <Segmentos etiqueta="Modo" valor={a.modo} onCambio={(v) => cambiar({ modo: v })} opciones={[
         { v: "auto", t: "Automático" }, { v: "claro", t: "Claro" }, { v: "oscuro", t: "Oscuro" },
       ]} />
-      <p className="nota" style={{ marginTop: -6 }}>Automático sigue el modo de tu iPhone.</p>
+      <p className="nota mt-n6">Automático sigue el modo de tu iPhone.</p>
 
       <h2>Tipografía</h2>
       <div className="lista" role="radiogroup" aria-label="Tipografía">

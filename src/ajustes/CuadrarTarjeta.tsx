@@ -39,10 +39,10 @@ export default function CuadrarTarjeta() {
   return (
     <>
       <Cabeza titulo={`Cuadrar ${c.nombre}`} volver />
-      <p className="sub" style={{ marginTop: -10, marginBottom: 16 }}>Paso {paso} de 2 · {paso === 1 ? "Compras a meses" : "Saldo y pago"}</p>
+      <p className="sub mt-n10 mb-16">Paso {paso} de 2 · {paso === 1 ? "Compras a meses" : "Saldo y pago"}</p>
       {paso === 1 ? (
         <>
-          <p style={{ marginTop: 0 }}>Copia de tu último estado de cuenta cada compra a meses que sigues pagando: la <b>mensualidad</b> y el <b>pago número “N de M”</b> tal como aparece.</p>
+          <p className="mt-0">Copia de tu último estado de cuenta cada compra a meses que sigues pagando: la <b>mensualidad</b> y el <b>pago número “N de M”</b> tal como aparece.</p>
           <ListaMensualidades filas={filas} onCambio={setFilas} />
           {filas.length > 0 && <p className="nota">Te faltan {fmt(filas.reduce((a, f) => a + faltante(f), 0))} de meses sin intereses en esta tarjeta.</p>}
         </>

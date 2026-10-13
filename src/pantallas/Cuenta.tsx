@@ -104,7 +104,7 @@ export default function Cuenta() {
           <div className="cifra">{fmt(deuda, false)}</div>
           {pm > 0 && <div className="sub">{falta > 0 ? <>Pago de este mes: <b>{fmt(falta)}</b>{fPago ? ` · ${fechaCorta(fPago)}` : ""}</> : "El pago de este mes ya está cubierto."}</div>}
         </section>
-        <div className="acciones" style={{ marginTop: 12 }}>
+        <div className="acciones mt-12">
           <Link className="boton" to={`/nuevo?tipo=transferencia&destino=${id}`}>Registrar un pago</Link>
           <Link className="boton claro" to={`/nuevo?cuenta=${id}`}>Intereses o cargo</Link>
         </div>
@@ -129,7 +129,7 @@ export default function Cuenta() {
           <div className="etiqueta">{TIPOS_CUENTA[d.tipo] ?? "Cuenta"} · saldo</div>
           <div className={"cifra" + (n(d.saldo) < 0 ? " alerta" : "")}>{fmt(d.saldo, false)}</div>
         </section>
-      <div className="acciones" style={{ marginTop: 12 }}>
+      <div className="acciones mt-12">
         <Link className="boton" to={`/nuevo?cuenta=${id}`}>+ Registrar movimiento</Link>
         <Link className="boton claro" to={`/cuenta/${id}/varios`}>Varios gastos</Link>
       </div>
@@ -169,7 +169,7 @@ export default function Cuenta() {
           </div>
         )}
       </section>
-      <div className="acciones" style={{ marginTop: 12 }}>
+      <div className="acciones mt-12">
         <Link className="boton" to={`/nuevo?cuenta=${id}`}>+ Registrar movimiento</Link>
         <Link className="boton claro" to={`/cuenta/${id}/varios`}>Varios gastos</Link>
       </div>
@@ -183,15 +183,15 @@ export default function Cuenta() {
             : <>Para no generar intereses · paga antes del {fechaLarga(d.fecha_pago!)} ({cuando(d.fecha_pago!)})</>}
         </div>
         {pagado > 0 && falta > 0 && <div className="sub">Ya abonaste {fmt(pagado)} de {fmt(pagoCorte)}.</div>}
-        {estimado && <p className="nota" style={{ marginBottom: 0 }}>Es un estimado: registraste la tarjeta después de este corte. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link></p>}
-        {d.pago_manual && <p className="nota" style={{ marginBottom: 0 }}>Tomado de tu estado de cuenta.</p>}
+        {estimado && <p className="nota mb-0">Es un estimado: registraste la tarjeta después de este corte. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link></p>}
+        {d.pago_manual && <p className="nota mb-0">Tomado de tu estado de cuenta.</p>}
         {falta > 0 && (
           <div className="acciones"><Link className="boton" to={`/nuevo?tipo=transferencia&destino=${id}`}>Registrar pago</Link></div>
         )}
       </div>
 
       <h2>Periodo actual</h2>
-      <p className="nota" style={{ marginTop: -4, marginBottom: 8 }}>Del {fechaCorta(addDia(d.ultimo_corte!))} al {fechaCorta(d.proximo_corte!)} (corte). Se paga antes del {fechaCorta(d.fecha_pago_siguiente!)}.</p>
+      <p className="nota mt-n4 mb-8">Del {fechaCorta(addDia(d.ultimo_corte!))} al {fechaCorta(d.proximo_corte!)} (corte). Se paga antes del {fechaCorta(d.fecha_pago_siguiente!)}.</p>
       <div className="lista">
         <div className="fila"><div className="cuerpo"><div className="titulo">Compras de contado</div></div><div className="monto">{fmt(contado)}</div></div>
         <div className="fila"><div className="cuerpo"><div className="titulo">Mensualidades MSI de este corte</div></div><div className="monto">{fmt(mens)}</div></div>

@@ -48,7 +48,7 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
       {revisar.length > 0 && (
         <>
           <h2>Por clasificar</h2>
-          <p className="nota" style={{ marginTop: -4, marginBottom: 8 }}>Entraron por Apple Pay sin regla o con una tarjeta que no reconocí. Tócalos para corregir; si el comercio es frecuente, agrégalo a <Link to="/ajustes/reglas">Reglas</Link>.</p>
+          <p className="nota mt-n4 mb-8">Entraron por Apple Pay sin regla o con una tarjeta que no reconocí. Tócalos para corregir; si el comercio es frecuente, agrégalo a <Link to="/ajustes/reglas">Reglas</Link>.</p>
           <div className="lista">
             {revisar.map((m) => (
               <Link className="fila" key={m.id} to={`/editar/${m.id}`}>
@@ -64,17 +64,17 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
       {sinCat.length > 0 && (
         <>
           <h2>Tu parte sin categoría</h2>
-          <p className="nota" style={{ marginTop: -4, marginBottom: 8 }}>Gastos compartidos contigo cuya categoría no existe en tu lista. Elige en qué categoría cuentan.</p>
+          <p className="nota mt-n4 mb-8">Gastos compartidos contigo cuya categoría no existe en tu lista. Elige en qué categoría cuentan.</p>
           {sinCat.map((r) => (
-            <div key={r.movimiento_id} className="lista" style={{ padding: "12px 14px 0", marginBottom: 10 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                <div><div style={{ fontWeight: 600 }}>{r.movimiento?.descripcion || r.movimiento?.comercio || "Gasto compartido"}</div>
+            <div key={r.movimiento_id} className="lista p-12-14-0 mb-10">
+              <div className="flex separar mb-10">
+                <div><div className="peso-600">{r.movimiento?.descripcion || r.movimiento?.comercio || "Gasto compartido"}</div>
                   <div className="sub">{fechaCorta(r.movimiento?.fecha)} · pagó {nombres[r.movimiento?.creado_por] ?? "tu pareja"}</div></div>
-                <div className="num" style={{ fontWeight: 700 }}>{fmt(r.monto)}</div>
+                <div className="num peso-700">{fmt(r.monto)}</div>
               </div>
               <SelectorCategoria cats={categorias} tipo="gasto" uid={uid} valor={eleccion[r.movimiento_id] ?? null}
                 onCambio={(id) => setEleccion({ ...eleccion, [r.movimiento_id]: id })} />
-              <div style={{ paddingBottom: 12 }}><button className="boton chico" onClick={() => asignar(r.movimiento_id)}>Asignar</button></div>
+              <div className="pb-12"><button className="boton chico" onClick={() => asignar(r.movimiento_id)}>Asignar</button></div>
             </div>
           ))}
         </>
@@ -85,12 +85,12 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
           <h2>En disputa</h2>
           <div className="lista">
             {disputas.map((r) => (
-              <div className="fila" key={r.movimiento_id} style={{ flexWrap: "wrap" }}>
+              <div className="fila envolver" key={r.movimiento_id}>
                 <div className="cuerpo">
                   <div className="titulo">{r.movimiento?.descripcion || r.movimiento?.comercio || "Gasto"} · {fmt(r.movimiento?.monto)}</div>
                   <div className="detalle">{nombres[r.user_id]}: “{r.nota || "No está de acuerdo con el reparto"}” · le tocan {fmt(r.monto)}</div>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div className="flex gap-8">
                   <Link className="boton chico claro" to={`/editar/${r.movimiento_id}`}>Ajustar</Link>
                   <button className="boton chico" onClick={() => resolver(r.movimiento_id, r.user_id)}>Resuelto</button>
                 </div>

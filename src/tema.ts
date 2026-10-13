@@ -16,7 +16,7 @@ export const PALETAS: { id: string; nombre: string; acento: string }[] = [
 ];
 
 export const FUENTES: { id: string; nombre: string; detalle: string; display: string; texto: string; google?: string }[] = [
-  { id: "clasica", nombre: "ccsm", detalle: "Manrope, la letra de la marca", display: '"Manrope", system-ui, sans-serif', texto: '"Manrope", system-ui, -apple-system, sans-serif' },
+  { id: "clasica", nombre: "ccsm", detalle: "Outfit, la letra de la marca", display: '"Outfit", system-ui, sans-serif', texto: '"Outfit", system-ui, -apple-system, sans-serif' },
   { id: "sistema", nombre: "Del iPhone", detalle: "San Francisco, la letra de iOS", display: '-apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif', texto: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif' },
   { id: "inter", nombre: "Moderna", detalle: "Inter", display: '"Inter", system-ui, sans-serif', texto: '"Inter", system-ui, sans-serif', google: "Inter:wght@400;500;600;700;800" },
   { id: "dm", nombre: "Geométrica", detalle: "DM Sans", display: '"DM Sans", system-ui, sans-serif', texto: '"DM Sans", system-ui, sans-serif', google: "DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800" },

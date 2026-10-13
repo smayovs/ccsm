@@ -213,7 +213,7 @@ export default function Formulario() {
   return (
     <>
       <Cabeza titulo={id ? "Editar movimiento" : "Nuevo movimiento"} volver />
-      {revisar && <div className="aviso rojo" style={{ marginTop: 0, marginBottom: 14 }}>Este movimiento entró sin clasificar. Revisa la cuenta y la categoría.</div>}
+      {revisar && <div className="aviso rojo mt-0 mb-14">Este movimiento entró sin clasificar. Revisa la cuenta y la categoría.</div>}
       <form onSubmit={guardar}>
         <Segmentos etiqueta="Tipo" valor={tipo} onCambio={setTipo} opciones={tiposOp} />
         <Campo etiqueta="Monto">
@@ -240,7 +240,7 @@ export default function Formulario() {
         {tipo === "transferencia" && (
           <>
             <Campo etiqueta="Fecha"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Campo>
-            <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>El pago de una tarjeta es una transferencia (débito → tarjeta), no un gasto.</p>
+            <p className="nota mt-n6 mb-14">El pago de una tarjeta es una transferencia (débito → tarjeta), no un gasto.</p>
           </>
         )}
 
@@ -250,7 +250,7 @@ export default function Formulario() {
 
         {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && !msiPrevia && !esAplazado && (
           <>
-            <p className="nota" style={{ marginTop: -6, marginBottom: 8 }}>Esta fecha es anterior al alta de {cuentaSel.nombre} ({new Date(cuentaSel.fecha_saldo_inicial + "T12:00:00Z").toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" })}). Si la deuda o saldo que capturaste ese día ya lo incluía, déjalo así; si no, márcalo para sumarlo.</p>
+            <p className="nota mt-n6 mb-8">Esta fecha es anterior al alta de {cuentaSel.nombre} ({new Date(cuentaSel.fecha_saldo_inicial + "T12:00:00Z").toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" })}). Si la deuda o saldo que capturaste ese día ya lo incluía, déjalo así; si no, márcalo para sumarlo.</p>
             <label className="casilla"><input type="checkbox" checked={sumarASaldo} onChange={(e) => setSumarASaldo(e.target.checked)} /> No estaba incluido: súmalo al saldo de {cuentaSel.nombre}</label>
           </>
         )}
@@ -285,22 +285,22 @@ export default function Formulario() {
                 </select>
               </Campo>
             </div>
-            {Number(meses) > 1 && montoNum > 0 && <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>{Number(meses)} mensualidades de {fmt(montoNum / Number(meses))}. Registra el total de la compra.</p>}
+            {Number(meses) > 1 && montoNum > 0 && <p className="nota mt-n6 mb-14">{Number(meses)} mensualidades de {fmt(montoNum / Number(meses))}. Registra el total de la compra.</p>}
             {cuentaSel?.tipo === "credito" && (
               <>
                 <label className="casilla"><input type="checkbox" checked={aplazado} onChange={(e) => setAplazado(e.target.checked)} /> Cargo aplazado (el banco lo cobra después)</label>
                 {aplazado && (
                   <>
                     <Campo etiqueta={Number(meses) > 1 ? "Fecha del primer cargo" : "Fecha en que se cobra"}><input type="date" value={fechaCobro} min={fecha} onChange={(e) => setFechaCobro(e.target.value)} /></Campo>
-                    <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>Hasta esa fecha no suma a tu deuda ni a tu pago; lo verás en {cuentaSel.nombre} como cargo aplazado.{Number(meses) > 1 ? " Las mensualidades empiezan a contar desde ese cargo." : ""}</p>
+                    <p className="nota mt-n6 mb-14">Hasta esa fecha no suma a tu deuda ni a tu pago; lo verás en {cuentaSel.nombre} como cargo aplazado.{Number(meses) > 1 ? " Las mensualidades empiezan a contar desde ese cargo." : ""}</p>
                   </>
                 )}
               </>
             )}
             {msiPrevia && (
               <div className="caja-dividir">
-                <div className="sub" style={{ marginBottom: 8 }}>Compra de antes de dar de alta {cuentaSel!.nombre}</div>
-                <p className="nota" style={{ marginTop: 0 }}>Según tu día de corte ({cuentaSel!.dia_corte}), llevas <b>{nCalc} de {meses}</b> mensualidades cobradas. Si tu estado de cuenta dice otro número, corrígelo:</p>
+                <div className="sub mb-8">Compra de antes de dar de alta {cuentaSel!.nombre}</div>
+                <p className="nota mt-0">Según tu día de corte ({cuentaSel!.dia_corte}), llevas <b>{nCalc} de {meses}</b> mensualidades cobradas. Si tu estado de cuenta dice otro número, corrígelo:</p>
                 <Campo etiqueta="Pago número en tu estado de cuenta">
                   <input inputMode="numeric" value={nPago === "" ? String(nCalc) : nPago} onChange={(e) => setNPago(e.target.value.replace(/\D/g, ""))} />
                 </Campo>
@@ -309,7 +309,7 @@ export default function Formulario() {
                     <Segmentos etiqueta="¿Estaba en lo que debías?" valor={msiIncluida} onCambio={setMsiIncluida} opciones={[
                       { v: "si", t: "Ya estaba en mi deuda" }, { v: "no", t: "No, súmala" }]} />
                     {msiIncluida === "si"
-                      ? <p className="nota" style={{ marginTop: -6 }}>Lo que te falta ya estaba en lo que capturaste como deuda al dar de alta {cuentaSel!.nombre}; solo se agregan sus mensualidades.</p>
+                      ? <p className="nota mt-n6">Lo que te falta ya estaba en lo que capturaste como deuda al dar de alta {cuentaSel!.nombre}; solo se agregan sus mensualidades.</p>
                       : <Campo etiqueta="Lo que te falta pagar de esta compra" ayuda="Se suma a la deuda de la tarjeta. Incluye la mensualidad de este mes si todavía no la pagas.">
                           <input inputMode="decimal" value={msiFalta === "" ? String(faltaCalc) : msiFalta} onChange={(e) => setMsiFalta(limpiarMonto(e.target.value))} />
                         </Campo>}
@@ -319,7 +319,7 @@ export default function Formulario() {
             )}
             {dividir && (
               <div className="caja-dividir">
-                <div className="sub" style={{ marginBottom: 8 }}>¿Entre quiénes?</div>
+                <div className="sub mb-8">¿Entre quiénes?</div>
                 <div className="chips">
                   <button type="button" aria-pressed={conmigo} onClick={() => setConmigo(!conmigo)} disabled={modoDiv === "montos"}>Yo</button>
                   {familiares.filter((f) => f.activo || seleccion.includes(f.id)).map((f) => (
@@ -353,7 +353,7 @@ export default function Formulario() {
               <>
                 <Segmentos etiqueta="¿Cómo se lo cobras?" valor={cobroCompleto} onCambio={setCobroCompleto} opciones={[
                   { v: "mes", t: "Por mensualidad" }, { v: "completo", t: "Todo en un pago" }]} />
-                <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>
+                <p className="nota mt-n6 mb-14">
                   {cobroCompleto === "completo"
                     ? (dividir ? "Cada quien te debe su parte completa desde hoy. Tú sigues pagando la tarjeta a meses."
                       : `${familiares.find((f) => f.id === familiar)?.nombre ?? "Esta persona"} te debe ${montoNum > 0 ? fmt(montoNum) : "el total"} desde hoy. Tú sigues pagando la tarjeta a meses.`)
@@ -363,11 +363,11 @@ export default function Formulario() {
             )}
 
             {otro && !familiarReal && esConjunta && (
-              <p className="nota" style={{ marginBottom: 14 }}>Se paga con la cuenta conjunta: ya es de los dos, así que no se comparte con {otro.nombre}.</p>
+              <p className="nota mb-14">Se paga con la cuenta conjunta: ya es de los dos, así que no se comparte con {otro.nombre}.</p>
             )}
             {otro && !familiarReal && !esConjunta && (
               <>
-                <span className="campo" style={{ marginBottom: 6 }}><span>¿Compartido con {otro.nombre}?</span></span>
+                <span className="campo mb-6"><span>¿Compartido con {otro.nombre}?</span></span>
                 <Segmentos etiqueta="Compartido" valor={comp} onCambio={setComp} opciones={[
                   { v: "no", t: "No" }, { v: "mitad", t: "50/50" }, { v: "pct", t: "%" }, { v: "monto", t: "Monto" }, { v: "todo", t: `Todo de ${otro.nombre}` },
                 ]} />
@@ -377,7 +377,7 @@ export default function Formulario() {
                   </Campo>
                 )}
                 {comp !== "no" && montoNum > 0 && (
-                  <p className="nota" style={{ marginTop: -6, marginBottom: 14 }}>
+                  <p className="nota mt-n6 mb-14">
                     A {otro.nombre} le tocan {fmt(parteOtro)}; a ti {fmt(base - parteOtro)}.
                     {dividir && sumaPartes > 0 && ` Se reparte lo que queda después de las otras partes (${fmt(base)}).`}
                     {Number(meses) > 1 && " Su parte se suma a lo que te debe conforme se factura cada mensualidad."}
@@ -401,7 +401,7 @@ export default function Formulario() {
         )}
         {error && <p className="error" role="alert">{error}</p>}
       </form>
-      {!id && yo && <p className="nota" style={{ marginTop: 18 }}>Los pagos con Apple Pay se registran solos con tu atajo; aquí van efectivo, transferencias y lo demás.</p>}
+      {!id && yo && <p className="nota mt-18">Los pagos con Apple Pay se registran solos con tu atajo; aquí van efectivo, transferencias y lo demás.</p>}
     </>
   );
 }

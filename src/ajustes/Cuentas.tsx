@@ -92,7 +92,7 @@ export default function Cuentas() {
                   <Campo etiqueta="Pago mensual (opcional)"><input inputMode="decimal" value={edit.pago_mensual} onChange={(e) => setEdit({ ...edit, pago_mensual: limpiarMonto(e.target.value) })} placeholder="$3,500" /></Campo>
                   <Campo etiqueta="Día de pago"><input inputMode="numeric" value={edit.dia_pago} onChange={(e) => setEdit({ ...edit, dia_pago: e.target.value.replace(/\D/g, "") })} placeholder="15" /></Campo>
                 </div>
-                <p className="nota" style={{ marginTop: -6 }}>Cada pago regístralo como <b>Transferencia</b> de tu cuenta de débito a este préstamo; así baja la deuda. Si aplica intereses, regístralos como gasto en esta cuenta.</p>
+                <p className="nota mt-n6">Cada pago regístralo como <b>Transferencia</b> de tu cuenta de débito a este préstamo; así baja la deuda. Si aplica intereses, regístralos como gasto en esta cuenta.</p>
               </>
             )}
             {!prestamo && <Campo etiqueta="Nombre en Wallet" ayuda="Una palabra del nombre de la tarjeta en Wallet (ej. LikeU). Así Apple Pay sabe a qué cuenta cargar.">
@@ -140,13 +140,13 @@ export default function Cuentas() {
   ];
   return (
     <>
-      <Cabeza titulo="Cuentas" volver accion={<div style={{ display: "flex", gap: 6 }}>
+      <Cabeza titulo="Cuentas" volver accion={<div className="flex gap-6">
         {mias.length > 1 && <button className={"boton chico" + (ordenando ? "" : " claro")} onClick={() => setOrdenando(!ordenando)}>{ordenando ? "Listo" : "Ordenar"}</button>}
         {!ordenando && <button className="boton chico" onClick={() => setEligiendo(!eligiendo)}>Agregar</button>}
       </div>} />
-      {ordenando && <p className="nota" style={{ marginTop: -8 }}>Usa las flechas para cambiar el orden dentro de cada grupo. Así se ven en Inicio y en los menús.</p>}
+      {ordenando && <p className="nota mt-n8">Usa las flechas para cambiar el orden dentro de cada grupo. Así se ven en Inicio y en los menús.</p>}
       {eligiendo && (
-        <div className="lista" style={{ marginBottom: 16 }}>
+        <div className="lista mb-16">
           <button className="fila" onClick={() => nav("/ajustes/tarjeta-nueva")}><IconoCuenta tipo="credito" /><div className="cuerpo"><div className="titulo">Tarjeta de crédito</div><div className="detalle">Nombre, corte, pago y límite; lo demás se acumula solo</div></div><span aria-hidden="true">›</span></button>
           <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva()); }}><IconoCuenta tipo="debito" /><div className="cuerpo"><div className="titulo">Débito, ahorro, efectivo o inversión</div><div className="detalle">Solo nombre y saldo de hoy</div></div><span aria-hidden="true">›</span></button>
           <button className="fila" onClick={() => { setEligiendo(false); setEdit(nueva("prestamo")); }}><IconoCuenta tipo="prestamo" /><div className="cuerpo"><div className="titulo">Deuda o préstamo</div><div className="detalle">Crédito de auto, hipoteca, préstamo personal o dinero que debes a alguien</div></div><span aria-hidden="true">›</span></button>

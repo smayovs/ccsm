@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp } from "../phosphor";
 import { useApp } from "../contexto";
 import { Cabeza } from "../ui";
 import { errorTexto } from "../util";
@@ -30,7 +30,7 @@ export default function PersonalizarInicio() {
   return (
     <>
       <Cabeza titulo="Personalizar Inicio" volver />
-      <p className="nota" style={{ marginTop: -8 }}>Activa las secciones que quieres ver y ordénalas con las flechas. Se guarda en tu cuenta, así que se ve igual en todos tus dispositivos. Las marcadas con <span className="etiq">Filtros</span> responden al periodo, cuentas y categoría que elijas arriba en Inicio.</p>
+      <p className="nota mt-n8">Activa las secciones que quieres ver y ordénalas con las flechas. Se guarda en tu cuenta, así que se ve igual en todos tus dispositivos. Las marcadas con <span className="etiq">Filtros</span> responden al periodo, cuentas y categoría que elijas arriba en Inicio.</p>
       <div className="lista">
         {config.map((c, i) => {
           const s = SECCIONES.find((x) => x.id === c.id)!;

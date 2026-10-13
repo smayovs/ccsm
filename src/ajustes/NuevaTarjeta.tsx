@@ -39,10 +39,10 @@ export default function NuevaTarjeta() {
   if (creada) return (
     <>
       <Cabeza titulo={nombre} volver />
-      <div className="aviso verde" style={{ marginTop: 0 }}><span><strong>{nombre} quedó lista.</strong> {Number(deuda) > 0 ? `Empieza con una deuda de ${fmt(Number(deuda))}.` : "Empieza en $0."}</span></div>
+      <div className="aviso verde mt-0"><span><strong>{nombre} quedó lista.</strong> {Number(deuda) > 0 ? `Empieza con una deuda de ${fmt(Number(deuda))}.` : "Empieza en $0."}</span></div>
       <p>Desde hoy, cada compra con esta tarjeta (Apple Pay, atajo o la app) suma a la deuda y baja tu crédito disponible, también las compras a meses. Cada pago que hagas la reduce.</p>
       <h2>¿Traías compras a meses?</h2>
-      <p className="nota" style={{ marginTop: -4 }}>Regístralas como un gasto normal con su fecha real y los meses. La app calcula con tu día de corte cuántas mensualidades llevas y te deja corregirlo si tu estado de cuenta dice otra cosa.</p>
+      <p className="nota mt-n4">Regístralas como un gasto normal con su fecha real y los meses. La app calcula con tu día de corte cuántas mensualidades llevas y te deja corregirlo si tu estado de cuenta dice otra cosa.</p>
       <div className="acciones">
         <Link className="boton" to={`/nuevo?cuenta=${creada}`}>Registrar una compra a meses</Link>
       </div>
@@ -68,7 +68,7 @@ export default function NuevaTarjeta() {
       <Campo etiqueta="¿Cuánto debes hoy? (opcional)" ayuda="El saldo o deuda total que te muestra la app de tu banco. Si lo dejas vacío, la tarjeta empieza en $0 y solo cuenta lo que registres desde hoy.">
         <input inputMode="decimal" value={deuda} onChange={(e) => setDeuda(limpiarMonto(e.target.value))} placeholder="$0" />
       </Campo>
-      {Number(limite) > 0 && <p className="nota" style={{ marginTop: -6 }}>Crédito disponible: {fmt(Number(limite) - (Number(deuda) || 0))}</p>}
+      {Number(limite) > 0 && <p className="nota mt-n6">Crédito disponible: {fmt(Number(limite) - (Number(deuda) || 0))}</p>}
       {error && <p className="error" role="alert">{error}</p>}
       <div className="acciones"><button className="boton" onClick={unaVez(guardar)}>Guardar tarjeta</button></div>
     </>

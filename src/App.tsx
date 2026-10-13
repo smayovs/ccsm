@@ -2,7 +2,8 @@ import { Suspense, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useApp } from "./contexto";
 import { sb } from "./supabase";
-import { Cargando, Icono } from "./ui";
+import { DotsThreeOutline, House, ListBullets, Plus, UsersThree } from "./phosphor";
+import { Cargando } from "./ui";
 import { perezoso } from "./perezoso";
 // Lo primero que ves al abrir va en la descarga inicial; el resto se descarga al abrir cada pantalla
 // (la app instalada las guarda todas, así que también funcionan sin conexión)
@@ -94,11 +95,11 @@ export default function App() {
       </main>
       <nav className="nav" aria-label="Principal">
         <div className="dentro">
-          <NavLink to="/" end><Icono.inicio />Inicio</NavLink>
-          <NavLink to="/movimientos"><Icono.lista />Movimientos</NavLink>
-          <NavLink to="/nuevo" className="mas-grande" aria-label="Agregar movimiento"><span className="circulo"><Icono.mas /></span></NavLink>
-          <NavLink to="/hogar"><Icono.hogar />Hogar</NavLink>
-          <NavLink to="/mas"><Icono.menu />Más{pendientes > 0 && <><span className="punto" aria-hidden="true" /><span className="solo-lector">, {pendientes} pendientes</span></>}</NavLink>
+          <NavLink to="/" end>{({ isActive }) => <><House weight={isActive ? "fill" : "regular"} />Inicio</>}</NavLink>
+          <NavLink to="/movimientos">{({ isActive }) => <><ListBullets weight={isActive ? "bold" : "regular"} />Movimientos</>}</NavLink>
+          <NavLink to="/nuevo" className="mas-grande" aria-label="Agregar movimiento"><span className="circulo"><Plus size={26} weight="bold" /></span></NavLink>
+          <NavLink to="/hogar">{({ isActive }) => <><UsersThree weight={isActive ? "fill" : "regular"} />Hogar</>}</NavLink>
+          <NavLink to="/mas">{({ isActive }) => <><DotsThreeOutline weight={isActive ? "fill" : "regular"} />Más{pendientes > 0 && <><span className="punto" aria-hidden="true" /><span className="solo-lector">, {pendientes} pendientes</span></>}</>}</NavLink>
         </div>
       </nav>
     </>

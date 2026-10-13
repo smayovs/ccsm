@@ -60,7 +60,7 @@ export default function VariosGastos() {
   return (
     <>
       <Cabeza titulo={`Gastos en ${cuenta.nombre}`} volver />
-      <p className="nota" style={{ marginTop: -8, marginBottom: 12 }}>Captura varios gastos seguidos. Los renglones vacíos no se guardan. Lo que dejes sin categoría queda en Pendientes para clasificarlo después.</p>
+      <p className="nota mt-n8 mb-12">Captura varios gastos seguidos. Los renglones vacíos no se guardan. Lo que dejes sin categoría queda en Pendientes para clasificarlo después.</p>
       {filas.map((f, i) => (
         <div key={i} className="lista renglon-gasto">
           <div className="rg-arriba">
@@ -88,7 +88,7 @@ export default function VariosGastos() {
         setFilas([...filas, nueva(ult?.fecha || hoyISO(), "")]);
       }}>+ Agregar otro gasto</button>
       {error && <p className="error" role="alert">{error}</p>}
-      <div className="total-filtro" style={{ marginTop: 14 }}>
+      <div className="total-filtro mt-14">
         <span>{llenas.length} {llenas.length === 1 ? "gasto" : "gastos"}</span><b>{fmt(total)}</b>
       </div>
       <div className="acciones">

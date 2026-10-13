@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "../phosphor";
 import { useApp } from "../contexto";
 import { Segmentos } from "../ui";
 import { fechaCorta, masDias } from "../util";
@@ -66,7 +66,7 @@ export function BarraFiltros({ f, onCambio }: { f: Filtros; onCambio: (f: Filtro
             </select>
           </div>
           <p className="nota">Aplican a las secciones de gastos y gráficas. Los saldos, tarjetas y próximos pagos siempre muestran lo de hoy.</p>
-          <div className="acciones" style={{ marginTop: 6 }}>
+          <div className="acciones mt-6">
             {activos && <button type="button" className="boton claro" onClick={() => onCambio(filtrosIniciales())}>Quitar filtros</button>}
             <button type="button" className="boton" onClick={() => setAbierto(false)}>Listo</button>
           </div>

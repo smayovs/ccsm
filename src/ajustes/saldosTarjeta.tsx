@@ -39,7 +39,7 @@ export function ListaMensualidades({ filas, onCambio }: { filas: FilaMsi[]; onCa
   return (
     <>
       {filas.map((f, i) => (
-        <div key={f.id ?? `n${i}`} className="lista" style={{ padding: "14px 14px 4px", marginBottom: 12 }}>
+        <div key={f.id ?? `n${i}`} className="lista p-14-14-4 mb-12">
           <Campo etiqueta="Compra"><input value={f.descripcion} onChange={(e) => set(i, "descripcion", e.target.value)} placeholder="Refrigerador" /></Campo>
           <div className="tres">
             <Campo etiqueta="Mensualidad"><input inputMode="decimal" value={f.mensualidad} onChange={(e) => set(i, "mensualidad", limpiarMonto(e.target.value))} placeholder="$500" /></Campo>
@@ -47,12 +47,12 @@ export function ListaMensualidades({ filas, onCambio }: { filas: FilaMsi[]; onCa
             <Campo etiqueta="de"><input inputMode="numeric" value={f.m} onChange={(e) => set(i, "m", e.target.value.replace(/\D/g, ""))} placeholder="12" /></Campo>
           </div>
           {Number(f.mensualidad) > 0 && Number(f.m) > 0 && (
-            <p className="nota" style={{ marginTop: -6, marginBottom: 10 }}>
+            <p className="nota mt-n6 mb-10">
               {Number(f.n) > Number(f.m) ? "El pago número no puede ser mayor que el total de meses."
                 : <>Compra de {fmt(Number(f.mensualidad) * Number(f.m))} · te faltan {Number(f.m) - Number(f.n)} pagos ({fmt(faltante(f))})</>}
             </p>
           )}
-          <button type="button" className="boton chico peligro" style={{ marginBottom: 10 }} onClick={() => {
+          <button type="button" className="boton chico peligro mb-10" onClick={() => {
             if (f.id && !window.confirm(`¿Quitar "${f.descripcion || "esta compra"}"? Se borra de tus movimientos.`)) return;
             onCambio(filas.filter((_, j) => j !== i));
           }}>Quitar</button>
@@ -82,7 +82,7 @@ export function BloqueSaldos({ s, onCambio, filas, limite, corte }: { s: Saldos;
       </Campo>
       {meses > 0 && (
         <>
-          <span className="campo" style={{ marginBottom: 6 }}><span>¿Ese saldo ya incluye lo que te falta de meses ({fmt(meses)})?</span></span>
+          <span className="campo mb-6"><span>¿Ese saldo ya incluye lo que te falta de meses ({fmt(meses)})?</span></span>
           <Segmentos etiqueta="Incluye meses" valor={s.incluyeMeses} onCambio={(v) => onCambio({ ...s, incluyeMeses: v })}
             opciones={[{ v: "no", t: "No, súmalo" }, { v: "si", t: "Sí, ya viene incluido" }]} />
         </>
@@ -92,7 +92,7 @@ export function BloqueSaldos({ s, onCambio, filas, limite, corte }: { s: Saldos;
         <input inputMode="decimal" value={s.pago} onChange={(e) => onCambio({ ...s, pago: limpiarMonto(e.target.value) })} placeholder="$0" disabled={s.yaPagado} />
       </Campo>
       <label className="casilla"><input type="checkbox" checked={s.yaPagado} onChange={(e) => onCambio({ ...s, yaPagado: e.target.checked })} /> Ya lo pagué completo</label>
-      <div className="trio" style={{ gridTemplateColumns: limite > 0 ? "1fr 1fr" : "1fr" }}>
+      <div className={"trio " + (limite > 0 ? "cols-2" : "cols-1")}>
         <div><div className="k">Deuda total</div><div className="v negativo">{fmt(deuda)}</div></div>
         {limite > 0 && <div><div className="k">Crédito disponible</div><div className="v">{fmt(limite - deuda)}</div></div>}
       </div>

@@ -3,13 +3,13 @@ import { createRoot } from "react-dom/client";
 import { HashRouter } from "react-router-dom";
 import { Proveedor } from "./contexto";
 import App from "./App";
-// Manrope, la letra de la marca, va incluida en la app (sin pedirla a Google): la primera
+// Outfit, la letra de la marca, va incluida en la app (sin pedirla a Google): la primera
 // pantalla no la espera y funciona sin conexión. Solo caracteres latinos (incluye á, ñ, ¿).
-import "@fontsource/manrope/latin-400.css";
-import "@fontsource/manrope/latin-500.css";
-import "@fontsource/manrope/latin-600.css";
-import "@fontsource/manrope/latin-700.css";
-import "@fontsource/manrope/latin-800.css";
+import "@fontsource/outfit/latin-400.css";
+import "@fontsource/outfit/latin-500.css";
+import "@fontsource/outfit/latin-600.css";
+import "@fontsource/outfit/latin-700.css";
+import "@fontsource/outfit/latin-800.css";
 import "./estilos.css";
 import { aparienciaGuardada, aplicarApariencia } from "./tema";
 import { registerSW } from "virtual:pwa-register";

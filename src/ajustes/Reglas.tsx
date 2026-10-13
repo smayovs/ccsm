@@ -37,7 +37,7 @@ export default function Reglas() {
   return (
     <>
       <Cabeza titulo="Reglas de Apple Pay" volver />
-      <p className="nota" style={{ marginTop: -8 }}>Si el nombre del comercio contiene la palabra, el pago se clasifica solo. Gana la regla más específica; las que agregues tú tienen prioridad.</p>
+      <p className="nota mt-n8">Si el nombre del comercio contiene la palabra, el pago se clasifica solo. Gana la regla más específica; las que agregues tú tienen prioridad.</p>
       <h2>Nueva regla</h2>
       <form onSubmit={agregar}>
         <Campo etiqueta="Palabra en el comercio"><input value={palabra} onChange={(e) => setPalabra(e.target.value)} placeholder="CHEDRAUI" autoCapitalize="characters" /></Campo>
@@ -60,8 +60,7 @@ export default function Reglas() {
               <div className="detalle">{nombreCategoria(categorias, r.categoria_id) || "Categoría borrada"}{r.compartir_pct ? ` · ${Number(r.compartir_pct)}% para ${otros[0]?.nombre ?? "tu pareja"}` : ""}</div>
             </div>
             {otros.length > 0 && (
-              <select aria-label="Compartir" value={r.compartir_pct ? String(Number(r.compartir_pct)) : ""} onChange={(e) => cambiarPct(r.id, e.target.value)}
-                style={{ padding: "6px", borderRadius: 8, border: "1px solid var(--linea)", background: "var(--fondo)" }}>
+              <select aria-label="Compartir" value={r.compartir_pct ? String(Number(r.compartir_pct)) : ""} onChange={(e) => cambiarPct(r.id, e.target.value)} className="p-6 radio-8 borde fondo-app">
                 <option value="">Solo mío</option><option value="50">50/50</option><option value="100">Todo de {otros[0].nombre}</option>
                 {r.compartir_pct && ![50, 100].includes(Number(r.compartir_pct)) && <option value={String(Number(r.compartir_pct))}>{Number(r.compartir_pct)}%</option>}
               </select>

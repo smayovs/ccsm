@@ -78,7 +78,7 @@ export default function Analisis() {
         <div className="lista"><div className="vacio">Sin gastos registrados en este periodo.</div></div>
       ) : (
         <>
-          <section className="panel" style={{ marginTop: 0 }}>
+          <section className="panel mt-0">
             <div className="panel-cabeza">
               <h2>{nombreSel ?? "Gasto por mes"}</h2>
               {sel && <button className="enlace-chico boton-texto" onClick={() => setSel(null)}>Ver todo</button>}
@@ -103,7 +103,7 @@ export default function Analisis() {
           <Segmentos etiqueta="Agrupar por" valor={vista} onCambio={(v) => { setVista(v); setSel(null); }} opciones={[
             { v: "categoria", t: "Categorías" }, { v: "cuenta", t: "Cuentas" }]} />
           {vista === "categoria" ? (
-            <section className="panel" style={{ marginTop: 0 }}><DesgloseCategorias cats={cats} total={totalGeneral} sel={sel} onSel={setSel} /></section>
+            <section className="panel mt-0"><DesgloseCategorias cats={cats} total={totalGeneral} sel={sel} onSel={setSel} /></section>
           ) : (
           <div className="lista">
             {grupos.map((g) => {

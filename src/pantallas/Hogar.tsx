@@ -106,7 +106,7 @@ export default function Hogar() {
         const debe = Number(b.me_debe);
         const abierto = saldar?.user_id === b.user_id;
         return (
-          <section key={b.user_id} className="heroe" style={{ paddingBottom: 8 }}>
+          <section key={b.user_id} className="heroe pb-8">
             <div className="etiqueta">{Math.abs(debe) < 0.5 ? `Están a mano con ${b.nombre}` : debe > 0 ? `${b.nombre} te debe` : `Le debes a ${b.nombre}`}</div>
             <div className={"cifra " + (debe > 0.5 ? "positivo" : debe < -0.5 ? "negativo" : "")}>{fmt(Math.abs(debe))}</div>
             <div className="sub">Incluye las mensualidades MSI compartidas ya facturadas.</div>
@@ -118,7 +118,7 @@ export default function Hogar() {
               </div>
             )}
             {abierto && saldar && (
-              <div style={{ marginTop: 14 }}>
+              <div className="mt-14">
                 <div className="dos">
                   <Campo etiqueta="Monto"><input inputMode="decimal" value={saldar.monto} onChange={(e) => setSaldar({ ...saldar, monto: limpiarMonto(e.target.value) })} /></Campo>
                   <Campo etiqueta={saldar.yoPago ? "Pagué desde" : "Lo recibí en"}>
@@ -127,7 +127,7 @@ export default function Hogar() {
                     </select>
                   </Campo>
                 </div>
-                <p className="nota" style={{ marginTop: -6 }}>No cuenta como gasto ni como ingreso: solo baja el saldo entre ustedes. {saldar.yoPago ? `Se descuenta cuando ${b.nombre} confirme que lo recibió.` : `Se descuenta de inmediato porque tú lo recibiste.`}</p>
+                <p className="nota mt-n6">No cuenta como gasto ni como ingreso: solo baja el saldo entre ustedes. {saldar.yoPago ? `Se descuenta cuando ${b.nombre} confirme que lo recibió.` : `Se descuenta de inmediato porque tú lo recibiste.`}</p>
                 <div className="acciones">
                   <button className="boton claro" onClick={() => setSaldar(null)}>Cancelar</button>
                   <button className="boton" onClick={unaVez(registrarSaldo)}>Registrar pago</button>
@@ -145,13 +145,13 @@ export default function Hogar() {
             {porConfirmar.map((l) => {
               const recibo = l.liq_para === uid;
               return (
-                <div className="fila" key={l.id} style={{ flexWrap: "wrap" }}>
+                <div className="fila envolver" key={l.id}>
                   <div className="cuerpo">
                     <div className="titulo">{recibo ? `${nombres[l.liq_de]} te pagó ${fmt(l.monto)}` : `Le pagaste ${fmt(l.monto)} a ${nombres[l.liq_para]}`}</div>
                     <div className="detalle">{fechaCorta(l.fecha)} · ¿En qué cuenta {recibo ? "entró" : "salió"}?</div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, width: "100%" }}>
-                    <select className="buscador" style={{ margin: 0, flex: 1 }} value={confirmarCuenta[l.id] ?? ""} onChange={(e) => setConfirmarCuenta({ ...confirmarCuenta, [l.id]: e.target.value })}>
+                  <div className="flex gap-8 ancho-total">
+                    <select className="buscador m-0 crece" value={confirmarCuenta[l.id] ?? ""} onChange={(e) => setConfirmarCuenta({ ...confirmarCuenta, [l.id]: e.target.value })}>
                       <option value="">Elige cuenta…</option>
                       {mias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
                     </select>
@@ -203,7 +203,7 @@ export default function Hogar() {
       </div>
 
       <h2>Gasto del hogar</h2>
-      <p className="nota" style={{ marginTop: -4, marginBottom: 8 }}>Todo lo registrado en categorías "Hogar:" por cualquiera de los dos, completo. Total: {fmt(totalHogar)}.</p>
+      <p className="nota mt-n4 mb-8">Todo lo registrado en categorías "Hogar:" por cualquiera de los dos, completo. Total: {fmt(totalHogar)}.</p>
       <div className="lista">
         {hogarCats.map((c) => (
             <div className="fila" key={c.categoria_id}>
