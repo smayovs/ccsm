@@ -11,6 +11,12 @@ export const sumarMes = (m: string, k: number) => {
   const [y, mo] = m.split("-").map(Number);
   return new Date(Date.UTC(y, mo - 1 + k, 1)).toISOString().slice(0, 10);
 };
+// Compras a meses de antes del periodo [desde, …) cuya mensualidad aún puede caer dentro (hasta 48 meses atrás).
+// Movimientos pide todas las compras a meses una vez y elige aquí, en lugar de volver a pedirlas en cada mes.
+export const msiAnteriores = <T extends { fecha: string }>(compras: T[], desde: string) => {
+  const limite = sumarMes(mesISO(desde), -48);
+  return compras.filter((x) => x.fecha < desde && x.fecha >= limite);
+};
 export const nombreMes = (m: string) =>
   new Date(m.slice(0, 10) + "T12:00:00Z").toLocaleDateString("es-MX", { month: "long", year: "numeric", timeZone: "UTC" });
 export const mesCorto = (m: string) =>

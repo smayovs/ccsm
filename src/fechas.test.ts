@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { facturadas, fechaParaPago, ultimoCorte } from "./ajustes/saldosTarjeta";
-import { hoyISO, proximoCobro, sumarMes } from "./util";
+import { hoyISO, msiAnteriores, proximoCobro, sumarMes } from "./util";
 
 // Mismos casos que se verificaron contra _msi_facturadas y _proxima_fecha en la base de datos
 
@@ -53,6 +53,27 @@ describe("fechaParaPago: fecha que deja una compra con n mensualidades cobradas"
     for (const n of [0, 1, 3, 6]) {
       expect(facturadas(fechaParaPago(15, n, "2026-10-20"), 15, 12, "2026-10-20")).toBe(n);
     }
+  });
+});
+
+describe("msiAnteriores: compras a meses de antes del periodo cuya mensualidad puede caer dentro", () => {
+  const compras = [
+    { id: "a", fecha: "2026-10-05" }, // dentro del periodo: viene en los movimientos del mes, no aquí
+    { id: "b", fecha: "2026-09-30" }, // un día antes del periodo
+    { id: "c", fecha: "2022-10-01" }, // justo 48 meses antes del mes del periodo
+    { id: "d", fecha: "2022-09-30" }, // más de 48 meses antes: ya no puede tener mensualidades
+  ];
+
+  it("deja solo las compras de antes del periodo y de hasta 48 meses atrás (lo mismo que pedía la base)", () => {
+    expect(msiAnteriores(compras, "2026-10-01").map((x) => x.id)).toEqual(["b", "c"]);
+  });
+
+  it("al cambiar de mes se recalcula sin volver a pedir nada (la de oct 2022 ya queda a más de 48 meses)", () => {
+    expect(msiAnteriores(compras, "2026-11-01").map((x) => x.id)).toEqual(["a", "b"]);
+  });
+
+  it("funciona con periodos que no empiezan el día 1 (periodo de corte)", () => {
+    expect(msiAnteriores(compras, "2026-10-06").map((x) => x.id)).toEqual(["a", "b", "c"]);
   });
 });
 

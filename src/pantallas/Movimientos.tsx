@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, SelectorMes, Segmentos } from "../ui";
-import { cobroEnMes, fechaCorta, fechaLarga, fmt, hoyISO, mesISO, nombreMes, sumarMes, TIPOS_MOV } from "../util";
+import { cobroEnMes, fechaCorta, fechaLarga, fmt, hoyISO, mesISO, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
 import { ArrowLeftRight, CalendarClock, HandCoins, Handshake } from "lucide-react";
 import { IconoCategoria } from "../iconos";
 
@@ -58,7 +58,7 @@ export default function Movimientos() {
   const hoy = hoyISO();
   const [cuentaFiltro, setCuentaFiltro] = useState("");
   const [subs, setSubs] = useState<any[]>([]);
-  const [msiPrevias, setMsiPrevias] = useState<Mov[]>([]);
+  const [todasMsi, setTodasMsi] = useState<Mov[]>([]);
   const [modo, setModo] = useState<Modo>("mes");
   const [mes, setMes] = useState(mesISO());
   const [rDesde, setRDesde] = useState(sumarMes(mesISO(), -2));
@@ -100,11 +100,15 @@ export default function Movimientos() {
         if (!vigente) return;
         setMovs(data ?? []); setFallo(error ? "No se pudieron cargar los movimientos. Revisa tu conexión e intenta de nuevo." : ""); setCargando(false);
       });
-    // Compras a meses de antes del periodo cuya mensualidad cae dentro
-    sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").not("meses_msi", "is", null).lt("fecha", desde).gte("fecha", sumarMes(mesISO(desde), -48))
-      .then(({ data }) => { if (vigente) setMsiPrevias(data ?? []); });
     return () => { vigente = false; };
   }, [desde, hasta]);
+  // Todas las compras a meses se piden una sola vez; al cambiar de periodo se eligen aquí (msiAnteriores)
+  useEffect(() => {
+    sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").not("meses_msi", "is", null)
+      .then(({ data }) => setTodasMsi(data ?? []));
+  }, []);
+  // Compras a meses de antes del periodo cuya mensualidad cae dentro
+  const msiPrevias = useMemo(() => msiAnteriores(todasMsi, desde), [todasMsi, desde]);
   useEffect(() => {
     sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id, palabra_clave, categoria_id").eq("activa", true)
       .then(({ data }) => setSubs(data ?? []));
