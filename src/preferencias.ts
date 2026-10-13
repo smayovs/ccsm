@@ -2,7 +2,7 @@
 // quienes las usan (consultas.test.ts). Al guardar cambios, olvidarPreferencias() hace que se vuelvan a pedir.
 import { sb } from "./supabase";
 
-export type Preferencias = { apariencia?: Record<string, unknown>; inicio?: { secciones?: unknown } } | null;
+export type Preferencias = { apariencia?: Record<string, unknown>; inicio?: { secciones?: unknown; meta?: unknown; metaModo?: unknown } } | null;
 
 let actual: { uid: string; p: Promise<Preferencias> } | null = null;
 

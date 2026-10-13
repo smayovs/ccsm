@@ -73,7 +73,7 @@ export default function App() {
           <Route path="/editar/:id" element={<FormularioNuevo />} />
           <Route path="/hogar" element={<Hogar />} />
           <Route path="/pendientes" element={<Pendientes onCambio={setPendientes} />} />
-          <Route path="/mas" element={<Mas />} />
+          <Route path="/mas" element={<Mas pendientes={pendientes} />} />
           <Route path="/cuenta/:id" element={<Cuenta />} />
           <Route path="/cuenta/:id/varios" element={<VariosGastos />} />
           <Route path="/analisis" element={<Analisis />} />

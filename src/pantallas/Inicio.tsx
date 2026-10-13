@@ -1,15 +1,15 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, CalendarDots, CreditCard, HandCoins, Repeat, SlidersHorizontal } from "../phosphor";
+import { ArrowDownRight, ArrowUpRight, CalendarDots, CreditCard, HandCoins, Repeat, SquaresFour } from "../phosphor";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { cobroEnMes, diasEntre, fechaCorta, fmt, hoyISO, masDias, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
 import { IconoCategoria, IconoCuenta } from "../iconos";
-import { BarrasDobles, BarrasFlujo, BarrasMes, RitmoGasto } from "../graficas";
+import { Anillo, BarrasDobles, BarrasFlujo, BarrasMes, RitmoGasto } from "../graficas";
 import { agruparCategorias, DesgloseCategorias } from "../desglose";
 import { cargarMsi, CompraMsi, proyeccionMsi } from "../msi";
 import { cargarCobros, Persona } from "../cobros";
-import { cargarConfig, ConfigInicio, configInicial, Filtros, Gasto, IdSeccion, leerFiltros, pasaFiltro, rango, recordarFiltros } from "../inicio/secciones";
+import { cargarConfig, cargarMeta, ConfigInicio, type Meta, configInicial, Filtros, Gasto, IdSeccion, leerFiltros, pasaFiltro, rango, recordarFiltros, SECCIONES } from "../inicio/secciones";
 import { BarraFiltros, textoPeriodo } from "../inicio/Filtros";
 import { guardarCache, leerCache } from "../cache";
 
@@ -19,6 +19,7 @@ type Tarjeta = { id: string; falta: number; fecha_pago: string | null; pagado_me
 type Sub = { id: string; servicio: string; monto: number; frecuencia_meses: number; fecha_referencia: string | null; cuenta_id: string | null };
 type Ingreso = { fecha: string; monto: number; cuenta_id: string };
 type Balance = { nombre: string; me_debe: number };
+type Parte = { user_id: string; nombre: string; color: "rosa" | "gris" | null; es_yo: boolean; parte: number };
 type Tablero = { saldos: Saldo[]; porRevisar: number; abonosPrestamo: Record<string, number>; tarjetas: Record<string, Tarjeta>;
   balance: Balance[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona> };
 
@@ -58,6 +59,9 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const [falloG, setFalloG] = useState(false);
   const [intento, setIntento] = useState(0);
   const [config, setConfig] = useState<ConfigInicio>(configInicial());
+  // Meta de gasto mensual (null mientras carga) y reparto de los gastos compartidos del periodo
+  const [metaConfig, setMetaConfig] = useState<Meta | null>(null);
+  const [reparto, setReparto] = useState<Parte[]>([]);
   // ---------- Datos filtrables ----------
   const [filtros, setFiltrosEstado] = useState<Filtros>(leerFiltros());
   const setFiltros = (f: Filtros) => { recordarFiltros(f); setFiltrosEstado(f); };
@@ -75,6 +79,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
 
   useEffect(() => {
     cargarConfig(uid).then(setConfig);
+    cargarMeta(uid).then(setMetaConfig);
     // El detalle de compras a meses se pide una vez y lo comparten Cobros y Mensualidades
     const detalleMsi = Promise.resolve(sb.rpc("msi_detalle"));
     // Cobros (5 consultas) va aparte: el resto de Inicio no lo espera
@@ -137,8 +142,11 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       setGastos(gs); setIngresos(is);
       guardarCache(uid, clave, { gastos: gs, ingresos: is });
     }).catch(() => { if (vigente) { setFalloG(true); setCargandoG(false); } });
+    sb.rpc("reparto_compartido", { p_desde: r.desde, p_hasta: r.hasta }).then(({ data, error }) => {
+      if (vigente && !error) setReparto(((data ?? []) as any[]).map((x) => ({ ...x, parte: n(x.parte) })));
+    }, () => {});
     return () => { vigente = false; };
-  }, [desdeFetch, r.hasta, uid, intento]);
+  }, [desdeFetch, r.desde, r.hasta, uid, intento]);
 
   // ---------- Cálculos con filtros ----------
   const filtrados = useMemo(() => gastos.filter((g) => pasaFiltro(g, filtros)), [gastos, filtros]);
@@ -157,6 +165,17 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const diario: Record<number, number> = {};
   if (r.unMes) for (const g of actuales) diario[Number(g.fecha.slice(8, 10))] = (diario[Number(g.fecha.slice(8, 10))] ?? 0) + g.monto;
   const grupos = agruparCategorias(actuales.map((g) => ({ ...g })));
+  // La meta es del mes completo: se compara solo con el mes actual y sin filtros de cuenta o categoría
+  const porIngresos = metaConfig?.modo === "ingresos";
+  const meta = metaConfig?.modo === "fija" ? metaConfig.monto : porIngresos ? ingresado : 0;
+  const metaAplica = esMesActual && !filtros.cuentas.length && !conCategoria;
+  const conMeta = !!meta && metaAplica;
+  const quedaMeta = conMeta ? meta - gastado : 0;
+  const diasRestantes = totalDias - diaHoy + 1;
+  // Compartidos: rosa primero, como en el símbolo; sin color elegido, tú en gris y tu pareja en rosa
+  const partes = reparto.map((p) => ({ ...p, color: p.color ?? (p.es_yo ? "gris" : "rosa") }))
+    .sort((a, b) => Number(a.color !== "rosa") - Number(b.color !== "rosa"));
+  const totalCompartido = partes.reduce((a, p) => a + p.parte, 0);
 
   // ---------- Estado de hoy ----------
   const enFiltroCta = (id: string) => !filtros.cuentas.length || filtros.cuentas.includes(id);
@@ -192,19 +211,25 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     .sort((a, b) => b[1] - a[1]);
 
   // ---------- Secciones ----------
+  // Todas las secciones llevan el mismo encabezado (título, periodo si responde a filtros y enlace) fuera de la tarjeta
+  const cabeza = (titulo: string, enlace?: [string, string], filtrable = false) => (
+    <div className="seccion-cabeza">
+      <div><h2>{titulo}</h2>{filtrable && <div className="etiq-periodo">{periodo}{filtros.cuentas.length || conCategoria ? " · con filtros" : ""}</div>}</div>
+      {enlace && <Link to={enlace[0]} className="enlace-chico">{enlace[1]}</Link>}
+    </div>
+  );
   const panel = (titulo: string, cuerpo: ReactNode, enlace?: [string, string], filtrable = false) => (
-    <section className="panel">
-      <div className="panel-cabeza"><h2>{titulo}</h2>{enlace && <Link to={enlace[0]} className="enlace-chico">{enlace[1]}</Link>}</div>
-      {filtrable && <div className="etiq-periodo">{periodo}{filtros.cuentas.length || conCategoria ? " · con filtros" : ""}</div>}
-      {cuerpo}
+    <section className="seccion">
+      {cabeza(titulo, enlace, filtrable)}
+      <div className="panel">{cuerpo}</div>
     </section>
   );
   const vacioFiltro = <div className="vacio p-8-0">{cargandoG ? "Cargando…" : "Sin gastos con estos filtros."}</div>;
 
   const secciones: Record<IdSeccion, () => ReactNode> = {
     proximos: () => proximos.length > 0 ? (
-      <>
-        <h2 className="mt-4">Próximos pagos</h2>
+      <section className="seccion">
+        {cabeza("Próximos pagos")}
         <div className="lista">
           {proximos.map((p, i) => {
             const d = diasEntre(hoy, p.f);
@@ -218,8 +243,8 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
             );
           })}
         </div>
-      </>
-    ) : listo ? <p className="nota flex gap-6 centrar-v"><CalendarDots size={16} /> Sin pagos en los próximos días.</p> : null,
+      </section>
+    ) : listo ? <p className="nota flex gap-6 centrar-v mt-14"><CalendarDots size={16} /> Sin pagos en los próximos días.</p> : null,
 
     avisos: () => (
       <>
@@ -234,11 +259,22 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
 
     resumen: () => (
       <section className="tablero" aria-label="Resumen">
-        <div className="tablero-texto">
-          <div className="etiqueta">Llevas gastado · {periodo}{filtros.cuentas.length || conCategoria ? " (con filtros)" : ""}</div>
-          <div className="cifra">{fmt(gastado, false)}</div>
-          {proyCierre !== null && <div className="sub">A este ritmo cerrarías el mes en <b>{fmt(proyCierre, false)}</b>.</div>}
-          {proyCierre === null && gastadoAnt > 0 && <div className="sub">Periodo anterior: <b>{fmt(gastadoAnt, false)}</b> ({gastado >= gastadoAnt ? "+" : "−"}{Math.round(Math.abs(gastado / gastadoAnt - 1) * 100)}%)</div>}
+        <div className="tablero-arriba">
+          <div className="tablero-texto">
+            <div className="etiqueta">Llevas gastado · {periodo}{filtros.cuentas.length || conCategoria ? " (con filtros)" : ""}</div>
+            <div className={"cifra" + (conMeta && quedaMeta < 0 ? " alerta" : "")}>{fmt(gastado, false)}</div>
+            {conMeta ? (
+              quedaMeta >= 0
+                ? <div className="sub">{porIngresos ? <>De tus ingresos del mes ({fmt(meta, false)})</> : <>De tu meta de {fmt(meta, false)}</>} te quedan <b>{fmt(quedaMeta, false)}</b> por gastar, unos <b>{fmt(quedaMeta / diasRestantes, false)}</b> por día.</div>
+                : <div className="sub">Gastaste <b>{fmt(-quedaMeta, false)}</b> más {porIngresos ? <>de lo que entró este mes ({fmt(meta, false)})</> : <>de tu meta de {fmt(meta, false)}</>}.</div>
+            ) : <>
+              {proyCierre !== null && <div className="sub">A este ritmo cerrarías el mes en <b>{fmt(proyCierre, false)}</b>.</div>}
+              {proyCierre === null && gastadoAnt > 0 && <div className="sub">Periodo anterior: <b>{fmt(gastadoAnt, false)}</b> ({gastado >= gastadoAnt ? "+" : "−"}{Math.round(Math.abs(gastado / gastadoAnt - 1) * 100)}%)</div>}
+              {porIngresos && metaAplica && <div className="sub">Aún no hay ingresos registrados este mes para calcular cuánto te queda.</div>}
+              {metaConfig?.modo === "ninguna" && esMesActual && <Link to="/inicio/personalizar" className="tablero-meta">Ponerte un límite de gasto</Link>}
+            </>}
+          </div>
+          {conMeta && <Anillo usado={gastado / meta} avance={diaHoy / totalDias} tam={96} />}
         </div>
         <div className="tablero-trio">
           {conCategoria ? (
@@ -255,6 +291,19 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
             </>
           )}
         </div>
+        {otros.length > 0 && totalCompartido > 0.5 && (
+          <div className="reparto" aria-label="Gastos compartidos">
+            <div className="reparto-cabeza"><span>Gastos compartidos</span><b>{fmt(totalCompartido, false)}</b></div>
+            <div className="reparto-barra" aria-hidden="true">
+              {partes.filter((p) => p.parte > 0).map((p) => <span key={p.user_id} className={"r-" + p.color} style={{ flexGrow: p.parte }} />)}
+            </div>
+            <div className="reparto-leyenda">
+              {partes.map((p) => (
+                <span key={p.user_id}><i className={"r-" + p.color} aria-hidden="true" />{p.es_yo ? "Tú" : p.nombre} <b>{fmt(p.parte, false)}</b> · {Math.round((p.parte / totalCompartido) * 100)}%</span>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
     ),
 
@@ -270,8 +319,8 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     tarjetas: () => {
       const lista = creditos.filter((c) => enFiltroCta(c.id));
       return lista.length > 0 ? (
-        <>
-          <h2>Tarjetas</h2>
+        <section className="seccion">
+          {cabeza("Tarjetas")}
           <div className="lista">
             {lista.map((c) => {
               const deuda = Math.max(0, -n(c.saldo));
@@ -295,7 +344,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
               );
             })}
           </div>
-        </>
+        </section>
       ) : null;
     },
 
@@ -314,7 +363,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     </>, ["/msi", "Ver detalle"]) : null,
 
     ritmo: () => r.unMes && gastado > 0 ? panel("Ritmo de gasto",
-      <RitmoGasto diario={diario} dias={totalDias} hoy={diaHoy} presupuesto={0} mesTxt={nombreMes(r.desde).split(" ")[0]} />,
+      <RitmoGasto diario={diario} dias={totalDias} hoy={diaHoy} presupuesto={conMeta ? meta : 0} mesTxt={nombreMes(r.desde).split(" ")[0]} />,
       ["/movimientos", "Ver movimientos"], true) : null,
 
     categorias: () => panel("En qué se va", grupos.length ? <>
@@ -325,8 +374,8 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     cuentas: () => {
       const lista = otrasCuentas.filter((s) => enFiltroCta(s.id));
       return (
-        <>
-          <h2>Cuentas</h2>
+        <section className="seccion">
+          {cabeza("Cuentas", ["/ajustes/cuentas", "Administrar"])}
           <div className="lista">
             {lista.length === 0 && <div className="vacio">Sin otras cuentas. <Link to="/ajustes/cuentas">Agregar</Link></div>}
             {lista.map((s, i) => {
@@ -347,7 +396,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
               );
             })}
           </div>
-        </>
+        </section>
       );
     },
 
@@ -549,6 +598,10 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     },
   };
 
+  const visiblesInicio = config.filter((c) => c.visible);
+  // Los filtros van justo arriba de la primera sección que responde a ellos (normalmente el resumen)
+  const primeraFiltrable = visiblesInicio.find((c) => SECCIONES.find((s) => s.id === c.id)?.filtrable)?.id;
+
   return (
     <>
       <header className="cabeza">
@@ -556,9 +609,8 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           <div className="sub">Hola, {yo?.nombre}</div>
           <h1>{cap(nombreMes(mes).replace(" de ", " "))}</h1>
         </div>
-        <Link to="/inicio/personalizar" className="boton chico claro" aria-label="Personalizar inicio"><SlidersHorizontal size={16} /> Personalizar</Link>
+        <Link to="/inicio/personalizar" className="boton-icono" aria-label="Personalizar inicio"><SquaresFour size={22} /></Link>
       </header>
-      <BarraFiltros f={filtros} onCambio={setFiltros} />
       {(fallo || falloG) && (
         <div className="aviso rojo" role="alert">
           <span><strong>No se pudo cargar todo.</strong> Revisa tu conexión: algunas cifras pueden estar incompletas.</span>
@@ -568,8 +620,14 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       {cuentas.length === 0 && (
         <Link className="aviso" to="/ajustes/cuentas"><span><strong>Empieza agregando tus cuentas</strong> con su saldo de hoy: débito, tarjetas y ahorro.</span></Link>
       )}
-      {config.filter((c) => c.visible).map((c) => <Fragment key={c.id}>{secciones[c.id]()}</Fragment>)}
-      <div className="acciones"><Link to="/inicio/personalizar" className="boton claro">Personalizar esta pantalla</Link></div>
+      {visiblesInicio.map((c) => (
+        <Fragment key={c.id}>
+          {c.id === primeraFiltrable && <BarraFiltros f={filtros} onCambio={setFiltros} />}
+          {secciones[c.id]()}
+        </Fragment>
+      ))}
+      {!primeraFiltrable && <BarraFiltros f={filtros} onCambio={setFiltros} />}
+      <p className="texto-centro mt-24"><Link to="/inicio/personalizar" className="enlace-chico">Personalizar esta pantalla</Link></p>
     </>
   );
 }

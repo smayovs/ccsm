@@ -2,15 +2,15 @@ import { sb } from "../supabase";
 import { cargarPreferencias, olvidarPreferencias } from "../preferencias";
 import { diasEntre, hoyISO, masDias, mesISO, sumarMes } from "../util";
 
-// Catálogo de secciones de Inicio. "filtrable": responde a los filtros de periodo, cuenta y categoría.
+// Catálogo de secciones de Inicio, en el orden inicial (el resumen primero). "filtrable": responde a los filtros de periodo, cuenta y categoría.
 export type IdSeccion =
   | "proximos" | "avisos" | "resumen" | "dinero" | "tarjetas" | "mensualidades" | "ritmo" | "categorias" | "cuentas"
   | "quien" | "comparativo" | "ultimos" | "flujo" | "buscar" | "suscripciones" | "comercios" | "porcuenta";
 
 export const SECCIONES: { id: IdSeccion; nombre: string; detalle: string; filtrable: boolean; inicial: boolean }[] = [
-  { id: "proximos", nombre: "Próximos pagos", detalle: "Tarjetas, préstamos y suscripciones de los próximos días", filtrable: false, inicial: true },
-  { id: "avisos", nombre: "Avisos", detalle: "Pendientes por revisar y saldo con tu pareja", filtrable: false, inicial: true },
   { id: "resumen", nombre: "Resumen", detalle: "Cuánto llevas gastado, ingresos y ahorro", filtrable: true, inicial: true },
+  { id: "avisos", nombre: "Avisos", detalle: "Pendientes por revisar y saldo con tu pareja", filtrable: false, inicial: true },
+  { id: "proximos", nombre: "Próximos pagos", detalle: "Tarjetas, préstamos y suscripciones de los próximos días", filtrable: false, inicial: true },
   { id: "dinero", nombre: "Tu dinero este mes", detalle: "Lo que tienes contra lo que debes pagar", filtrable: false, inicial: true },
   { id: "tarjetas", nombre: "Tarjetas", detalle: "Deuda, pago y disponible de cada tarjeta", filtrable: false, inicial: true },
   { id: "mensualidades", nombre: "Mensualidades", detalle: "Compras a meses: este mes y lo que viene", filtrable: false, inicial: true },
@@ -44,11 +44,28 @@ export async function cargarConfig(uid: string): Promise<ConfigInicio> {
   return normalizar(p?.inicio?.secciones);
 }
 
-export async function guardarConfig(uid: string, secciones: ConfigInicio) {
-  const r = await sb.from("preferencias").upsert({ user_id: uid, inicio: { secciones }, updated_at: new Date().toISOString() });
+// Lo de Inicio se guarda junto (secciones y meta): cada cambio conserva lo demás que ya estaba guardado
+async function guardarInicio(uid: string, cambio: { secciones?: ConfigInicio; meta?: number; metaModo?: ModoMeta }) {
+  const actual = (await cargarPreferencias(uid))?.inicio ?? {};
+  const r = await sb.from("preferencias").upsert({ user_id: uid, inicio: { ...actual, ...cambio }, updated_at: new Date().toISOString() });
   olvidarPreferencias();
   return r;
 }
+
+export const guardarConfig = (uid: string, secciones: ConfigInicio) => guardarInicio(uid, { secciones });
+
+// Meta de gasto mensual: un monto fijo o lo que entró de ingresos en el mes (sueldo, bonos y demás)
+export type ModoMeta = "ninguna" | "fija" | "ingresos";
+export type Meta = { modo: ModoMeta; monto: number };
+export async function cargarMeta(uid: string): Promise<Meta> {
+  const inicio = (await cargarPreferencias(uid))?.inicio;
+  const m = Number(inicio?.meta);
+  const monto = Number.isFinite(m) && m > 0 ? m : 0;
+  if (inicio?.metaModo === "ingresos") return { modo: "ingresos", monto };
+  return { modo: monto ? "fija" : "ninguna", monto };
+}
+export const guardarMeta = (uid: string, meta: Meta) =>
+  guardarInicio(uid, { metaModo: meta.modo, meta: meta.modo === "fija" ? Math.max(0, meta.monto) : 0 });
 
 // ---------- Filtros (se conservan mientras la app está abierta) ----------
 export type Periodo = "mes" | "mes_pasado" | "3m" | "6m" | "anio" | "rango";
