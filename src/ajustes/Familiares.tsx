@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { Plus } from "../phosphor";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza } from "../ui";
+import { Cabeza, Seccion } from "../ui";
 import { errorTexto } from "../util";
 
 export default function Familiares() {
@@ -30,8 +31,10 @@ export default function Familiares() {
   return (
     <>
       <Cabeza titulo="Personas" volver />
-      <p className="nota mt-n8">Si cambias un nombre, se actualiza en todos sus gastos y cobros. Familiares, amigos o cualquier persona a la que le compres o prestes con tus tarjetas o tu dinero. Lo suyo no cuenta en tus gastos y se va a Cobros. Tu pareja no va aquí: lo de ustedes se maneja con gastos compartidos.</p>
-      <div className="lista mt-14">
+      <p className="nota mt-n8">Familiares, amigos o cualquier persona a la que le compres o prestes con tus tarjetas o tu dinero. Lo suyo no cuenta en tus gastos y se va a Cobros. Tu pareja no va aquí: lo de ustedes se maneja con gastos compartidos.</p>
+      <Seccion titulo="Personas" contador={familiares.length} ayuda="Si cambias un nombre, se actualiza en todos sus gastos y cobros">
+      <div className="lista">
+        {familiares.length === 0 && <div className="vacio">Aún no agregas a nadie.</div>}
         {familiares.map((f) => (
           editando === f.id ? (
             <form className="fila gap-8" key={f.id} onSubmit={renombrar}>
@@ -41,6 +44,7 @@ export default function Familiares() {
             </form>
           ) : (
             <div className="fila" key={f.id} id={`p-${f.id}`}>
+              <span className={"avatar-mini " + (f.activo ? "r-gris" : "inactivo")} aria-hidden="true">{f.nombre.trim().charAt(0).toUpperCase()}</span>
               <div className="cuerpo"><div className="titulo">{f.nombre}</div>{!f.activo && <div className="detalle">Desactivado</div>}</div>
               <button className="boton chico claro" onClick={() => { setEditando(f.id); setNuevo(f.nombre); }}>Editar</button>
               <button className="boton chico claro" onClick={() => cambiar(f.id, !f.activo)}>{f.activo ? "Desactivar" : "Activar"}</button>
@@ -48,10 +52,13 @@ export default function Familiares() {
           )
         ))}
       </div>
-      <form onSubmit={agregar} className="flex gap-8 mt-14">
-        <input className="buscador m-0 crece" aria-label="Nombre del familiar" placeholder="Nombre (ej. Hermana, Luis del trabajo)" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        <button className="boton chico">Agregar</button>
-      </form>
+      </Seccion>
+      <Seccion titulo="Agregar persona">
+        <form onSubmit={agregar} className="flex gap-8">
+          <input className="buscador m-0 crece" aria-label="Nombre de la persona" placeholder="Ej. Hermana, Luis del trabajo" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          <button className="boton-icono acento" aria-label="Agregar persona" disabled={!nombre.trim()}><Plus size={20} /></button>
+        </form>
+      </Seccion>
       {error && <p className="error" role="alert">{error}</p>}
     </>
   );

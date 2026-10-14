@@ -39,7 +39,10 @@ export default function CuadrarTarjeta() {
   return (
     <>
       <Cabeza titulo={`Cuadrar ${c.nombre}`} volver />
-      <p className="sub mt-n10 mb-16">Paso {paso} de 2 · {paso === 1 ? "Compras a meses" : "Saldo y pago"}</p>
+      <div className="pasos" aria-label={`Paso ${paso} de 2`}>
+        <span className={paso >= 1 ? "hecho" : ""}><b>1</b> Compras a meses</span>
+        <span className={paso >= 2 ? "hecho" : ""}><b>2</b> Saldo y pago</span>
+      </div>
       {paso === 1 ? (
         <>
           <p className="mt-0">Copia de tu último estado de cuenta cada compra a meses que sigues pagando: la <b>mensualidad</b> y el <b>pago número “N de M”</b> tal como aparece.</p>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { sb } from "../supabase";
 import { useApp, nombreCategoria } from "../contexto";
-import { Cabeza, Campo, SelectorCategoria, useUnaVez } from "../ui";
+import { Cabeza, Campo, ConfirmarBorrar, Interruptor, SelectorCategoria, Seccion, useUnaVez } from "../ui";
+import { CaretRight, Plus, Repeat } from "../phosphor";
 import { diasEntre, errorTexto, fechaCorta, fmt, hoyISO, proximoCobro, limpiarMonto } from "../util";
 import { divisionVacia, partesDe, SelectorDivision, type Division } from "../division";
 
@@ -66,7 +67,6 @@ export default function Suscripciones() {
     aviso(ps.length ? "Cobro registrado y dividido" : "Cobro registrado"); setEdit(null);
   }
   async function borrar(id: string) {
-    if (!window.confirm("¿Borrar esta suscripción? Los cobros ya registrados se conservan.")) return;
     const { error } = await sb.from("suscripciones").delete().eq("id", id);
     if (error) return setError(errorTexto(error));
     setEdit(null); cargar();
@@ -80,43 +80,54 @@ export default function Suscripciones() {
     <>
       <Cabeza titulo={edit.id ? "Editar suscripción" : "Nueva suscripción"} />
       <form onSubmit={(e) => { e.preventDefault(); unaVez(guardar)(e); }}>
-        <Campo etiqueta="Servicio"><input value={edit.servicio} onChange={(e) => setEdit({ ...edit, servicio: e.target.value })} placeholder="Netflix" /></Campo>
-        <div className="dos">
-          <Campo etiqueta="Monto por cobro"><input inputMode="decimal" value={edit.monto} onChange={(e) => setEdit({ ...edit, monto: limpiarMonto(e.target.value) })} /></Campo>
-          <Campo etiqueta="Frecuencia">
-            <select value={edit.frecuencia_meses} onChange={(e) => setEdit({ ...edit, frecuencia_meses: Number(e.target.value) })}>
-              {Object.entries(FREC).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
-            </select>
+        <section className="panel mt-0">
+          <div className="panel-titulo">Servicio</div>
+          <Campo etiqueta="Nombre"><input value={edit.servicio} onChange={(e) => setEdit({ ...edit, servicio: e.target.value })} placeholder="Netflix" /></Campo>
+          <div className="dos">
+            <Campo etiqueta="Monto por cobro"><input inputMode="decimal" value={edit.monto} onChange={(e) => setEdit({ ...edit, monto: limpiarMonto(e.target.value) })} /></Campo>
+            <Campo etiqueta="Frecuencia">
+              <select value={edit.frecuencia_meses} onChange={(e) => setEdit({ ...edit, frecuencia_meses: Number(e.target.value) })}>
+                {Object.entries(FREC).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+              </select>
+            </Campo>
+          </div>
+          <div className="dos">
+            <Campo etiqueta="Fecha de un cobro" ayuda="Cualquier fecha real en que te cobraron."><input type="date" value={edit.fecha_referencia} onChange={(e) => setEdit({ ...edit, fecha_referencia: e.target.value })} /></Campo>
+            <Campo etiqueta="Cuenta">
+              <select value={edit.cuenta_id} onChange={(e) => setEdit({ ...edit, cuenta_id: e.target.value })}>
+                <option value="">—</option>{cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </Campo>
+          </div>
+        </section>
+        <section className="panel">
+          <div className="panel-titulo">Clasificación</div>
+          <SelectorCategoria cats={categorias} tipo="gasto" uid={uid} valor={edit.categoria_id} onCambio={(id) => setEdit({ ...edit, categoria_id: id })} />
+          <Campo etiqueta="Palabra en el cargo" ayuda="Texto que aparece en el comercio (ej. NETFLIX). Clasifica solo el cargo de Apple Pay y te avisa si cambió el precio.">
+            <input value={edit.palabra_clave} onChange={(e) => setEdit({ ...edit, palabra_clave: e.target.value })} autoCapitalize="characters" />
           </Campo>
+        </section>
+        <div className="lista mt-14">
+          <Interruptor titulo="La pago entre varias personas" detalle={familiares.some((f) => f.activo) ? "Cada parte se va a Cobros" : "Agrega personas en Más › Personas"}
+            checked={div.activa} disabled={!familiares.some((f) => f.activo)} onCambio={(si) => setDiv({ ...div, activa: si })} />
+          {otros.length > 0 && <Interruptor titulo="Es del hogar" detalle="La ven los dos" checked={edit.delHogar} onCambio={(si) => setEdit({ ...edit, delHogar: si })} />}
+          <Interruptor titulo="Activa" detalle="Apágala para pausarla sin borrarla" checked={edit.activa} onCambio={(si) => setEdit({ ...edit, activa: si })} />
         </div>
-        <div className="dos">
-          <Campo etiqueta="Fecha de un cobro" ayuda="Cualquier fecha real en que te cobraron."><input type="date" value={edit.fecha_referencia} onChange={(e) => setEdit({ ...edit, fecha_referencia: e.target.value })} /></Campo>
-          <Campo etiqueta="Cuenta">
-            <select value={edit.cuenta_id} onChange={(e) => setEdit({ ...edit, cuenta_id: e.target.value })}>
-              <option value="">—</option>{cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </Campo>
-        </div>
-        <SelectorCategoria cats={categorias} tipo="gasto" uid={uid} valor={edit.categoria_id} onCambio={(id) => setEdit({ ...edit, categoria_id: id })} />
-        <Campo etiqueta="Palabra en el cargo" ayuda="Texto que aparece en el comercio (ej. NETFLIX). Clasifica solo el cargo de Apple Pay y te avisa si cambió el precio.">
-          <input value={edit.palabra_clave} onChange={(e) => setEdit({ ...edit, palabra_clave: e.target.value })} autoCapitalize="characters" />
-        </Campo>
-        <label className="casilla"><input type="checkbox" checked={div.activa} onChange={(e) => setDiv({ ...div, activa: e.target.checked })} disabled={!familiares.some((f) => f.activo)} /> La pago entre varias personas</label>
-        {div.activa && <SelectorDivision d={div} onCambio={setDiv} total={Number(edit.monto) || 0}
-          nota="Cada vez que llegue el cargo por tu atajo se divide solo, y cada parte se va a Cobros. Si el precio cambia, las partes se ajustan en proporción." />}
-        {otros.length > 0 && <label className="casilla"><input type="checkbox" checked={edit.delHogar} onChange={(e) => setEdit({ ...edit, delHogar: e.target.checked })} /> Es del hogar (la ven los dos)</label>}
-        <label className="casilla"><input type="checkbox" checked={edit.activa} onChange={(e) => setEdit({ ...edit, activa: e.target.checked })} /> Activa</label>
+        {div.activa && <div className="mt-14"><SelectorDivision d={div} onCambio={setDiv} total={Number(edit.monto) || 0}
+          nota="Cada vez que llegue el cargo por tu atajo se divide solo, y cada parte se va a Cobros. Si el precio cambia, las partes se ajustan en proporción." /></div>}
         <div className="acciones">
           <button type="button" className="boton claro" onClick={() => setEdit(null)}>Cancelar</button>
           <button className="boton">Guardar</button>
         </div>
         {edit.id && (
-          <div className="acciones">
-            <button type="button" className="boton claro" onClick={unaVez(registrarCobro)}>Registrar el cobro de hoy</button>
-          </div>
+          <>
+            <div className="acciones">
+              <button type="button" className="boton claro" onClick={unaVez(registrarCobro)}>Registrar el cobro de hoy</button>
+            </div>
+            <p className="nota">Úsalo solo si el cargo no llegó por tu atajo de Apple Pay, para no registrarlo dos veces.</p>
+            <div className="acciones"><ConfirmarBorrar etiqueta="Borrar suscripción" pregunta="Los cobros ya registrados se conservan." onConfirmar={() => borrar(edit.id)} /></div>
+          </>
         )}
-        {edit.id && <p className="nota">Úsalo solo si el cargo no llegó por tu atajo de Apple Pay, para no registrarlo dos veces.</p>}
-        {edit.id && <div className="acciones"><button type="button" className="boton peligro" onClick={() => borrar(edit.id)}>Borrar suscripción</button></div>}
         {error && <p className="error" role="alert">{error}</p>}
       </form>
     </>
@@ -124,37 +135,42 @@ export default function Suscripciones() {
 
   return (
     <>
-      <Cabeza titulo="Suscripciones" volver accion={<button className="boton chico" onClick={() => abrir({ ...vacia })}>Agregar</button>} />
-      <div className="trio cols-2" title={miAlMes < alMes - 0.5 ? `Total de servicios: ${fmt(alMes)} al mes` : undefined}>
-        <div><div className="k">{miAlMes < alMes - 0.5 ? "Tu parte al mes" : "Al mes"}</div><div className="v">{fmt(miAlMes)}</div></div>
-        <div><div className="k">{miAlMes < alMes - 0.5 ? "Tu parte al año" : "Al año"}</div><div className="v">{fmt(miAlMes * 12, false)}</div></div>
-      </div>
-      <h2>Servicios</h2>
-      <div className="lista">
-        {lista.length === 0 && <div className="vacio">Agrega tus servicios recurrentes: streaming, gimnasio, apps, seguros.</div>}
-        {lista.map((s) => {
-          const prox = s.activa ? proximoCobro(s.fecha_referencia, s.frecuencia_meses) : null;
-          const d = prox ? diasEntre(hoyISO(), prox) : null;
-          return (
-            <button className="fila" key={s.id} onClick={() => abrir({
-              id: s.id, servicio: s.servicio, monto: String(s.monto), frecuencia_meses: s.frecuencia_meses, cuenta_id: s.cuenta_id ?? "",
-              categoria_id: s.categoria_id, fecha_referencia: s.fecha_referencia ?? hoyISO(), palabra_clave: s.palabra_clave ?? "", activa: s.activa, delHogar: !s.propietario_id,
-            })}>
-              <div className="cuerpo">
-                <div className="titulo">{s.servicio}</div>
-                <div className="detalle">
-                  {!s.activa && <span className="etiq">Pausada</span>}
-                  {!s.propietario_id && <span className="etiq verde">Hogar</span>}
-                  {FREC[s.frecuencia_meses]}{prox ? ` · próximo ${fechaCorta(prox)}` : ""}{d !== null && d <= 3 ? ` (en ${d} días)` : ""}
-                  {s.categoria_id ? ` · ${nombreCategoria(categorias, s.categoria_id)}` : ""}
-                  {(partes[s.id] ?? []).length > 0 && <> · <span className="etiq">Dividida</span>tu parte {fmt(miParte(s))}</>}
+      <Cabeza titulo="Suscripciones" volver accion={<button className="boton-icono acento" aria-label="Agregar suscripción" onClick={() => abrir({ ...vacia })}><Plus size={22} /></button>} />
+      <section className="tablero" aria-label="Resumen de suscripciones">
+        <div className="etiqueta">{miAlMes < alMes - 0.5 ? "Tu parte al mes" : "Pagas al mes"}</div>
+        <div className="cifra">{fmt(miAlMes, false)}</div>
+        <div className="sub"><b>{fmt(miAlMes * 12, false)}</b> al año · {activas.length} {activas.length === 1 ? "servicio activo" : "servicios activos"}{miAlMes < alMes - 0.5 ? ` · total de los servicios ${fmt(alMes, false)} al mes` : ""}</div>
+      </section>
+      <Seccion titulo="Servicios" contador={lista.length}>
+        <div className="lista">
+          {lista.length === 0 && <div className="vacio">Agrega tus servicios recurrentes: streaming, gimnasio, apps, seguros.</div>}
+          {lista.map((s) => {
+            const prox = s.activa ? proximoCobro(s.fecha_referencia, s.frecuencia_meses) : null;
+            const d = prox ? diasEntre(hoyISO(), prox) : null;
+            return (
+              <button className="fila" key={s.id} onClick={() => abrir({
+                id: s.id, servicio: s.servicio, monto: String(s.monto), frecuencia_meses: s.frecuencia_meses, cuenta_id: s.cuenta_id ?? "",
+                categoria_id: s.categoria_id, fecha_referencia: s.fecha_referencia ?? hoyISO(), palabra_clave: s.palabra_clave ?? "", activa: s.activa, delHogar: !s.propietario_id,
+              })}>
+                <span className="ico" aria-hidden="true"><Repeat size={20} /></span>
+                <div className="cuerpo">
+                  <div className="titulo">{s.servicio}</div>
+                  <div className="detalle">
+                    {!s.activa && <span className="etiq">Pausada</span>}
+                    {!s.propietario_id && <span className="etiq verde">Hogar</span>}
+                    {d !== null && d <= 3 && <span className="etiq roja">{d <= 0 ? "Hoy" : `En ${d} días`}</span>}
+                    {FREC[s.frecuencia_meses]}{prox ? ` · próximo ${fechaCorta(prox)}` : ""}
+                    {s.categoria_id ? ` · ${nombreCategoria(categorias, s.categoria_id)}` : ""}
+                    {(partes[s.id] ?? []).length > 0 && <> · <span className="etiq">Dividida</span>tu parte {fmt(miParte(s))}</>}
+                  </div>
                 </div>
-              </div>
-              <div className="monto">{fmt(s.monto)}{s.frecuencia_meses > 1 && <small>{fmt(Number(s.monto) / s.frecuencia_meses)} al mes</small>}</div>
-            </button>
-          );
-        })}
-      </div>
+                <div className="monto">{fmt(s.monto)}{s.frecuencia_meses > 1 && <small>{fmt(Number(s.monto) / s.frecuencia_meses)} al mes</small>}</div>
+                <CaretRight size={16} className="flecha" aria-hidden="true" />
+              </button>
+            );
+          })}
+        </div>
+      </Seccion>
       {error && <p className="error" role="alert">{error}</p>}
     </>
   );

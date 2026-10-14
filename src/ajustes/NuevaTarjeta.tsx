@@ -56,21 +56,30 @@ export default function NuevaTarjeta() {
   return (
     <>
       <Cabeza titulo="Nueva tarjeta de crédito" volver />
+      <section className="panel mt-0">
+      <div className="panel-titulo">Tarjeta</div>
       <Campo etiqueta="Nombre"><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Santander LikeU" autoFocus /></Campo>
       <Campo etiqueta="Palabra con la que aparece en Apple Pay" ayuda="Así los pagos con Apple Pay se cargan a esta tarjeta. Ej. LikeU, Oro.">
         <input value={wallet} onChange={(e) => setWallet(e.target.value)} />
       </Campo>
+      </section>
+      <section className="panel">
+      <div className="panel-titulo">Fechas y límite</div>
       <div className="dos">
         <Campo etiqueta="Día de corte"><input inputMode="numeric" value={corte} onChange={(e) => setCorte(e.target.value.replace(/\D/g, ""))} placeholder="10" /></Campo>
         <Campo etiqueta="Día límite de pago"><input inputMode="numeric" value={pago} onChange={(e) => setPago(e.target.value.replace(/\D/g, ""))} placeholder="30" /></Campo>
       </div>
       <Campo etiqueta="Límite de crédito"><input inputMode="decimal" value={limite} onChange={(e) => setLimite(limpiarMonto(e.target.value))} placeholder="$30,000" /></Campo>
+      </section>
+      <section className="panel">
+      <div className="panel-titulo">Deuda de hoy</div>
       <Campo etiqueta="¿Cuánto debes hoy? (opcional)" ayuda="El saldo o deuda total que te muestra la app de tu banco. Si lo dejas vacío, la tarjeta empieza en $0 y solo cuenta lo que registres desde hoy.">
         <input inputMode="decimal" value={deuda} onChange={(e) => setDeuda(limpiarMonto(e.target.value))} placeholder="$0" />
       </Campo>
       {Number(limite) > 0 && <p className="nota mt-n6">Crédito disponible: {fmt(Number(limite) - (Number(deuda) || 0))}</p>}
+      </section>
       {error && <p className="error" role="alert">{error}</p>}
-      <div className="acciones"><button className="boton" onClick={unaVez(guardar)}>Guardar tarjeta</button></div>
+      <div className="acciones guardar-fijo"><button className="boton" onClick={unaVez(guardar)}>Guardar tarjeta</button></div>
     </>
   );
 }

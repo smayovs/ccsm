@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, Campo } from "../ui";
+import { Cabeza, Campo, ConfirmarBorrar, Seccion } from "../ui";
 import { errorTexto } from "../util";
 import { Invitar } from "../pantallas/Hogar";
 
@@ -18,19 +18,28 @@ export default function Perfil() {
   return (
     <>
       <Cabeza titulo="Perfil y hogar" volver />
-      <form onSubmit={guardar}>
-        <Campo etiqueta="Tu nombre"><input value={nombre} onChange={(e) => setNombre(e.target.value)} /></Campo>
-        <button className="boton">Guardar</button>
-      </form>
-      <p className="nota">Correo: {session?.user.email}</p>
+      <div className="perfil-tarjeta">
+        <span className="avatar" aria-hidden="true">{(nombre || "?").trim().charAt(0).toUpperCase()}</span>
+        <div className="cuerpo"><div className="nombre">{nombre || "Tu nombre"}</div><div className="detalle">{session?.user.email}</div></div>
+      </div>
+      <Seccion titulo="Tu nombre">
+        <form onSubmit={guardar} className="flex gap-8">
+          <input className="buscador m-0 crece" aria-label="Tu nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          <button className="boton chico">Guardar</button>
+        </form>
+      </Seccion>
 
-      <h2>Hogar</h2>
-      {otros.length > 0
-        ? <p>Compartes el hogar con {otros.map((o) => o.nombre).join(", ")}.</p>
-        : <><p>Aún estás solo en el hogar. Invita a tu pareja:</p><Invitar /></>}
+      <Seccion titulo="Hogar">
+        {otros.length > 0
+          ? <div className="lista">{otros.map((o) => (
+              <div className="fila" key={o.user_id}><span className={"avatar-mini r-" + (o.color ?? "rosa")} aria-hidden="true">{o.nombre.trim().charAt(0).toUpperCase()}</span>
+                <div className="cuerpo"><div className="titulo">{o.nombre}</div><div className="detalle">Comparten el hogar</div></div></div>))}</div>
+          : <><p className="mt-0">Aún estás solo en el hogar. Invita a tu pareja:</p><Invitar /></>}
+      </Seccion>
 
-      <h2>Sesión</h2>
-      <button className="boton peligro" onClick={() => sb.auth.signOut()}>Cerrar sesión</button>
+      <Seccion titulo="Sesión">
+        <ConfirmarBorrar etiqueta="Cerrar sesión" confirmar="Sí, cerrar sesión" pregunta="Para volver a entrar necesitarás tu correo y contraseña." onConfirmar={() => sb.auth.signOut()} />
+      </Seccion>
       {error && <p className="error" role="alert">{error}</p>}
     </>
   );

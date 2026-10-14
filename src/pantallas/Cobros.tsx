@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { CaretDown, CaretRight, WhatsappLogo } from "../phosphor";
 import { Link } from "react-router-dom";
 import { useApp } from "../contexto";
-import { Cabeza } from "../ui";
+import { Cabeza, Seccion, Cargando } from "../ui";
 import { fechaCorta, fmt, mesCorto } from "../util";
 import { cargarCobros, type Persona } from "../cobros";
 import { sb } from "../supabase";
@@ -34,16 +35,24 @@ export default function Cobros() {
     return t;
   }
 
+  const totalDeben = personas.reduce((a, p) => a + Math.max(0, p.total), 0);
+  const totalPorVenir = personas.reduce((a, p) => a + p.porVenir, 0);
   return (
     <>
       <Cabeza titulo="Cobros" volver />
-      <p className="nota mt-n8 mb-14">Lo que te deben las personas a las que les compras o prestas. Marca con la casilla lo que ya te pagaron; o usa "Registrar pago" si quieres que el dinero entre a una cuenta (se descuenta de lo más antiguo).</p>
-      {cargando ? <div className="vacio">Cargando…</div> : personas.length === 0 ? (
-        <div className="lista"><div className="vacio">Nadie te debe nada. Al registrar un gasto, elige “¿Para quién?” para que aparezca aquí.</div></div>
-      ) : personas.map((p) => (
-        <section key={p.id} className="mb-14">
-          <div className="lista">
+      {cargando ? <Cargando /> : personas.length === 0 ? (
+        <div className="lista"><div className="vacio">Nadie te debe nada. Al registrar un gasto, abre «Más opciones» y elige «¿Para quién?» para que aparezca aquí.</div></div>
+      ) : <>
+      <section className="tablero" aria-label="Resumen de cobros">
+        <div className="etiqueta">Te deben hoy</div>
+        <div className="cifra">{fmt(totalDeben, false)}</div>
+        <div className="sub">{personas.filter((p) => p.total > 0.004).length} {personas.filter((p) => p.total > 0.004).length === 1 ? "persona" : "personas"}{totalPorVenir > 0.5 ? <> · más <b>{fmt(totalPorVenir, false)}</b> en mensualidades por venir</> : null}</div>
+      </section>
+      <Seccion titulo="Por persona" contador={personas.length} ayuda="Toca a alguien para ver sus cargos. Marca la casilla de lo que ya te pagó, o usa «Registrar pago» para que el dinero entre a una cuenta">
+      {personas.map((p) => (
+        <div key={p.id} className="lista mb-10">
             <button className="fila" onClick={() => setAbierto(abierto === p.id ? null : p.id)} aria-expanded={abierto === p.id}>
+              <span className="avatar-mini r-gris" aria-hidden="true">{p.nombre.trim().charAt(0).toUpperCase()}</span>
               <div className="cuerpo">
                 <div className="titulo">{p.nombre}</div>
                 <div className="detalle">
@@ -52,6 +61,7 @@ export default function Cobros() {
                 </div>
               </div>
               <div className={"monto " + (p.total > 0.004 ? "negativo" : "positivo")}>{fmt(p.total)}<small>{p.total > 0.004 ? "te debe" : "al corriente"}</small></div>
+              {abierto === p.id ? <CaretDown size={16} className="flecha" aria-hidden="true" /> : <CaretRight size={16} className="flecha" aria-hidden="true" />}
             </button>
             {abierto === p.id && (
               <>
@@ -80,16 +90,16 @@ export default function Cobros() {
                 ))}
                 {p.pagado > 0 && <div className="fila"><div className="cuerpo"><div className="detalle">Te ha pagado {fmt(p.pagado)} en total</div></div></div>}
                 <div className="fila gap-8 envolver">
-                  {p.total > 0.004 && <a className="boton chico" href={`https://wa.me/?text=${encodeURIComponent(mensaje(p))}`} target="_blank" rel="noreferrer">Enviar por WhatsApp</a>}
+                  {p.total > 0.004 && <a className="boton chico" href={`https://wa.me/?text=${encodeURIComponent(mensaje(p))}`} target="_blank" rel="noreferrer"><WhatsappLogo size={18} aria-hidden="true" /> Enviar por WhatsApp</a>}
                   <Link className="boton chico claro" to={`/nuevo?tipo=reembolso&familiar=${p.id}`}>Registrar pago</Link>
-                  <Link className="boton chico claro" to="/ajustes/familiares">Cambiar nombre</Link>
                 </div>
               </>
             )}
-          </div>
-        </section>
+        </div>
       ))}
-      <p className="nota">Las compras a meses se cobran por mensualidad, conforme te las factura el banco, salvo que en la compra elijas cobrarla completa. Para agregar o quitar personas: Más › Personas.</p>
+      </Seccion>
+      </>}
+      <p className="nota mt-14">Las compras a meses se cobran por mensualidad, conforme te las factura el banco, salvo que en la compra elijas cobrarla completa. Para agregar personas o cambiar su nombre: <Link to="/ajustes/familiares">Personas</Link>.</p>
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useRef, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { nombreMes, sumarMes } from "./util";
 import type { Categoria } from "./contexto";
@@ -91,6 +91,51 @@ export function Cargando() {
     <div className="esqueleto" role="status" aria-label="Cargando">
       <span className="e-titulo" /><span className="e-tablero" /><span className="e-fila" /><span className="e-fila" /><span className="e-fila" />
     </div>
+  );
+}
+
+// Borrar con confirmación dentro de la app (en lugar de la ventana del sistema): el primer toque pregunta
+export function ConfirmarBorrar({ etiqueta, pregunta, confirmar = "Sí, borrar", chico, onConfirmar }: {
+  etiqueta: string; pregunta?: string; confirmar?: string; chico?: boolean; onConfirmar: () => unknown;
+}) {
+  const [abierto, setAbierto] = useState(false);
+  const clase = "boton peligro" + (chico ? " chico" : "");
+  if (!abierto) return <button type="button" className={clase} onClick={() => setAbierto(true)}>{etiqueta}</button>;
+  return (
+    <div className="confirmar" role="group" aria-label={pregunta ?? etiqueta}>
+      {pregunta && <p className="nota mt-0 mb-8">{pregunta}</p>}
+      <div className="flex gap-8">
+        <button type="button" className={"boton claro" + (chico ? " chico" : "")} onClick={() => setAbierto(false)}>Cancelar</button>
+        <button type="button" className={clase} autoFocus onClick={() => { setAbierto(false); onConfirmar(); }}>{confirmar}</button>
+      </div>
+    </div>
+  );
+}
+
+// Fila con interruptor (va dentro de una .lista o de un panel)
+export function Interruptor({ titulo, detalle, checked, onCambio, disabled }: {
+  titulo: string; detalle?: string; checked: boolean; onCambio: (si: boolean) => void; disabled?: boolean;
+}) {
+  return (
+    <label className="fila">
+      <div className="cuerpo"><div className="titulo">{titulo}</div>{detalle && <div className="detalle">{detalle}</div>}</div>
+      <span className="interruptor"><input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onCambio(e.target.checked)} /><span /></span>
+    </label>
+  );
+}
+
+// Encabezado de sección: título, contador, ayuda y una acción a la derecha
+export function Seccion({ titulo, contador, ayuda, accion, children }: {
+  titulo: string; contador?: number; ayuda?: ReactNode; accion?: ReactNode; children: ReactNode;
+}) {
+  return (
+    <section className="seccion">
+      <div className="seccion-cabeza">
+        <div><h2>{titulo}{contador !== undefined && <> <span className="contador">{contador}</span></>}</h2>{ayuda && <div className="etiq-periodo">{ayuda}</div>}</div>
+        {accion}
+      </div>
+      {children}
+    </section>
   );
 }
 

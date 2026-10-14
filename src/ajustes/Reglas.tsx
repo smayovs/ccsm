@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
+import { MagicWand } from "../phosphor";
 import { sb } from "../supabase";
 import { useApp, nombreCategoria } from "../contexto";
-import { Cabeza, Campo, SelectorCategoria } from "../ui";
+import { Cabeza, Campo, ConfirmarBorrar, Seccion, SelectorCategoria } from "../ui";
 import { errorTexto } from "../util";
 
 export default function Reglas() {
@@ -24,7 +25,6 @@ export default function Reglas() {
     setPalabra(""); setPct(""); aviso("Regla agregada"); cargar();
   }
   async function borrar(id: string) {
-    if (!window.confirm("¿Borrar esta regla?")) return;
     const { error } = await sb.from("reglas").delete().eq("id", id);
     if (error) return setError(errorTexto(error));
     cargar();
@@ -38,8 +38,8 @@ export default function Reglas() {
     <>
       <Cabeza titulo="Reglas de Apple Pay" volver />
       <p className="nota mt-n8">Si el nombre del comercio contiene la palabra, el pago se clasifica solo. Gana la regla más específica; las que agregues tú tienen prioridad.</p>
-      <h2>Nueva regla</h2>
-      <form onSubmit={agregar}>
+      <Seccion titulo="Nueva regla">
+      <form onSubmit={agregar} className="panel mt-0">
         <Campo etiqueta="Palabra en el comercio"><input value={palabra} onChange={(e) => setPalabra(e.target.value)} placeholder="CHEDRAUI" autoCapitalize="characters" /></Campo>
         <SelectorCategoria cats={categorias} tipo="gasto" uid={uid} valor={cat} onCambio={setCat} />
         {otros.length > 0 && (
@@ -47,14 +47,17 @@ export default function Reglas() {
             <input inputMode="numeric" value={pct} onChange={(e) => setPct(e.target.value.replace(/\D/g, ""))} placeholder="Sin compartir" />
           </Campo>
         )}
-        <button className="boton">Agregar regla</button>
+        <button className="boton ancho">Agregar regla</button>
         {error && <p className="error" role="alert">{error}</p>}
       </form>
-      <h2>Reglas ({lista.length})</h2>
+      </Seccion>
+      <Seccion titulo="Reglas" contador={lista.length}>
       <input className="buscador" type="search" aria-label="Buscar reglas" placeholder="Buscar" value={q} onChange={(e) => setQ(e.target.value)} />
       <div className="lista">
+        {visibles.length === 0 && <div className="vacio">{q ? "Ninguna regla con esa palabra." : "Aún no hay reglas."}</div>}
         {visibles.map((r) => (
-          <div className="fila" key={r.id}>
+          <div className="fila envolver" key={r.id}>
+            <span className="ico" aria-hidden="true"><MagicWand size={20} /></span>
             <div className="cuerpo">
               <div className="titulo">{r.palabra_clave}</div>
               <div className="detalle">{nombreCategoria(categorias, r.categoria_id) || "Categoría borrada"}{r.compartir_pct ? ` · ${Number(r.compartir_pct)}% para ${otros[0]?.nombre ?? "tu pareja"}` : ""}</div>
@@ -65,10 +68,11 @@ export default function Reglas() {
                 {r.compartir_pct && ![50, 100].includes(Number(r.compartir_pct)) && <option value={String(Number(r.compartir_pct))}>{Number(r.compartir_pct)}%</option>}
               </select>
             )}
-            <button className="boton chico peligro" onClick={() => borrar(r.id)} aria-label={`Borrar regla ${r.palabra_clave}`}>Borrar</button>
+            <ConfirmarBorrar chico etiqueta="Borrar" confirmar="Sí, borrar" onConfirmar={() => borrar(r.id)} />
           </div>
         ))}
       </div>
+      </Seccion>
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { sb } from "../supabase";
-import { Campo, Segmentos } from "../ui";
+import { Campo, Segmentos, ConfirmarBorrar } from "../ui";
 import { conDia, fmt, hoyISO, limpiarMonto, masDias, mesISO, sumarMes } from "../util";
 
 // ---------- Fechas de corte (misma regla que la base de datos) ----------
@@ -52,10 +52,11 @@ export function ListaMensualidades({ filas, onCambio }: { filas: FilaMsi[]; onCa
                 : <>Compra de {fmt(Number(f.mensualidad) * Number(f.m))} · te faltan {Number(f.m) - Number(f.n)} pagos ({fmt(faltante(f))})</>}
             </p>
           )}
-          <button type="button" className="boton chico peligro mb-10" onClick={() => {
-            if (f.id && !window.confirm(`¿Quitar "${f.descripcion || "esta compra"}"? Se borra de tus movimientos.`)) return;
-            onCambio(filas.filter((_, j) => j !== i));
-          }}>Quitar</button>
+          <div className="mb-10">
+            {f.id
+              ? <ConfirmarBorrar chico etiqueta="Quitar" confirmar="Sí, quitar" pregunta={`Se borra «${f.descripcion || "esta compra"}» de tus movimientos.`} onConfirmar={() => onCambio(filas.filter((_, j) => j !== i))} />
+              : <button type="button" className="boton chico peligro" onClick={() => onCambio(filas.filter((_, j) => j !== i))}>Quitar</button>}
+          </div>
         </div>
       ))}
       <button type="button" className="boton claro ancho" onClick={() => onCambio([...filas, filaNueva()])}>

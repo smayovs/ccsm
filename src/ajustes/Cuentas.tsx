@@ -3,7 +3,7 @@ import { IconoCuenta } from "../iconos";
 import { useNavigate } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
-import { Cabeza, Campo, useUnaVez } from "../ui";
+import { Cabeza, Campo, ConfirmarBorrar, useUnaVez } from "../ui";
 import { CaretRight, Plus } from "../phosphor";
 import { errorTexto, hoyISO, TIPOS_CUENTA, VISIBILIDAD, limpiarMonto } from "../util";
 
@@ -49,7 +49,6 @@ export default function Cuentas() {
   }
   async function borrar() {
     if (!edit?.id) return;
-    if (!window.confirm(`¿Borrar ${edit.nombre}? Si tiene movimientos, mejor márcala como inactiva.`)) return;
     const { error } = await sb.from("cuentas").delete().eq("id", edit.id);
     if (error) return setError(errorTexto(error));
     aviso("Cuenta borrada"); setEdit(null); cargar(); recargar();
@@ -137,7 +136,7 @@ export default function Cuentas() {
               <button type="button" className="boton claro" onClick={() => setEdit(null)}>Cancelar</button>
               <button className="boton">Guardar</button>
             </div>
-            {edit.id && <div className="acciones"><button type="button" className="boton peligro" onClick={borrar}>Borrar cuenta</button></div>}
+            {edit.id && <div className="acciones"><ConfirmarBorrar etiqueta="Borrar cuenta" pregunta={`¿Borrar ${edit.nombre}? Si tiene movimientos, mejor apaga «Activa».`} onConfirmar={borrar} /></div>}
             {error && <p className="error" role="alert">{error}</p>}
           </form>
         )}

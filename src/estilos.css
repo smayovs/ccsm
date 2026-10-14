@@ -201,7 +201,7 @@ button.fila:active, a.fila:active { background: var(--ciruela-suave); }
 .monto-grande { font-family: var(--display) !important; font-weight: 700; font-size: 2.2rem !important; text-align: left; padding: 8px 12px !important; }
 .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .segmentos { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
-.segmentos button { flex: 1 0 auto; border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 8px 12px; cursor: pointer; font-size: 0.9rem; min-height: 40px; }
+.segmentos button { flex: 1 0 auto; border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 8px 14px; cursor: pointer; font-size: 0.9rem; min-height: 44px; }
 .segmentos button[aria-pressed="true"] { background: var(--seleccion); border-color: var(--seleccion); color: var(--sobre-seleccion); font-weight: 600; }
 .casilla { display: flex; gap: 10px; align-items: center; margin: 0 0 14px; }
 .casilla input { width: 22px; height: 22px; accent-color: var(--ciruela); }
@@ -210,13 +210,13 @@ button.fila:active, a.fila:active { background: var(--ciruela-suave); }
 .boton.ancho { width: 100%; }
 .boton.claro { background: var(--secundario); color: var(--sobre-secundario); }
 .boton.peligro { background: var(--oxido-suave); color: var(--oxido); }
-.boton.chico { padding: 6px 14px; min-height: 36px; font-size: 0.9rem; }
+.boton.chico { padding: 8px 16px; min-height: 44px; font-size: 0.9rem; }
 .boton:disabled { opacity: 0.55; cursor: default; }
 .acciones { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
 .acciones > * { flex: 1; }
 
 .selector-mes { display: flex; align-items: center; justify-content: space-between; margin: -6px 0 12px; }
-.selector-mes button { border: 0; background: var(--superficie); border: 1px solid var(--linea); width: 40px; height: 40px; border-radius: 99px; cursor: pointer; font-size: 1.1rem; }
+.selector-mes button { border: 0; background: var(--superficie); border: 1px solid var(--linea); width: 44px; height: 44px; border-radius: 99px; cursor: pointer; font-size: 1.1rem; }
 .selector-mes span { font-weight: 600; }
 .selector-mes span:first-letter { text-transform: uppercase; }
 .buscador { width: 100%; padding: 11px 14px; border: 1px solid var(--linea); border-radius: 99px; background: var(--superficie); font-size: max(16px, 1rem); margin-bottom: 10px; }
@@ -426,7 +426,7 @@ h2 { font-size: 1.05rem; }
 /* Dividir un gasto entre personas */
 .caja-dividir { border: 1px solid var(--linea); border-radius: var(--radio); padding: 12px; margin: -4px 0 14px; background: var(--superficie); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.chips button { border: 1px solid var(--linea); background: var(--fondo); border-radius: 99px; padding: 7px 14px; min-height: 38px; cursor: pointer; font-weight: 500; }
+.chips button { border: 1px solid var(--linea); background: var(--fondo); border-radius: 99px; padding: 7px 14px; min-height: 44px; cursor: pointer; font-weight: 500; }
 .chips button[aria-pressed="true"] { background: var(--seleccion); border-color: var(--seleccion); color: var(--sobre-seleccion); }
 .chips button:disabled { opacity: 0.5; }
 .caja-dividir .lista { box-shadow: none; }
@@ -518,7 +518,7 @@ h2 { font-size: 1.05rem; }
 .filtros-panel > .sub { font-size: 0.8rem; color: var(--tinta-2); font-weight: 600; margin: 4px 0 8px; }
 .filtros-panel select, .filtros-panel input[type=date] { width: 100%; }
 .chips-filtro { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-.chips-filtro button { border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 7px 12px; font: inherit; font-size: 0.85rem; cursor: pointer; min-height: 36px; }
+.chips-filtro button { border: 1px solid var(--linea); background: var(--superficie); border-radius: 99px; padding: 7px 12px; font: inherit; font-size: 0.85rem; cursor: pointer; min-height: 44px; }
 .chips-filtro button[aria-pressed="true"] { background: var(--seleccion); border-color: var(--seleccion); color: var(--sobre-seleccion); font-weight: 600; }
 .etiq-periodo { font-size: 0.76rem; color: var(--tinta-2); margin: 2px 0 0; }
 .lista.plana { box-shadow: none; border: 0; background: transparent; margin: 0 -14px; }
@@ -703,3 +703,17 @@ h2 { font-size: 1.05rem; }
 .mas-opciones { padding: 4px 0 2px; }
 /* Guardar siempre a la vista, sobre la barra inferior */
 .guardar-fijo { position: sticky; bottom: calc(76px + env(safe-area-inset-bottom)); z-index: 5; padding: 10px 0 2px; margin-top: 18px; background: linear-gradient(to bottom, transparent, var(--fondo) 30%); }
+
+/* Confirmación dentro de la app */
+.confirmar { display: inline-block; }
+.fila .confirmar .flex { flex-wrap: nowrap; }
+
+/* ===== Ajustes ===== */
+.avatar-mini.inactivo { background: var(--linea); color: var(--tinta-2); }
+.pasos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: -6px 0 16px; }
+.pasos span { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--radio-chico); background: var(--secundario); color: var(--tinta-2); font-size: 0.82rem; }
+.pasos span b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 99px; background: var(--linea); color: var(--tinta); font-size: 0.78rem; }
+.pasos span.hecho { color: var(--sobre-acento); background: var(--acento-fondo); font-weight: 600; }
+.pasos span.hecho b { background: color-mix(in srgb, var(--sobre-acento) 15%, transparent); color: var(--sobre-acento); }
+/* En filas que pueden envolver, la confirmación abierta baja a su propio renglón para no apretar el nombre */
+.fila.envolver .confirmar:has(.flex) { flex-basis: 100%; display: flex; justify-content: flex-end; }
