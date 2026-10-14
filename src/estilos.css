@@ -728,3 +728,17 @@ h2 { font-size: 1.05rem; }
 /* La inicial de cada quien con su color de la marca (rosa o gris) */
 .avatar.r-rosa { background: var(--rosa); color: #101217; }
 .avatar.r-gris { background: var(--gris); color: #101217; }
+
+/* ===== Filas que se deslizan (Movimientos) ===== */
+.desliza { position: relative; overflow: hidden; }
+.lista > div > .desliza { border-top: 1px solid var(--linea); }
+.lista > div:first-child > .desliza { border-top: 0; }
+.desliza .fila { border-top: 0; }
+.desliza-frente { position: relative; z-index: 1; background: var(--superficie); touch-action: pan-y; transition: transform 220ms var(--ease-out); }
+.desliza-frente.arrastrando { transition: none; }
+.desliza-accion { position: absolute; top: 0; bottom: 0; width: 92px; border: 0; font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+.desliza-accion.izq { left: 0; background: var(--seleccion); color: var(--sobre-seleccion); }
+.desliza-accion.der { right: 0; background: var(--oxido); color: #fff; }
+.cat-rapida { padding: 12px 14px; background: var(--ciruela-suave); border-top: 1px solid var(--linea); }
+
+.notif-cabeza { padding: 12px 20px 20px; color: var(--ciruela); }

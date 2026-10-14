@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza } from "../ui";
-import { CalendarDots, CaretRight, ChartBar, DeviceMobile, DownloadSimple, HandCoins, MagicWand, Palette, Repeat, Tag, Tray, Users, Wallet, type Icon } from "../phosphor";
+import { BellRinging, CalendarDots, CaretRight, ChartBar, DeviceMobile, DownloadSimple, HandCoins, MagicWand, Palette, Repeat, Tag, Tray, Users, Wallet, type Icon } from "../phosphor";
 import { descargar } from "../util";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 
@@ -74,6 +74,7 @@ export default function Mas({ pendientes = 0 }: { pendientes?: number }) {
         <h2>App</h2>
         <div className="lista">
           <Link className="fila" to="/ajustes/apariencia">{fila({ to: "", t: "Apariencia", d: "Colores, modo oscuro y tamaño de letra", I: Palette }, true)}</Link>
+          <Link className="fila" to="/ajustes/notificaciones">{fila({ to: "", t: "Notificaciones", d: "Recordatorios de pagos e ingresos", I: BellRinging }, true)}</Link>
           <button className="fila" onClick={exportar}>{fila({ to: "", t: "Descargar mis movimientos", d: "Archivo CSV para Excel o Google Sheets", I: DownloadSimple }, true)}</button>
         </div>
       </section>

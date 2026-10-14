@@ -24,6 +24,7 @@ const Cobros = perezoso(() => import("./pantallas/Cobros"));
 const Msi = perezoso(() => import("./pantallas/Msi"));
 const Suscripciones = perezoso(() => import("./pantallas/Suscripciones"));
 const IngresoProgramado = perezoso(() => import("./pantallas/IngresoProgramado"));
+const Notificaciones = perezoso(() => import("./ajustes/Notificaciones"));
 const Cuentas = perezoso(() => import("./ajustes/Cuentas"));
 const Categorias = perezoso(() => import("./ajustes/Categorias"));
 const Reglas = perezoso(() => import("./ajustes/Reglas"));
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="/ajustes/llaves" element={<Llaves />} />
           <Route path="/ajustes/perfil" element={<Perfil />} />
           <Route path="/ajustes/apariencia" element={<AparienciaPantalla />} />
+          <Route path="/ajustes/notificaciones" element={<Notificaciones />} />
           <Route path="/ajustes/tarjeta/:id/cuadrar" element={<CuadrarTarjeta />} />
           <Route path="/ajustes/tarjeta-nueva" element={<NuevaTarjeta />} />
           <Route path="*" element={<Inicio onPendientes={setPendientes} />} />

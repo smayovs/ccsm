@@ -4,7 +4,8 @@ import { cargarProgramados, fechasEn, type IngresoProgramado } from "../ingresos
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, Cargando, Segmentos, SelectorMes } from "../ui";
+import { Cabeza, Cargando, Segmentos, SelectorCategoria, SelectorMes } from "../ui";
+import { FilaDeslizable } from "../deslizar";
 import { cobroEnMes, conDia, fechaCorta, fechaLarga, fmt, hoyISO, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
 import { ArrowsLeftRight, CalendarDots, HandCoins, Handshake, MagnifyingGlass, SlidersHorizontal } from "../phosphor";
 import { IconoCategoria } from "../iconos";
@@ -50,7 +51,7 @@ const corteQueCierra = (f: string, corte: number) => { const c = conDia(mesISO(f
 type Modo = "mes" | "rango" | "corte";
 
 export default function Movimientos() {
-  const { uid, otros, yo, cuentas } = useApp();
+  const { uid, otros, yo, cuentas, categorias, aviso } = useApp();
   const hoy = hoyISO();
   // Inicio puede abrir esta pantalla con su periodo y filtros (?mes=, ?desde=&hasta=, ?cuenta=, ?filtro=, ?q=)
   const [params] = useSearchParams();
@@ -64,6 +65,25 @@ export default function Movimientos() {
   const [rHasta, setRHasta] = useState(pHasta ?? hoy);
   const [corteFin, setCorteFin] = useState<string | null>(null);
   const [movs, setMovs] = useState<Mov[]>([]);
+  // Acciones al deslizar una fila: cambiar la categoría ahí mismo o borrar (con un segundo toque para confirmar)
+  const [catEdit, setCatEdit] = useState<{ id: string; tipo: "gasto" | "ingreso"; valor: string | null } | null>(null);
+  const [borrando, setBorrando] = useState<string | null>(null);
+  async function guardarCategoria() {
+    if (!catEdit) return;
+    const { error } = await sb.from("movimientos").update({ categoria_id: catEdit.valor }).eq("id", catEdit.id);
+    if (error) return aviso("No se pudo cambiar la categoría");
+    const cat = categorias.find((c) => c.id === catEdit.valor);
+    const padre = cat?.padre_id ? categorias.find((c) => c.id === cat.padre_id) : null;
+    setMovs((ms) => ms.map((x) => x.id === catEdit.id ? { ...x, categoria_id: catEdit.valor, categoria: cat ? { ...cat, padre: padre ?? null } : null } : x));
+    setCatEdit(null); aviso("Categoría cambiada");
+  }
+  async function borrarMov(id: string) {
+    if (borrando !== id) return setBorrando(id);
+    setBorrando(null);
+    const { error } = await sb.from("movimientos").delete().eq("id", id);
+    if (error) return aviso("No se pudo borrar");
+    setMovs((ms) => ms.filter((x) => x.id !== id)); aviso("Movimiento borrado");
+  }
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState("");
   const [q, setQ] = useState(params.get("q") ?? "");
@@ -304,7 +324,7 @@ export default function Movimientos() {
               const editable = m.tipo !== "liquidacion" && (l.mio || l.miParte);
               const Fila: any = editable ? Link : "div";
               const disputa = (m.repartos ?? []).some((r: any) => r.estado === "disputa");
-              return (
+              const fila = (
                 <Fila className={"fila" + (m.movId && !m.compra ? " cuota" : "")} key={m.id} {...(editable ? { to: `/editar/${m.movId ?? m.id}` } : {})}>
                   <IconoMov m={m} />
                   <div className="cuerpo">
@@ -326,6 +346,27 @@ export default function Movimientos() {
                     {l.signo > 0 ? "+" : l.signo < 0 ? "−" : ""}{fmt(l.monto)}
                   </div>
                 </Fila>
+              );
+              // Solo tus movimientos (no las mensualidades ni lo que registró tu pareja) se deslizan
+              if (!(editable && l.mio && !m.movId)) return fila;
+              const conCategoria = m.tipo === "gasto" || m.tipo === "ingreso";
+              return (
+                <div key={m.id}>
+                  <FilaDeslizable
+                    izquierda={conCategoria ? { etiqueta: "Categoría", clase: "categoria", alTocar: () => setCatEdit({ id: m.id, tipo: m.tipo, valor: m.categoria_id ?? null }) } : undefined}
+                    derecha={{ etiqueta: borrando === m.id ? "Sí, borrar" : "Borrar", clase: "borrar", alTocar: () => borrarMov(m.id) }}>
+                    {fila}
+                  </FilaDeslizable>
+                  {catEdit && catEdit.id === m.id && (
+                    <div className="cat-rapida">
+                      <SelectorCategoria cats={categorias} tipo={catEdit.tipo} valor={catEdit.valor} onCambio={(v) => setCatEdit((c) => (c ? { ...c, valor: v } : c))} uid={uid} incluirHogar={catEdit.tipo === "gasto"} />
+                      <div className="flex gap-8">
+                        <button className="boton chico claro crece" onClick={() => setCatEdit(null)}>Cancelar</button>
+                        <button className="boton chico crece" onClick={guardarCategoria}>Guardar</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

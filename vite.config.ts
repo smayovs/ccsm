@@ -58,7 +58,7 @@ export default defineConfig({
         ]
       },
       workbox: {
-        cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true, navigateFallback: "/ccsm/index.html", globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        cleanupOutdatedCaches: true, clientsClaim: true, skipWaiting: true, importScripts: ["sw-push.js"], navigateFallback: "/ccsm/index.html", globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
         // Las otras fuentes de Apariencia vienen de Google: se guardan la primera vez para que funcionen sin conexión
         runtimeCaching: [
           { urlPattern: /^https:\/\/fonts\.googleapis\.com\//, handler: "StaleWhileRevalidate", options: { cacheName: "fuentes-css" } },
