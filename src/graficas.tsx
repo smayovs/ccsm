@@ -5,7 +5,7 @@ const compacto = (n: number) => montosEstanOcultos() ? "•••" :
   Math.abs(n) >= 1000 ? `$${(n / 1000).toLocaleString("es-MX", { maximumFractionDigits: n >= 10000 ? 0 : 1 })}k` : `$${Math.round(n)}`;
 
 // Anillo de presupuesto: cuánto llevas gastado y una marca de cuánto del mes ha pasado
-export function Anillo({ usado, avance, tam = 128 }: { usado: number; avance: number; tam?: number }) {
+export function Anillo({ usado, avance, tam = 128, leyenda = "usado", marca = true }: { usado: number; avance: number; tam?: number; leyenda?: string; marca?: boolean }) {
   const r = 52, c = 2 * Math.PI * r;
   const p = Math.max(0, Math.min(1, usado));
   const estado = usado > 1 ? "exceso" : usado > avance + 0.05 ? "rapido" : "ok";
@@ -16,9 +16,9 @@ export function Anillo({ usado, avance, tam = 128 }: { usado: number; avance: nu
       aria-label={`Has usado ${Math.round(usado * 100)}% del presupuesto; ha pasado ${Math.round(avance * 100)}% del mes`}>
       <circle cx="60" cy="60" r={r} className="pista" />
       <circle cx="60" cy="60" r={r} className="lleno" strokeDasharray={`${p * c} ${c}`} transform="rotate(-90 60 60)" />
-      <circle cx={mx} cy={my} r="4.5" className="marca" />
+      {marca && <circle cx={mx} cy={my} r="4.5" className="marca" />}
       <text x="60" y="58" textAnchor="middle" className="pct">{Math.round(usado * 100)}%</text>
-      <text x="60" y="76" textAnchor="middle" className="leyenda">usado</text>
+      <text x="60" y="76" textAnchor="middle" className="leyenda">{leyenda}</text>
     </svg>
   );
 }

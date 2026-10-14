@@ -5,6 +5,8 @@ import { useApp } from "../contexto";
 import { Cabeza, Campo, Cargando, Segmentos, SelectorCategoria } from "../ui";
 import { errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto } from "../util";
 import { TEXTO_REPETIR, type Repetir } from "../ingresos";
+import { IconoCategoria } from "../iconos";
+import { CaretDown, CaretRight } from "../phosphor";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 import { facturadas, fechaParaPago } from "../ajustes/saldosTarjeta";
 import { parteDePareja } from "../dinero";
@@ -57,6 +59,11 @@ export default function Formulario() {
   // Ingreso programado: todavía no llega; se guarda aparte y se confirma el día que llega
   const [programar, setProgramar] = useState(qs.get("programar") === "1");
   const [repetir, setRepetir] = useState<"no" | "catorcena" | "mes">("no");
+  // Categorías que más usas (de tus últimos movimientos) como botones de un toque; el resto en "Más categorías"
+  const [frecuentes, setFrecuentes] = useState<string[]>([]);
+  const [todasCats, setTodasCats] = useState(false);
+  // Opciones poco frecuentes (para quién, dividir, meses, aplazado) plegadas
+  const [masOpciones, setMasOpciones] = useState(false);
   // Compras a meses de antes del alta de la tarjeta
   const [nPago, setNPago] = useState("");
   const [msiIncluida, setMsiIncluida] = useState<"si" | "no">("si");
@@ -97,6 +104,17 @@ export default function Formulario() {
     });
   }, [id, uid]);
 
+  useEffect(() => {
+    if (tipo !== "gasto" && tipo !== "ingreso") return;
+    sb.from("movimientos").select("categoria_id").eq("creado_por", uid).eq("tipo", tipo).not("categoria_id", "is", null)
+      .order("fecha", { ascending: false }).limit(200).then(({ data }) => {
+        const n: Record<string, number> = {};
+        for (const x of data ?? []) n[x.categoria_id] = (n[x.categoria_id] ?? 0) + 1;
+        setFrecuentes(Object.entries(n).sort((a, b) => b[1] - a[1]).map(([k]) => k)
+          .filter((k) => categorias.some((c) => c.id === k && !c.archivada)).slice(0, 8));
+      });
+  }, [tipo, uid, categorias]);
+
   const montoNum = Number(String(monto).replace(/[^\d.]/g, ""));
   const dividir = familiar === "__dividir";
   const familiarReal = dividir ? "" : familiar;
@@ -118,6 +136,12 @@ export default function Formulario() {
   const { base, parte: parteOtro, tuParte } = parteDePareja(montoNum, dividir ? sumaPartes : 0, esConjunta ? "no" : comp, Number(valorComp || 0));
 
   const esProgramado = !id && tipo === "ingreso" && programar;
+  const opcionesActivas = !!familiar || Number(meses) > 1 || aplazado || msiPrevia;
+  const verOpciones = masOpciones || opcionesActivas;
+  // La categoría elegida se ve como botón aunque no esté entre las frecuentes
+  const chipsCats = categoria && !frecuentes.includes(categoria) ? [categoria, ...frecuentes.slice(0, 7)] : frecuentes;
+  const nombreCat = (cid: string) => { const c = categorias.find((x) => x.id === cid); return c?.padre_id ? c.nombre : (c?.nombre ?? "").replace(/^Hogar: /, ""); };
+  const iconoCat = (cid: string) => { const c = categorias.find((x) => x.id === cid); const p = c?.padre_id ? categorias.find((x) => x.id === c.padre_id) : c; return { nombre: p?.nombre ?? "", icono: p?.icono ?? null }; };
   async function guardar(e: React.FormEvent) {
     e.preventDefault(); setError("");
     if (!(montoNum > 0)) return setError("Escribe un monto mayor a cero.");
@@ -275,7 +299,27 @@ export default function Formulario() {
         )}
 
         {(tipo === "gasto" || tipo === "ingreso") && (
-          <SelectorCategoria cats={categorias} tipo={tipo} valor={categoria} onCambio={setCategoria} uid={uid} incluirHogar={tipo === "gasto"} />
+          <>
+            {chipsCats.length > 0 && (
+              <>
+                <div className="campo mb-6"><span>Categoría</span></div>
+                <div className="cats-rapidas" role="radiogroup" aria-label="Categorías que más usas">
+                  {chipsCats.map((cid) => (
+                    <button type="button" key={cid} role="radio" aria-checked={categoria === cid} onClick={() => setCategoria(categoria === cid ? null : cid)}>
+                      <IconoCategoria nombre={iconoCat(cid).nombre} icono={iconoCat(cid).icono} tam={18} />
+                      <span>{nombreCat(cid)}</span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="enlace-chico boton-texto mb-14" aria-expanded={todasCats} onClick={() => setTodasCats(!todasCats)}>
+                  {todasCats ? "Ocultar categorías" : "Más categorías"}
+                </button>
+              </>
+            )}
+            {(todasCats || chipsCats.length === 0) && (
+              <SelectorCategoria cats={categorias} tipo={tipo} valor={categoria} onCambio={setCategoria} uid={uid} incluirHogar={tipo === "gasto"} />
+            )}
+          </>
         )}
 
         {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && !msiPrevia && !esAplazado && (
@@ -300,6 +344,35 @@ export default function Formulario() {
 
         {tipo === "gasto" && (
           <>
+            {otro && !familiarReal && esConjunta && (
+              <p className="nota mb-14">Se paga con la cuenta conjunta: ya es de los dos, así que no se comparte con {otro.nombre}.</p>
+            )}
+            {otro && !familiarReal && !esConjunta && (
+              <>
+                <span className="campo mb-6"><span>¿Compartido con {otro.nombre}?</span></span>
+                <Segmentos etiqueta="Compartido" valor={comp} onCambio={setComp} opciones={[
+                  { v: "no", t: "No" }, { v: "mitad", t: "50/50" }, { v: "pct", t: "%" }, { v: "monto", t: "Monto" }, { v: "todo", t: `Todo de ${otro.nombre}` },
+                ]} />
+                {(comp === "pct" || comp === "monto") && (
+                  <Campo etiqueta={comp === "pct" ? `Porcentaje que le toca a ${otro.nombre}` : `Monto que le toca a ${otro.nombre}`}>
+                    <input inputMode="decimal" value={valorComp} onChange={(e) => setValorComp(limpiarMonto(e.target.value))} placeholder={comp === "pct" ? "40" : "$0"} />
+                  </Campo>
+                )}
+                {comp !== "no" && montoNum > 0 && (
+                  <p className="nota mt-n6 mb-14">
+                    A {otro.nombre} le tocan {fmt(parteOtro)}; a ti {fmt(base - parteOtro)}.
+                    {dividir && sumaPartes > 0 && ` Se reparte lo que queda después de las otras partes (${fmt(base)}).`}
+                    {Number(meses) > 1 && " Su parte se suma a lo que te debe conforme se factura cada mensualidad."}
+                  </p>
+                )}
+              </>
+            )}
+            <button type="button" className="mas-opciones-boton" aria-expanded={verOpciones} disabled={opcionesActivas} onClick={() => setMasOpciones(!masOpciones)}>
+              {verOpciones ? <CaretDown size={16} aria-hidden="true" /> : <CaretRight size={16} aria-hidden="true" />}
+              <span>Más opciones</span><span className="sub">Para quién, dividir, meses sin intereses{cuentaSel?.tipo === "credito" ? ", aplazado" : ""}</span>
+            </button>
+            {verOpciones && (
+              <div className="mas-opciones">
             <div className="dos">
               <Campo etiqueta="¿Para quién?" ayuda="Lo de otras personas se carga a tu cuenta igual, no cuenta en tus gastos y se va a Cobros.">
                 <select value={familiar} onChange={(e) => setFamiliar(e.target.value)}>
@@ -392,33 +465,12 @@ export default function Formulario() {
               </>
             )}
 
-            {otro && !familiarReal && esConjunta && (
-              <p className="nota mb-14">Se paga con la cuenta conjunta: ya es de los dos, así que no se comparte con {otro.nombre}.</p>
-            )}
-            {otro && !familiarReal && !esConjunta && (
-              <>
-                <span className="campo mb-6"><span>¿Compartido con {otro.nombre}?</span></span>
-                <Segmentos etiqueta="Compartido" valor={comp} onCambio={setComp} opciones={[
-                  { v: "no", t: "No" }, { v: "mitad", t: "50/50" }, { v: "pct", t: "%" }, { v: "monto", t: "Monto" }, { v: "todo", t: `Todo de ${otro.nombre}` },
-                ]} />
-                {(comp === "pct" || comp === "monto") && (
-                  <Campo etiqueta={comp === "pct" ? `Porcentaje que le toca a ${otro.nombre}` : `Monto que le toca a ${otro.nombre}`}>
-                    <input inputMode="decimal" value={valorComp} onChange={(e) => setValorComp(limpiarMonto(e.target.value))} placeholder={comp === "pct" ? "40" : "$0"} />
-                  </Campo>
-                )}
-                {comp !== "no" && montoNum > 0 && (
-                  <p className="nota mt-n6 mb-14">
-                    A {otro.nombre} le tocan {fmt(parteOtro)}; a ti {fmt(base - parteOtro)}.
-                    {dividir && sumaPartes > 0 && ` Se reparte lo que queda después de las otras partes (${fmt(base)}).`}
-                    {Number(meses) > 1 && " Su parte se suma a lo que te debe conforme se factura cada mensualidad."}
-                  </p>
-                )}
-              </>
+              </div>
             )}
           </>
         )}
 
-        <div className="acciones">
+        <div className="acciones guardar-fijo">
           <button className="boton" disabled={ocupado}>{ocupado ? "Guardando…" : id ? "Guardar cambios" : esProgramado ? "Programar ingreso" : "Guardar"}</button>
         </div>
         {id && (
