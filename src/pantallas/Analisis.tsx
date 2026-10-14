@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { sb } from "../supabase";
-import { Cabeza, Segmentos } from "../ui";
+import { Cabeza, Cargando, Segmentos, Seccion } from "../ui";
 import { fmt, mesISO, nombreMes, sumarMes } from "../util";
 import { IconoCategoria, IconoCuenta } from "../iconos";
 import { BarrasMes } from "../graficas";
@@ -75,7 +75,7 @@ export default function Analisis() {
       <Segmentos etiqueta="Periodo" valor={meses} onCambio={(v) => { setMeses(v); }} opciones={[
         { v: "3", t: "3 meses" }, { v: "6", t: "6 meses" }, { v: "12", t: "12 meses" }]} />
 
-      {cargando ? <div className="vacio">Cargando…</div> : filas.length === 0 ? (
+      {cargando ? <Cargando /> : filas.length === 0 ? (
         <div className="lista"><div className="vacio">Sin gastos registrados en este periodo.</div></div>
       ) : (
         <>
@@ -91,16 +91,11 @@ export default function Analisis() {
             </div>
           </section>
 
-          <section className="seccion">
-            <div className="seccion-cabeza">
-              <div><h2>Mes a mes</h2><div className="etiq-periodo">La línea marca el promedio de los meses cerrados</div></div>
-              {sel && <button className="enlace-chico boton-texto" onClick={() => setSel(null)}>Ver todo</button>}
-            </div>
+          <Seccion titulo="Mes a mes" ayuda="La línea marca el promedio de los meses cerrados" accion={sel && <button className="enlace-chico boton-texto" onClick={() => setSel(null)}>Ver todo</button>}>
             <div className="panel"><BarrasMes datos={porMes} promedio={promedio} /></div>
-          </section>
+          </Seccion>
 
-          <section className="seccion">
-            <div className="seccion-cabeza"><div><h2>Desglose</h2><div className="etiq-periodo">Toca uno para ver su gasto mes a mes</div></div></div>
+          <Seccion titulo="Desglose" ayuda="Toca uno para ver su gasto mes a mes">
             <Segmentos etiqueta="Agrupar por" valor={vista} onCambio={(v) => { setVista(v); setSel(null); }} opciones={[
               { v: "categoria", t: "Categorías" }, { v: "cuenta", t: "Cuentas" }]} />
             {vista === "categoria" ? (
@@ -124,7 +119,7 @@ export default function Analisis() {
                 })}
               </div>
             )}
-          </section>
+          </Seccion>
           <p className="nota mt-14">Cuenta solo tu parte de cada gasto; las compras a meses cuentan completas en el mes de compra. El promedio, la mediana y los meses alto y bajo usan los meses cerrados; el mes en curso aparece en la gráfica pero no cuenta.</p>
         </>
       )}

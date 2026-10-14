@@ -4,7 +4,7 @@ import { cargarProgramados, fechasEn, type IngresoProgramado } from "../ingresos
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, SelectorMes, Segmentos } from "../ui";
+import { Cabeza, Cargando, Segmentos, SelectorMes } from "../ui";
 import { cobroEnMes, conDia, fechaCorta, fechaLarga, fmt, hoyISO, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, nombreMes, sumarMes, TIPOS_MOV } from "../util";
 import { ArrowsLeftRight, CalendarDots, HandCoins, Handshake, MagnifyingGlass, SlidersHorizontal } from "../phosphor";
 import { IconoCategoria } from "../iconos";
@@ -269,7 +269,7 @@ export default function Movimientos() {
         </div>
       )}
       {!enCorte && !cargando && grupos.length > 0 && <p className="nota mt-0 mb-8">Tu parte de cada movimiento{filtro !== "todo" || q || cuentaFiltro ? ", con los filtros elegidos" : ""}. Los programados no cuentan hasta que llegan.</p>}
-      {cargando ? <div className="vacio">Cargando…</div> : fallo ? <p className="error" role="alert">{fallo}</p> : grupos.length === 0 ? (
+      {cargando ? <Cargando /> : fallo ? <p className="error" role="alert">{fallo}</p> : grupos.length === 0 ? (
         <div className="lista"><div className="vacio">{cuentaFiltro ? "Nada en esta cuenta en este periodo." : "Nada registrado en este periodo."} <Link to="/nuevo">Agrega un movimiento</Link>.</div></div>
       ) : grupos.map(([fecha, lista]) => (
         <section key={fecha}>

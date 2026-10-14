@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, Campo } from "../ui";
+import { Cabeza, Campo, Cargando, Seccion } from "../ui";
 import { conDia, diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, sumarMes, TIPOS_CUENTA } from "../util";
 import { IconoMov, lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
 import { Anillo } from "../graficas";
@@ -82,7 +82,7 @@ export default function Cuenta() {
 
 
   if (fallo && !d) return (<><Cabeza titulo="Cuenta" volver /><p className="error" role="alert">{fallo}</p></>);
-  if (!d) return (<><Cabeza titulo="Cuenta" volver /><div className="vacio">Cargando…</div></>);
+  if (!d) return (<><Cabeza titulo="Cuenta" volver /><Cargando /></>);
 
   const credito = d.tipo === "credito" && d.ultimo_corte;
   const pAtras = credito && atras > 0 && d.dia_corte ? periodoCorte(d, atras) : null;
@@ -156,8 +156,7 @@ export default function Cuenta() {
           <Link className="boton" to={`/nuevo?tipo=transferencia&destino=${id}`}>Registrar un pago</Link>
           <Link className="boton claro" to={`/nuevo?cuenta=${id}`}>Intereses o cargo</Link>
         </div>
-        <div className="seccion-cabeza mt-24"><div><h2>Movimientos del mes</h2></div></div>
-        {lista}
+        <Seccion titulo="Movimientos del mes">{lista}</Seccion>
         <p className="nota">Los pagos son transferencias desde tu cuenta a este préstamo. <Link to="/ajustes/cuentas">Editar cuenta</Link></p>
       </>
     );
@@ -182,8 +181,7 @@ export default function Cuenta() {
           <Link className="boton claro" to={`/nuevo?tipo=transferencia&cuenta=${id}`}><ArrowsLeftRight size={18} aria-hidden="true" /> Transferir</Link>
         </div>
         <p className="texto-centro mt-10"><Link className="enlace-chico" to={`/cuenta/${id}/varios`}>Registrar varios gastos a la vez</Link></p>
-        <div className="seccion-cabeza mt-24"><div><h2>Movimientos del mes</h2></div></div>
-        {lista}
+        <Seccion titulo="Movimientos del mes">{lista}</Seccion>
         <p className="nota"><Link to="/ajustes/cuentas">Editar cuenta</Link></p>
       </>
     );
@@ -221,10 +219,7 @@ export default function Cuenta() {
       </div>
       <p className="texto-centro mt-10"><Link className="enlace-chico" to={`/cuenta/${id}/varios`}>Registrar varios gastos a la vez</Link></p>
 
-      <div className="seccion-cabeza mt-24">
-        <div><h2>Tu pago</h2><div className="etiq-periodo">Estado de cuenta del {fechaCorta(d.ultimo_corte!)}</div></div>
-        <Link className="enlace-chico" to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar</Link>
-      </div>
+      <Seccion titulo="Tu pago" ayuda={<>Estado de cuenta del {fechaCorta(d.ultimo_corte!)}</>} accion={<Link className="enlace-chico" to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar</Link>}>
       <div className={"tarjeta-pago" + (vencido ? " vencido" : falta === 0 ? " listo" : "")}>
         <div className="cifra-media">{falta === 0 ? "Pagado" : fmt(falta)}</div>
         <div className="sub">
@@ -238,9 +233,9 @@ export default function Cuenta() {
           <div className="acciones"><Link className="boton" to={`/nuevo?tipo=transferencia&destino=${id}`}>Registrar pago</Link></div>
         )}
       </div>
+      </Seccion>
 
-      <section className="seccion">
-      <div className="seccion-cabeza"><div><h2>Periodo actual</h2><div className="etiq-periodo">Del {fechaCorta(addDia(d.ultimo_corte!))} al {fechaCorta(d.proximo_corte!)} (corte) · se paga antes del {fechaCorta(d.fecha_pago_siguiente!)}</div></div></div>
+      <Seccion titulo="Periodo actual" ayuda={<>Del {fechaCorta(addDia(d.ultimo_corte!))} al {fechaCorta(d.proximo_corte!)} (corte) · se paga antes del {fechaCorta(d.fecha_pago_siguiente!)}</>}>
       <div className="lista">
         <div className="fila"><div className="cuerpo"><div className="titulo">Compras de contado</div></div><div className="monto">{fmt(contado)}</div></div>
         <div className="fila"><div className="cuerpo"><div className="titulo">Mensualidades MSI de este corte</div></div><div className="monto">{fmt(mens)}</div></div>
@@ -252,11 +247,10 @@ export default function Cuenta() {
             <div className="detalle">Ya cuentan arriba solo por su primera mensualidad</div></div><div className="monto">{fmt(d.periodo_msi_nuevas)}</div></div>
         )}
       </div>
-      </section>
+      </Seccion>
 
       {(d.msi?.length ?? 0) > 0 && (
-        <section className="seccion">
-          <div className="seccion-cabeza"><div><h2>Meses sin intereses <span className="contador">{d.msi!.length}</span></h2><div className="etiq-periodo">Por facturar: {fmt(d.msi_por_facturar)}</div></div><Link className="enlace-chico" to="/msi">Proyección</Link></div>
+        <Seccion titulo="Meses sin intereses" contador={d.msi!.length} ayuda={<>Por facturar: {fmt(d.msi_por_facturar)}</>} accion={<Link className="enlace-chico" to="/msi">Proyección</Link>}>
           <div className="lista">
             {d.msi!.map((x) => (
               <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
@@ -270,12 +264,11 @@ export default function Cuenta() {
               </Link>
             ))}
           </div>
-        </section>
+        </Seccion>
       )}
 
       {(d.aplazados?.length ?? 0) > 0 && (
-        <section className="seccion">
-          <div className="seccion-cabeza"><div><h2>Cargos aplazados <span className="contador">{d.aplazados!.length}</span></h2><div className="etiq-periodo">Aún no suman a tu deuda: entran el día en que el banco los cobra</div></div></div>
+        <Seccion titulo="Cargos aplazados" contador={d.aplazados!.length} ayuda="Aún no suman a tu deuda: entran el día en que el banco los cobra">
           <div className="lista">
             {d.aplazados!.map((x) => (
               <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
@@ -287,10 +280,10 @@ export default function Cuenta() {
             ))}
           </div>
           <p className="nota">Total: {fmt(d.aplazados!.reduce((a, x) => a + Number(x.monto), 0))}.</p>
-        </section>
+        </Seccion>
       )}
 
-      <div className="seccion-cabeza mt-24"><div><h2>Movimientos</h2></div></div>
+      <Seccion titulo="Movimientos">
       <div className="selector-mes">
         <button onClick={() => setAtras(atras + 1)} disabled={!d.dia_corte || atras >= 36} aria-label="Periodo de corte anterior">‹</button>
         <span>{atras === 0 ? `Desde el corte del ${fechaCorta(d.ultimo_corte!)}` : `Corte del ${fechaCorta(pAtras!.fin)}`}</span>
@@ -309,6 +302,7 @@ export default function Cuenta() {
         </>
       )}
       {lista}
+      </Seccion>
       {fallo && <p className="error" role="alert">{fallo}</p>}
       <p className="nota mt-14">Corte día {d.dia_corte} · pago día {d.dia_pago}. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link> · <Link to="/ajustes/cuentas">Editar tarjeta</Link></p>
     </>

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, SelectorCategoria } from "../ui";
+import { Cabeza, SelectorCategoria, Seccion } from "../ui";
 import { errorTexto, fechaCorta, fmt, hoyISO } from "../util";
 import { cargarProgramados, type IngresoProgramado } from "../ingresos";
 import { IconoMov, SELECT_MOV, textoCategoria } from "./Movimientos";
@@ -45,11 +45,6 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
   }
 
   const nada = !revisar.length && !sinCat.length && !disputas.length && !porConfirmar.length;
-  const cabeza = (titulo: string, n: number, ayuda?: ReactNode) => (
-    <div className="seccion-cabeza">
-      <div><h2>{titulo} <span className="contador">{n}</span></h2>{ayuda && <div className="etiq-periodo">{ayuda}</div>}</div>
-    </div>
-  );
   return (
     <>
       <Cabeza titulo="Pendientes" volver />
@@ -62,8 +57,7 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
       )}
 
       {porConfirmar.length > 0 && (
-        <section className="seccion">
-          {cabeza("Ingresos por confirmar", porConfirmar.length, "Ya pasó su fecha esperada: confírmalos con el monto real o cámbiales la fecha.")}
+        <Seccion titulo="Ingresos por confirmar" contador={porConfirmar.length} ayuda={"Ya pasó su fecha esperada: confírmalos con el monto real o cámbiales la fecha."}>
           <div className="lista">
             {porConfirmar.map((p) => (
               <Link className="fila" key={p.id} to={`/ingreso-programado/${p.id}`}>
@@ -73,12 +67,11 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
               </Link>
             ))}
           </div>
-        </section>
+        </Seccion>
       )}
 
       {revisar.length > 0 && (
-        <section className="seccion">
-          {cabeza("Por clasificar", revisar.length, <>Entraron por Apple Pay sin regla o con una tarjeta que no reconocí. Si el comercio es frecuente, agrégalo a <Link to="/ajustes/reglas">Reglas</Link>.</>)}
+        <Seccion titulo="Por clasificar" contador={revisar.length} ayuda={<>Entraron por Apple Pay sin regla o con una tarjeta que no reconocí. Si el comercio es frecuente, agrégalo a <Link to="/ajustes/reglas">Reglas</Link>.</>}>
           <div className="lista">
             {revisar.map((m) => (
               <Link className="fila" key={m.id} to={`/editar/${m.id}`}>
@@ -89,12 +82,11 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
               </Link>
             ))}
           </div>
-        </section>
+        </Seccion>
       )}
 
       {sinCat.length > 0 && (
-        <section className="seccion">
-          {cabeza("Tu parte sin categoría", sinCat.length, "Gastos compartidos contigo cuya categoría no existe en tu lista: elige en cuál cuentan.")}
+        <Seccion titulo="Tu parte sin categoría" contador={sinCat.length} ayuda={"Gastos compartidos contigo cuya categoría no existe en tu lista: elige en cuál cuentan."}>
           {sinCat.map((r) => (
             <div key={r.movimiento_id} className="panel mb-10">
               <div className="flex centrar-v gap-8 mb-10">
@@ -108,12 +100,11 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
               <button className="boton chico ancho" disabled={!eleccion[r.movimiento_id]} onClick={() => asignar(r.movimiento_id)}>Asignar categoría</button>
             </div>
           ))}
-        </section>
+        </Seccion>
       )}
 
       {disputas.length > 0 && (
-        <section className="seccion">
-          {cabeza("En disputa", disputas.length, "Tu pareja no está de acuerdo con su parte: ajústala o márcala como resuelta.")}
+        <Seccion titulo="En disputa" contador={disputas.length} ayuda={"Tu pareja no está de acuerdo con su parte: ajústala o márcala como resuelta."}>
           {disputas.map((r) => (
             <div className="panel mb-10" key={r.movimiento_id}>
               <div className="flex centrar-v gap-8">
@@ -128,7 +119,7 @@ export default function Pendientes({ onCambio }: { onCambio: (n: number) => void
               </div>
             </div>
           ))}
-        </section>
+        </Seccion>
       )}
       {error && <p className="error" role="alert">{error}</p>}
     </>

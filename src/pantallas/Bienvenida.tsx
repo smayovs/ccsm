@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Campo, Segmentos } from "../ui";
+import { Bienvenido, Campo, Segmentos } from "../ui";
 import { errorTexto } from "../util";
 
 export default function Bienvenida() {
@@ -24,7 +24,9 @@ export default function Bienvenida() {
 
   return (
     <div className="acceso">
-      <h1>Bienvenido a CCSM</h1>
+      <Bienvenido lema="Te damos la bienvenida." />
+      <div className="panel acceso-panel">
+      <h1>Empecemos</h1>
       <p>Si eres la primera persona, crea el hogar. Si te invitaron, usa el código que te pasaron.</p>
       <Segmentos etiqueta="Cómo empezar" valor={modo} onCambio={setModo}
         opciones={[{ v: "crear", t: "Crear hogar" }, { v: "unirme", t: "Tengo un código" }]} />
@@ -40,7 +42,8 @@ export default function Bienvenida() {
         <button className="boton ancho" disabled={ocupado}>{modo === "crear" ? "Crear hogar" : "Unirme"}</button>
       </form>
       {error && <p className="error" role="alert">{error}</p>}
-      <p className="nota mt-18">Se crean tus categorías, reglas para Apple Pay y la lista de personas a las que les cobras. Todo se puede editar después.</p>
+      </div>
+      <p className="nota texto-centro mt-18">Se crean tus categorías, reglas para Apple Pay y la lista de personas a las que les cobras. Todo se puede editar después.</p>
     </div>
   );
 }

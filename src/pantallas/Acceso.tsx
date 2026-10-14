@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Campo, Segmentos } from "../ui";
+import { Bienvenido, Campo, Segmentos } from "../ui";
 
 const URL_APP = `${location.origin}${import.meta.env.BASE_URL}`;
 
@@ -42,8 +42,9 @@ export default function Acceso() {
 
   return (
     <div className="acceso">
-      <img className="logo" src={`${import.meta.env.BASE_URL}icono.svg`} alt="" />
-      <h1>Finanzas para dos</h1>
+      <Bienvenido />
+      <div className="panel acceso-panel">
+      <h1>{modo === "crear" ? "Crea tu cuenta" : modo === "olvide" ? "Recupera tu acceso" : "Entra"}</h1>
       <p>{modo === "crear" ? "Crea tu cuenta. Te llegará un correo para confirmarla, solo esta vez."
         : modo === "olvide" ? "Te enviamos un enlace para crear una contraseña nueva."
         : "Entra con tu correo y contraseña."}</p>
@@ -64,13 +65,15 @@ export default function Acceso() {
           {ocupado ? "Un momento…" : modo === "entrar" ? "Entrar" : modo === "crear" ? "Crear cuenta" : "Enviar enlace"}
         </button>
       </form>
-      <div className="acciones">
-        {modo === "olvide"
-          ? <button type="button" className="boton claro" onClick={() => setModo("entrar")}>Volver</button>
-          : <button type="button" className="boton claro" onClick={() => { setModo("olvide"); setError(""); }}>Olvidé mi contraseña</button>}
-      </div>
       {mensaje && <p className="aviso verde" role="status">{mensaje}</p>}
       {error && <p className="error" role="alert">{error}</p>}
+      </div>
+      <p className="texto-centro mt-14">
+        {modo === "olvide"
+          ? <button type="button" className="enlace-chico boton-texto" onClick={() => setModo("entrar")}>Volver a entrar</button>
+          : <button type="button" className="enlace-chico boton-texto" onClick={() => { setModo("olvide"); setError(""); }}>Olvidé mi contraseña</button>}
+      </p>
+      <p className="nota texto-centro mt-18">Finanzas para dos: cuentas, gastos compartidos y presupuesto en pareja.</p>
     </div>
   );
 }
@@ -87,13 +90,16 @@ export function NuevaContrasena() {
   }
   return (
     <div className="acceso">
-      <h1>Contraseña nueva</h1>
-      <p>Escribe la contraseña que usarás para entrar.</p>
-      <form onSubmit={guardar}>
-        <Campo etiqueta="Contraseña nueva"><input type="password" required minLength={6} autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} /></Campo>
-        <button className="boton ancho">Guardar contraseña</button>
-      </form>
-      {error && <p className="error" role="alert">{error}</p>}
+      <Bienvenido />
+      <div className="panel acceso-panel">
+        <h1>Contraseña nueva</h1>
+        <p>Escribe la contraseña que usarás para entrar.</p>
+        <form onSubmit={guardar}>
+          <Campo etiqueta="Contraseña nueva"><input type="password" required minLength={6} autoComplete="new-password" value={clave} onChange={(e) => setClave(e.target.value)} /></Campo>
+          <button className="boton ancho">Guardar contraseña</button>
+        </form>
+        {error && <p className="error" role="alert">{error}</p>}
+      </div>
     </div>
   );
 }

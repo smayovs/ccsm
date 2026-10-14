@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, Campo, SelectorMes, useUnaVez } from "../ui";
+import { Cabeza, Campo, SelectorMes, useUnaVez, Seccion } from "../ui";
 import { errorTexto, fechaCorta, fmt, hoyISO, mesISO, sumarMes, limpiarMonto } from "../util";
 import { IconoMov, SELECT_MOV, textoCategoria } from "./Movimientos";
 import { DesgloseCategorias } from "../desglose";
@@ -126,7 +126,7 @@ export default function Hogar() {
               <span className={"pareja-flecha" + (aMano ? " a-mano" : debe > 0 ? " hacia-mi" : "")}>{aMano ? <Check size={16} /> : "→"}</span>
               <span className={"avatar-mini r-" + colorDe(b.user_id, otro?.color)}>{inicial(b.nombre)}</span>
             </div>
-            <div className="etiqueta">{aMano ? `Están a mano con ${b.nombre}` : debe > 0 ? `${b.nombre} te debe` : `Le debes a ${b.nombre}`}</div>
+            <div className="etiqueta">{aMano ? `Estás a mano con ${b.nombre}` : debe > 0 ? `${b.nombre} te debe` : `Le debes a ${b.nombre}`}</div>
             <div className="cifra">{fmt(Math.abs(debe))}</div>
             <div className="sub">Incluye las mensualidades de compras a meses compartidas que ya se facturaron.</div>
             {!aMano && !abierto && (
@@ -158,8 +158,7 @@ export default function Hogar() {
       })}
 
       {porConfirmar.length > 0 && (
-        <section className="seccion">
-          <div className="seccion-cabeza"><div><h2>Pagos por confirmar</h2></div></div>
+        <Seccion titulo="Pagos por confirmar">
           <div className="lista">
             {porConfirmar.map((l) => {
               const recibo = l.liq_para === uid;
@@ -180,25 +179,23 @@ export default function Hogar() {
               );
             })}
           </div>
-        </section>
+        </Seccion>
       )}
 
       {esperando.length > 0 && (
-        <section className="seccion">
-          <div className="seccion-cabeza"><div><h2>Esperando confirmación</h2></div></div>
+        <Seccion titulo="Esperando confirmación">
           <div className="lista">
             {esperando.map((l) => (
               <div className="fila" key={l.id}><div className="cuerpo"><div className="titulo">Le pagaste {fmt(l.monto)} a {nombres[l.liq_para]}</div>
                 <div className="detalle">{fechaCorta(l.fecha)} · se descuenta cuando {nombres[l.liq_para]} lo confirme</div></div></div>
             ))}
           </div>
-        </section>
+        </Seccion>
       )}
 
       {error && <p className="error" role="alert">{error}</p>}
 
-      <section className="seccion">
-        <div className="seccion-cabeza"><div><h2>Compartidos</h2></div></div>
+      <Seccion titulo="Compartidos">
         <SelectorMes mes={mes} onCambio={setMes} />
         {totalCompartido > 0.5 && (
           <div className="panel mb-10">
@@ -238,17 +235,13 @@ export default function Hogar() {
             );
           })}
         </div>
-      </section>
+      </Seccion>
 
-      <section className="seccion">
-        <div className="seccion-cabeza">
-          <div><h2>Gasto del hogar</h2><div className="etiq-periodo">Categorías «Hogar:» de los dos, completas</div></div>
-          <span className="enlace-chico num">{fmt(totalHogar, false)}</span>
-        </div>
+      <Seccion titulo="Gasto del hogar" ayuda="Categorías «Hogar:» de los dos, completas" accion={<span className="enlace-chico num">{fmt(totalHogar, false)}</span>}>
         <div className="panel">
           {catsHogar.length ? <DesgloseCategorias cats={catsHogar} total={totalHogar} /> : <div className="vacio p-8-0">Sin gastos del hogar este mes.</div>}
         </div>
-      </section>
+      </Seccion>
       <p className="nota mt-14">Las categorías del hogar se editan en <Link to="/ajustes/categorias">Categorías</Link>. Para una cuenta conjunta, créala en <Link to="/ajustes/cuentas">Cuentas</Link>.</p>
     </>
   );

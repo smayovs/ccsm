@@ -3,7 +3,7 @@ import { IconoCuenta } from "../iconos";
 import { useNavigate } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
-import { Cabeza, Campo, ConfirmarBorrar, useUnaVez } from "../ui";
+import { Cabeza, Campo, ConfirmarBorrar, useUnaVez, Seccion } from "../ui";
 import { CaretRight, Plus } from "../phosphor";
 import { errorTexto, hoyISO, TIPOS_CUENTA, VISIBILIDAD, limpiarMonto } from "../util";
 
@@ -177,8 +177,7 @@ export default function Cuentas() {
       )}
       {todas.length === 0 && <p>Agrega tus cuentas con el saldo de hoy: débito, cada tarjeta de crédito y tu cuenta de ahorro.</p>}
       {grupos.map(([t, l]) => l.length > 0 && (
-        <section key={t} className="seccion">
-          <div className="seccion-cabeza"><div><h2>{t} <span className="contador">{l.length}</span></h2></div></div>
+        <Seccion key={t} titulo={t} contador={l.length}>
           <div className="lista">
             {l.map((c, i) => ordenando && c.propietario_id === uid ? (
               <div className="fila" key={c.id}>
@@ -203,7 +202,7 @@ export default function Cuentas() {
               </button>
             ))}
           </div>
-        </section>
+        </Seccion>
       ))}
       {error && <p className="error" role="alert">{error}</p>}
     </>

@@ -19,7 +19,7 @@ export default function Perfil() {
     <>
       <Cabeza titulo="Perfil y hogar" volver />
       <div className="perfil-tarjeta">
-        <span className="avatar" aria-hidden="true">{(nombre || "?").trim().charAt(0).toUpperCase()}</span>
+        <span className={"avatar r-" + (yo?.color ?? "gris")} aria-hidden="true">{(nombre || "?").trim().charAt(0).toUpperCase()}</span>
         <div className="cuerpo"><div className="nombre">{nombre || "Tu nombre"}</div><div className="detalle">{session?.user.email}</div></div>
       </div>
       <Seccion titulo="Tu nombre">

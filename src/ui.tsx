@@ -94,6 +94,27 @@ export function Cargando() {
   );
 }
 
+// Símbolo de la marca: la moneda partida 60/40, rosa (ella) y gris (él)
+export function Marca({ tam = 88 }: { tam?: number }) {
+  return (
+    <svg width={tam} height={tam} viewBox="0 0 100 100" role="img" aria-label="ccsm">
+      <path d="M58.69 10.95 A40 40 0 1 0 49.2 89.99 Z" fill="var(--rosa)" />
+      <path d="M64.47 12.71 A40 40 0 0 1 55.24 89.65 Z" fill="var(--gris)" />
+    </svg>
+  );
+}
+
+// Encabezado de las pantallas de entrada: símbolo, nombre y lema
+export function Bienvenido({ lema = "Cuentas claras entre dos." }: { lema?: string }) {
+  return (
+    <div className="marca-bloque">
+      <Marca tam={84} />
+      <div className="marca-nombre">ccsm</div>
+      <div className="marca-lema">{lema}</div>
+    </div>
+  );
+}
+
 // Borrar con confirmación dentro de la app (en lugar de la ventana del sistema): el primer toque pregunta
 export function ConfirmarBorrar({ etiqueta, pregunta, confirmar = "Sí, borrar", chico, onConfirmar }: {
   etiqueta: string; pregunta?: string; confirmar?: string; chico?: boolean; onConfirmar: () => unknown;

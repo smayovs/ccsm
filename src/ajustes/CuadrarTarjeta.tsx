@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useApp } from "../contexto";
-import { Cabeza } from "../ui";
+import { Cabeza, Cargando } from "../ui";
 import { errorTexto, fmt } from "../util";
 import { aplicarSaldos, filasInvalidas, BloqueSaldos, cargarMensualidades, deudaTotal, faltante, ListaMensualidades, saldosVacios, type FilaMsi, type Saldos } from "./saldosTarjeta";
 
@@ -23,7 +23,7 @@ export default function CuadrarTarjeta() {
     cargarMensualidades(c.id, c.dia_corte).then((f) => { setFilas(f); setOriginales(f); });
   }, [c?.id, c?.dia_corte]);
 
-  if (!c) return <><Cabeza titulo="Cuadrar tarjeta" volver /><div className="vacio">Cargando…</div></>;
+  if (!c) return <><Cabeza titulo="Cuadrar tarjeta" volver /><Cargando /></>;
   if (!c.dia_corte) return <><Cabeza titulo="Cuadrar tarjeta" volver /><p>Primero escribe el día de corte de {c.nombre} en Más › Cuentas.</p></>;
 
   async function guardar() {

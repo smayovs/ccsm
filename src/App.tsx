@@ -3,7 +3,7 @@ import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useApp } from "./contexto";
 import { sb } from "./supabase";
 import { DotsThreeOutline, House, ListBullets, Plus, UsersThree } from "./phosphor";
-import { Cargando } from "./ui";
+import { Bienvenido, Cargando } from "./ui";
 import { perezoso } from "./perezoso";
 // Lo primero que ves al abrir va en la descarga inicial; el resto se descarga al abrir cada pantalla
 // (la app instalada las guarda todas, así que también funcionan sin conexión)
@@ -52,6 +52,7 @@ export default function App() {
   // Si no se pudo cargar (sin conexión), se avisa en lugar de pedir que crees un hogar
   if (fallo && !yo) return (
     <div className="acceso">
+      <Bienvenido />
       <h1>Sin conexión</h1>
       <p>No pude cargar tus datos. Revisa tu internet e inténtalo de nuevo.</p>
       <button className="boton ancho" disabled={reintentando}

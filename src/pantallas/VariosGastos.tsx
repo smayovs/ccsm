@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, useUnaVez } from "../ui";
+import { Cabeza, Cargando, useUnaVez } from "../ui";
 import { errorTexto, fmt, hoyISO, limpiarMonto } from "../util";
 
 type Fila = { fecha: string; descripcion: string; monto: string; categoria: string; meses: string };
@@ -54,7 +54,7 @@ export default function VariosGastos() {
     nav(-1);
   }
 
-  if (!cuenta) return <><Cabeza titulo="Varios gastos" volver /><div className="vacio">Cargando…</div></>;
+  if (!cuenta) return <><Cabeza titulo="Varios gastos" volver /><Cargando /></>;
   const credito = cuenta.tipo === "credito";
 
   return (

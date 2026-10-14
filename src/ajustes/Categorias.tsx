@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { sb } from "../supabase";
 import { useApp, type Categoria } from "../contexto";
-import { Cabeza, Segmentos } from "../ui";
+import { Cabeza, Segmentos, Seccion } from "../ui";
 import { errorTexto, fmt, limpiarMonto } from "../util";
 import { IconoCategoria, nombreIcono, SelectorIcono } from "../iconos";
 import { CaretDown, CaretRight, Plus } from "../phosphor";
@@ -114,14 +114,13 @@ export default function Categorias() {
           );
         })}
       </div>
-      <section className="seccion">
-        <div className="seccion-cabeza"><div><h2>Nueva categoría</h2></div></div>
+      <Seccion titulo="Nueva categoría">
         <div className="flex gap-8">
           <input className="buscador m-0 crece" aria-label={delHogar ? "Nueva categoría del hogar" : "Nueva categoría"} placeholder={delHogar ? "Por ejemplo: Renta" : "Por ejemplo: Mascotas"} value={sinPrefijo(nueva)}
             onChange={(e) => setNueva(delHogar && e.target.value ? "Hogar: " + e.target.value : e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") crear(null); }} />
           <button className="boton-icono acento" aria-label="Agregar categoría" disabled={!nueva.trim()} onClick={() => crear(null)}><Plus size={20} /></button>
         </div>
-      </section>
+      </Seccion>
       <p className="nota mt-14">Archivar oculta la categoría de los menús sin perder los movimientos que ya la usan. Al renombrar, los movimientos registrados se actualizan solos.</p>
       <p className="texto-centro mt-14"><button className="enlace-chico boton-texto" onClick={() => setVerArchivadas(!verArchivadas)}>{verArchivadas ? "Ocultar archivadas" : "Ver archivadas"}</button></p>
       {error && <p className="error" role="alert">{error}</p>}

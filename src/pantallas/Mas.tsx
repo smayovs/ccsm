@@ -55,7 +55,7 @@ export default function Mas({ pendientes = 0 }: { pendientes?: number }) {
     <>
       <Cabeza titulo="Más" />
       <Link className="perfil-tarjeta" to="/ajustes/perfil">
-        <span className="avatar" aria-hidden="true">{(yo?.nombre ?? "?").trim().charAt(0).toUpperCase()}</span>
+        <span className={"avatar r-" + (yo?.color ?? "gris")} aria-hidden="true">{(yo?.nombre ?? "?").trim().charAt(0).toUpperCase()}</span>
         <div className="cuerpo">
           <div className="nombre">{yo?.nombre}</div>
           <div className="detalle">{otros.length ? `Hogar con ${otros.map((o) => o.nombre).join(" y ")}` : "Invita a tu pareja a tu hogar"} · Perfil y sesión</div>

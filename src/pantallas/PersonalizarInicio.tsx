@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowDown, ArrowUp } from "../phosphor";
 import { useApp } from "../contexto";
-import { Cabeza, Campo, Segmentos, useUnaVez } from "../ui";
+import { Cabeza, Campo, Cargando, Segmentos, useUnaVez } from "../ui";
 import { errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, masDias } from "../util";
 import { cargarCiclo, cargarConfig, cargarMeta, ConfigInicio, configInicial, guardarCiclo, guardarConfig, guardarMeta, inicioCatorcena, type ModoMeta, SECCIONES } from "../inicio/secciones";
 
@@ -63,7 +63,7 @@ export default function PersonalizarInicio() {
     cambiar(nueva);
   };
 
-  if (!config) return <><Cabeza titulo="Personalizar Inicio" volver /><div className="vacio">Cargando…</div></>;
+  if (!config) return <><Cabeza titulo="Personalizar Inicio" volver /><Cargando /></>;
   const activas = config.filter((c) => c.visible).length;
 
   return (
