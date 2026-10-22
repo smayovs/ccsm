@@ -6,6 +6,7 @@ import { Cabeza, Campo, Cargando, Seccion, Segmentos } from "../ui";
 import { conDia, diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, nombreMes, sumarMes, TIPOS_CUENTA } from "../util";
 import { IconoMov, lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
 import { Anillo } from "../graficas";
+import { DesgloseCategorias, type Cat } from "../desglose";
 import { ArrowsLeftRight, CalendarDots, Clock, FilePdf, Plus, SquaresFour } from "../phosphor";
 import { cargarConfigTarjeta, configTarjetaInicial, type ConfigTarjeta, type IdSeccionTarjeta } from "../inicio/secciones";
 import { cargarCobros, textoEstado, type EstadoMov } from "../cobros";
@@ -48,6 +49,8 @@ export default function Cuenta() {
   const [configTarjeta, setConfigTarjeta] = useState<ConfigTarjeta | null>(null);
   const [generando, setGenerando] = useState(false);
   useEffect(() => { cargarConfigTarjeta(uid).then(setConfigTarjeta); }, [uid]);
+  // Al abrir otra tarjeta desde aquí, se empieza de cero: corte actual, todos los movimientos y sin datos de la anterior
+  useEffect(() => { setAtras(0); setVista("todos"); setD(null); setMovs([]); setComprasMsi([]); setFallo(""); }, [id]);
   useEffect(() => {
     sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").eq("cuenta_id", id).not("meses_msi", "is", null)
       .then(({ data }) => setComprasMsi(data ?? []));
@@ -209,13 +212,16 @@ export default function Cuenta() {
   // Mensualidades de los próximos cortes: cada compra a meses suma su mensualidad mientras le queden
   const porvenir = d.proximo_corte ? Array.from({ length: 6 }, (_, k) => ({
     mes: sumarMes(mesISO(d.proximo_corte!), k),
-    monto: (d.msi ?? []).reduce((a, x) => a + (x.restantes > k ? n(x.mensualidad) : 0), 0),
+    // El corte abierto toma la cifra de la base, que ya ajusta los centavos de la primera mensualidad
+    monto: k === 0 ? mens : (d.msi ?? []).reduce((a, x) => a + (x.restantes > k ? n(x.mensualidad) : 0), 0),
   })).filter((p) => p.monto > 0) : [];
-  const porCategoria = Object.entries(cargos.reduce((acc: Record<string, number>, m) => {
-    const c = m.categoria ? (m.categoria.padre?.nombre ?? m.categoria.nombre) : m.tipo === "gasto" ? "Sin categoría" : "Otros cargos";
-    acc[c] = (acc[c] ?? 0) + cargoDe(m); return acc;
-  }, {})).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-  const totalCat = porCategoria.reduce((a, [, v]) => a + v, 0);
+  const porCategoria: Cat[] = Object.values(cargos.reduce((acc: Record<string, Cat>, m) => {
+    const nombre = m.categoria ? (m.categoria.padre?.nombre ?? m.categoria.nombre) : m.tipo === "gasto" ? "Sin categoría" : "Otros cargos";
+    const icono = m.categoria ? (m.categoria.padre?.icono ?? m.categoria.icono ?? null) : null;
+    (acc[nombre] ??= { clave: nombre, nombre, icono, total: 0, subs: [] }).total += cargoDe(m);
+    return acc;
+  }, {})).filter((c) => c.total > 0).sort((a, b) => b.total - a.total);
+  const totalCat = porCategoria.reduce((a, c) => a + c.total, 0);
   const nombrePeriodo = atras === 0 ? `desde el corte del ${fechaCorta(d.ultimo_corte!)}` : `del corte del ${fechaCorta(pAtras!.fin)}`;
 
   async function pdf() {
@@ -224,15 +230,18 @@ export default function Cuenta() {
     try {
       const { descargarEstado } = await import("../estadoCuenta");
       const abonos = filas.filter(entraMov);
+      // Devoluciones: lo que el comercio te regresa a la tarjeta; pagos: lo que abonas desde otra cuenta
+      const esDevolucion = (m: Mov) => ["ingreso", "reembolso"].includes(m.tipo);
       await descargarEstado({
         tarjeta: d.nombre, titular: yo?.nombre ?? "",
         periodo: atras === 0 ? { desde: addDia(d.ultimo_corte!), hasta: d.proximo_corte ?? hoyISO(), abierto: true } : { desde: masDias(pAtras!.ini, 1), hasta: pAtras!.fin, abierto: false },
         corte: { dia: d.dia_corte, pagoDia: d.dia_pago },
         resumen: {
-          deuda, limite, msiPorFacturar: n(d.msi_por_facturar), devoluciones: 0,
+          deuda, limite, msiPorFacturar: n(d.msi_por_facturar),
+          devoluciones: abonos.filter(esDevolucion).reduce((a, m) => a + Number(m.monto), 0),
           contado: cargos.filter((m) => !esMensualidad(m)).reduce((a, m) => a + cargoDe(m), 0),
           mensualidades: cargos.filter(esMensualidad).reduce((a, m) => a + cargoDe(m), 0),
-          pagos: abonos.reduce((a, m) => a + Number(m.monto), 0),
+          pagos: abonos.filter((m) => !esDevolucion(m)).reduce((a, m) => a + Number(m.monto), 0),
         },
         pago: atras <= 1 ? { monto: pagoCorte, pagado, fecha: d.fecha_pago ?? null, estimado } : null,
         proximo: atras === 0 ? { monto: proximo, fecha: d.fecha_pago_siguiente ?? null } : null,
@@ -338,15 +347,10 @@ export default function Cuenta() {
 
     categorias: () => (
       <Seccion titulo="En qué se va" ayuda={<>Cargos {nombrePeriodo}</>}>
-        <div className="lista">
-          {porCategoria.length === 0 && <div className="vacio">{cargandoMovs ? "Cargando…" : "Sin cargos en este periodo."}</div>}
-          {porCategoria.map(([c, v]) => (
-            <div className="fila" key={c}>
-              <div className="cuerpo"><div className="titulo">{c}</div>
-                <div className="barra"><span style={{ width: `${(v / totalCat) * 100}%` }} /></div></div>
-              <div className="monto">{fmt(v)}<small>{Math.round((v / totalCat) * 100)}%</small></div>
-            </div>
-          ))}
+        <div className="panel">
+          {porCategoria.length === 0
+            ? <div className="vacio p-8-0">{cargandoMovs ? "Cargando…" : "Sin cargos en este periodo."}</div>
+            : <DesgloseCategorias cats={porCategoria} total={totalCat} />}
         </div>
       </Seccion>
     ),
@@ -405,7 +409,7 @@ export default function Cuenta() {
         </>
       )}
       <Segmentos etiqueta="Qué movimientos ver" valor={vista} onCambio={setVista} opciones={[
-        { v: "gastos", t: "Gastos" }, { v: "msi", t: "Meses sin intereses" }, { v: "todos", t: "Todos" },
+        { v: "todos", t: "Todos" }, { v: "gastos", t: "Gastos" }, { v: "msi", t: "Meses sin intereses" },
       ]} />
       {vista !== "todos" && !cargandoMovs && vistas.filas.length > 0 && (
         <p className="nota mt-n6 mb-8">{vistas.filas.length} {vistas.filas.length === 1 ? "cargo" : "cargos"} · {fmt(vistas.filas.reduce((a, m) => a + cargoDe(m), 0))} en este corte{vista === "msi" ? ", contando cada mensualidad por su parte" : ""}.</p>
