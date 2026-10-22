@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } f
 import { Link, useParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { Cabeza, Campo, Cargando, Seccion } from "../ui";
+import { Cabeza, Campo, Cargando, Seccion, Segmentos } from "../ui";
 import { conDia, diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, nombreMes, sumarMes, TIPOS_CUENTA } from "../util";
 import { IconoMov, lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
 import { Anillo } from "../graficas";
@@ -39,6 +39,8 @@ export default function Cuenta() {
   const [cobros, setCobros] = useState<Record<string, EstadoMov[]>>({});
   // Tarjetas: cuántos periodos de corte hacia atrás se ven (0 = el periodo abierto, desde el último corte)
   const [atras, setAtras] = useState(0);
+  // Tarjetas: qué movimientos se ven en la lista (solo gastos de contado, meses sin intereses o todos)
+  const [vista, setVista] = useState<"todos" | "gastos" | "msi">("todos");
   const [cargandoMovs, setCargandoMovs] = useState(true);
   // Compras a meses de esta tarjeta (se piden una vez): de ellas salen las mensualidades de cada corte
   const [comprasMsi, setComprasMsi] = useState<Mov[]>([]);
@@ -108,10 +110,10 @@ export default function Cuenta() {
   const limite = n(d.limite);
   const usado = limite > 0 ? deuda / limite : 0;
 
-  const lista = (
+  const listaDe = (fs: Mov[], vacio = credito ? (atras ? "Sin movimientos en este periodo." : "Sin movimientos desde el corte.") : "Sin movimientos este mes.") => (
     <div className="lista">
-      {filas.length === 0 && <div className="vacio">{cargandoMovs ? "Cargando…" : credito ? (atras ? "Sin movimientos en este periodo." : "Sin movimientos desde el corte.") : "Sin movimientos este mes."}</div>}
-      {filas.map((m) => {
+      {fs.length === 0 && <div className="vacio">{cargandoMovs ? "Cargando…" : vacio}</div>}
+      {fs.map((m) => {
         const l = lineaMov(m, uid, nombres);
         const entra = entraMov(m);
         const editable = m.tipo !== "liquidacion" && (l.mio || l.miParte);
@@ -135,6 +137,7 @@ export default function Cuenta() {
       })}
     </div>
   );
+  const lista = listaDe(filas);
 
   if (d.tipo === "prestamo") {
     const pm = n(cuentas.find((c) => c.id === id)?.pago_mensual);
@@ -253,10 +256,17 @@ export default function Cuenta() {
     }
   }
   const botonPdf = (
-    <button className="boton claro" onClick={pdf} disabled={generando || cargandoMovs}>
-      <FilePdf size={18} aria-hidden="true" /> {generando ? "Generando…" : "Estado de cuenta en PDF"}
+    <button className="boton-icono" onClick={pdf} disabled={generando || cargandoMovs} aria-busy={generando}
+      aria-label={`Descargar estado de cuenta en PDF (${atras === 0 ? "periodo actual" : `corte del ${fechaCorta(pAtras!.fin)}`})`} title="Estado de cuenta en PDF">
+      <FilePdf size={22} aria-hidden="true" />
     </button>
   );
+  // Gastos: compras de contado. Meses sin intereses: las mensualidades del corte y las compras a meses nuevas.
+  const vistas = {
+    todos: { filas, vacio: undefined },
+    gastos: { filas: filas.filter((m) => m.tipo === "gasto" && !m.movId && !m.meses_msi), vacio: "Sin gastos de contado en este periodo." },
+    msi: { filas: filas.filter((m) => m.movId || (m.tipo === "gasto" && m.meses_msi)), vacio: "Sin mensualidades ni compras a meses en este periodo." },
+  }[vista];
 
   const secciones: Record<IdSeccionTarjeta, () => ReactNode> = {
     resumen: () => (
@@ -394,18 +404,26 @@ export default function Cuenta() {
           )}
         </>
       )}
-      {lista}
-      <div className="acciones mt-12">{botonPdf}</div>
-      <p className="nota texto-centro">El PDF es del periodo que estás viendo: cámbialo con las flechas.</p>
+      <Segmentos etiqueta="Qué movimientos ver" valor={vista} onCambio={setVista} opciones={[
+        { v: "gastos", t: "Gastos" }, { v: "msi", t: "Meses sin intereses" }, { v: "todos", t: "Todos" },
+      ]} />
+      {vista !== "todos" && !cargandoMovs && vistas.filas.length > 0 && (
+        <p className="nota mt-n6 mb-8">{vistas.filas.length} {vistas.filas.length === 1 ? "cargo" : "cargos"} · {fmt(vistas.filas.reduce((a, m) => a + cargoDe(m), 0))} en este corte{vista === "msi" ? ", contando cada mensualidad por su parte" : ""}.</p>
+      )}
+      {listaDe(vistas.filas, vistas.vacio)}
       </Seccion>
     ),
   };
   const orden = configTarjeta ?? configTarjetaInicial();
-  const conMovimientos = orden.some((c) => c.id === "movimientos" && c.visible);
 
   return (
     <>
-      <Cabeza titulo={d.nombre} volver accion={<Link to="/tarjetas/personalizar" className="boton-icono" aria-label="Personalizar tarjetas"><SquaresFour size={22} /></Link>} />
+      <Cabeza titulo={d.nombre} volver accion={
+        <div className="flex gap-8">
+          {botonPdf}
+          <Link to="/tarjetas/personalizar" className="boton-icono" aria-label="Personalizar tarjetas"><SquaresFour size={22} /></Link>
+        </div>
+      } />
       {orden.filter((c) => c.visible).map((c, i) => (
         <Fragment key={c.id}>
           {secciones[c.id]()}
@@ -413,7 +431,6 @@ export default function Cuenta() {
         </Fragment>
       ))}
       {!orden.some((c) => c.visible) && acciones()}
-      {!conMovimientos && <div className="acciones mt-14">{botonPdf}</div>}
       {fallo && <p className="error" role="alert">{fallo}</p>}
       <p className="nota mt-14">Corte día {d.dia_corte} · pago día {d.dia_pago}. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link> · <Link to="/ajustes/cuentas">Editar tarjeta</Link> · <Link to="/tarjetas/personalizar">Personalizar esta pantalla</Link></p>
     </>
