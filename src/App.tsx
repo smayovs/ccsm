@@ -11,6 +11,7 @@ import Acceso, { NuevaContrasena } from "./pantallas/Acceso";
 import Bienvenida from "./pantallas/Bienvenida";
 import Inicio from "./pantallas/Inicio";
 const PersonalizarInicio = perezoso(() => import("./pantallas/PersonalizarInicio"));
+const PersonalizarTarjeta = perezoso(() => import("./pantallas/PersonalizarTarjeta"));
 const AparienciaPantalla = perezoso(() => import("./ajustes/Apariencia"));
 const Movimientos = perezoso(() => import("./pantallas/Movimientos"));
 const Formulario = perezoso(() => import("./pantallas/Formulario"));
@@ -78,6 +79,7 @@ export default function App() {
           <Route path="/pendientes" element={<Pendientes onCambio={setPendientes} />} />
           <Route path="/mas" element={<Mas pendientes={pendientes} />} />
           <Route path="/cuenta/:id" element={<Cuenta />} />
+          <Route path="/tarjetas/personalizar" element={<PersonalizarTarjeta />} />
           <Route path="/cuenta/:id/varios" element={<VariosGastos />} />
           <Route path="/analisis" element={<Analisis />} />
           <Route path="/cobros" element={<Cobros />} />

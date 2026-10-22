@@ -32,11 +32,12 @@ export type ConfigInicio = { id: IdSeccion; visible: boolean }[];
 export const configInicial = (): ConfigInicio => SECCIONES.map((s) => ({ id: s.id, visible: s.inicial }));
 
 // Une lo guardado con el catálogo: secciones nuevas se agregan al final con su valor inicial
-export function normalizar(guardado: unknown): ConfigInicio {
-  const lista = Array.isArray(guardado) ? (guardado as ConfigInicio).filter((x) => SECCIONES.some((s) => s.id === x?.id)) : [];
+function normalizarCon<T extends string>(catalogo: { id: T; inicial: boolean }[], guardado: unknown): { id: T; visible: boolean }[] {
+  const lista = Array.isArray(guardado) ? (guardado as { id: T; visible: boolean }[]).filter((x) => catalogo.some((s) => s.id === x?.id)) : [];
   const vistos = new Set(lista.map((x) => x.id));
-  return [...lista.map((x) => ({ id: x.id, visible: !!x.visible })), ...SECCIONES.filter((s) => !vistos.has(s.id)).map((s) => ({ id: s.id, visible: s.inicial }))];
+  return [...lista.map((x) => ({ id: x.id, visible: !!x.visible })), ...catalogo.filter((s) => !vistos.has(s.id)).map((s) => ({ id: s.id, visible: s.inicial }))];
 }
+export const normalizar = (guardado: unknown): ConfigInicio => normalizarCon(SECCIONES, guardado);
 
 // Usa las preferencias que ya pidió el arranque (preferencias.ts) en lugar de pedirlas otra vez
 export async function cargarConfig(uid: string): Promise<ConfigInicio> {
@@ -45,7 +46,7 @@ export async function cargarConfig(uid: string): Promise<ConfigInicio> {
 }
 
 // Lo de Inicio se guarda junto (secciones y meta): cada cambio conserva lo demás que ya estaba guardado
-async function guardarInicio(uid: string, cambio: { secciones?: ConfigInicio; meta?: number; metaModo?: ModoMeta; ciclo?: Ciclo }) {
+async function guardarInicio(uid: string, cambio: { secciones?: ConfigInicio; meta?: number; metaModo?: ModoMeta; ciclo?: Ciclo; tarjeta?: ConfigTarjeta }) {
   const actual = (await cargarPreferencias(uid))?.inicio ?? {};
   const r = await sb.from("preferencias").upsert({ user_id: uid, inicio: { ...actual, ...cambio }, updated_at: new Date().toISOString() });
   olvidarPreferencias();
@@ -53,6 +54,27 @@ async function guardarInicio(uid: string, cambio: { secciones?: ConfigInicio; me
 }
 
 export const guardarConfig = (uid: string, secciones: ConfigInicio) => guardarInicio(uid, { secciones });
+
+// ---------- Detalle de tarjeta ----------
+// Qué secciones se ven en el detalle de una tarjeta de crédito y en qué orden (igual para todas tus tarjetas)
+export type IdSeccionTarjeta = "resumen" | "pago" | "periodo" | "porvenir" | "categorias" | "msi" | "aplazados" | "movimientos";
+export const SECCIONES_TARJETA: { id: IdSeccionTarjeta; nombre: string; detalle: string; inicial: boolean }[] = [
+  { id: "resumen", nombre: "Resumen", detalle: "Lo que debes en total, disponible y límite", inicial: true },
+  { id: "pago", nombre: "Tu pago", detalle: "El pago para no generar intereses y su fecha", inicial: true },
+  { id: "periodo", nombre: "Periodo actual", detalle: "Compras de contado y mensualidades de este corte", inicial: true },
+  { id: "porvenir", nombre: "Mensualidades por venir", detalle: "Lo que suman tus compras a meses en los próximos cortes", inicial: false },
+  { id: "categorias", nombre: "En qué se va", detalle: "Cargos del corte que estás viendo por categoría", inicial: false },
+  { id: "msi", nombre: "Meses sin intereses", detalle: "Cada compra a meses: cuántas van y cuánto falta", inicial: true },
+  { id: "aplazados", nombre: "Cargos aplazados", detalle: "Compras que el banco cobra más adelante", inicial: true },
+  { id: "movimientos", nombre: "Movimientos", detalle: "Gastos, mensualidades y pagos de cada corte", inicial: true },
+];
+export type ConfigTarjeta = { id: IdSeccionTarjeta; visible: boolean }[];
+export const configTarjetaInicial = (): ConfigTarjeta => SECCIONES_TARJETA.map((s) => ({ id: s.id, visible: s.inicial }));
+export async function cargarConfigTarjeta(uid: string): Promise<ConfigTarjeta> {
+  const p = await cargarPreferencias(uid);
+  return normalizarCon(SECCIONES_TARJETA, p?.inicio?.tarjeta);
+}
+export const guardarConfigTarjeta = (uid: string, tarjeta: ConfigTarjeta) => guardarInicio(uid, { tarjeta });
 
 // Meta de gasto mensual: un monto fijo o lo que entró de ingresos en el mes (sueldo, bonos y demás)
 export type ModoMeta = "ninguna" | "fija" | "ingresos";

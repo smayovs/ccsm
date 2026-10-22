@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza, Campo, Cargando, Seccion } from "../ui";
-import { conDia, diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, sumarMes, TIPOS_CUENTA } from "../util";
+import { conDia, diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, masDias, mensualidadEn, mesISO, montoMensualidad, msiAnteriores, nombreMes, sumarMes, TIPOS_CUENTA } from "../util";
 import { IconoMov, lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
 import { Anillo } from "../graficas";
-import { ArrowsLeftRight, CalendarDots, Clock, Plus } from "../phosphor";
+import { ArrowsLeftRight, CalendarDots, Clock, FilePdf, Plus, SquaresFour } from "../phosphor";
+import { cargarConfigTarjeta, configTarjetaInicial, type ConfigTarjeta, type IdSeccionTarjeta } from "../inicio/secciones";
 import { cargarCobros, textoEstado, type EstadoMov } from "../cobros";
 
 type Detalle = {
@@ -41,6 +42,10 @@ export default function Cuenta() {
   const [cargandoMovs, setCargandoMovs] = useState(true);
   // Compras a meses de esta tarjeta (se piden una vez): de ellas salen las mensualidades de cada corte
   const [comprasMsi, setComprasMsi] = useState<Mov[]>([]);
+  // Secciones que eliges ver en el detalle de tus tarjetas (Personalizar tarjetas)
+  const [configTarjeta, setConfigTarjeta] = useState<ConfigTarjeta | null>(null);
+  const [generando, setGenerando] = useState(false);
+  useEffect(() => { cargarConfigTarjeta(uid).then(setConfigTarjeta); }, [uid]);
   useEffect(() => {
     sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").eq("cuenta_id", id).not("meses_msi", "is", null)
       .then(({ data }) => setComprasMsi(data ?? []));
@@ -194,10 +199,67 @@ export default function Cuenta() {
   const contado = n(d.periodo_contado), mens = n(d.mensualidades_proximo), dev = n(d.periodo_devoluciones);
   const proximo = Math.max(0, contado + mens - dev);
   const vencido = falta > 0 && diasEntre(hoyISO(), d.fecha_pago!) < 0;
+  // El pago lleva precargado lo que falta para no generar intereses
+  const aPagar = `/nuevo?tipo=transferencia&destino=${id}${falta > 0 ? `&monto=${falta}` : ""}`;
+  const esMensualidad = (m: Mov) => !!(m.movId || m.compra);
+  const cargos = filas.filter((m) => !entraMov(m));
+  // Mensualidades de los próximos cortes: cada compra a meses suma su mensualidad mientras le queden
+  const porvenir = d.proximo_corte ? Array.from({ length: 6 }, (_, k) => ({
+    mes: sumarMes(mesISO(d.proximo_corte!), k),
+    monto: (d.msi ?? []).reduce((a, x) => a + (x.restantes > k ? n(x.mensualidad) : 0), 0),
+  })).filter((p) => p.monto > 0) : [];
+  const porCategoria = Object.entries(cargos.reduce((acc: Record<string, number>, m) => {
+    const c = m.categoria ? (m.categoria.padre?.nombre ?? m.categoria.nombre) : m.tipo === "gasto" ? "Sin categoría" : "Otros cargos";
+    acc[c] = (acc[c] ?? 0) + cargoDe(m); return acc;
+  }, {})).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const totalCat = porCategoria.reduce((a, [, v]) => a + v, 0);
+  const nombrePeriodo = atras === 0 ? `desde el corte del ${fechaCorta(d.ultimo_corte!)}` : `del corte del ${fechaCorta(pAtras!.fin)}`;
 
-  return (
-    <>
-      <Cabeza titulo={d.nombre} volver />
+  async function pdf() {
+    if (!d || cargandoMovs) return;
+    setGenerando(true);
+    try {
+      const { descargarEstado } = await import("../estadoCuenta");
+      const abonos = filas.filter(entraMov);
+      await descargarEstado({
+        tarjeta: d.nombre, titular: yo?.nombre ?? "",
+        periodo: atras === 0 ? { desde: addDia(d.ultimo_corte!), hasta: d.proximo_corte ?? hoyISO(), abierto: true } : { desde: masDias(pAtras!.ini, 1), hasta: pAtras!.fin, abierto: false },
+        corte: { dia: d.dia_corte, pagoDia: d.dia_pago },
+        resumen: {
+          deuda, limite, msiPorFacturar: n(d.msi_por_facturar), devoluciones: 0,
+          contado: cargos.filter((m) => !esMensualidad(m)).reduce((a, m) => a + cargoDe(m), 0),
+          mensualidades: cargos.filter(esMensualidad).reduce((a, m) => a + cargoDe(m), 0),
+          pagos: abonos.reduce((a, m) => a + Number(m.monto), 0),
+        },
+        pago: atras <= 1 ? { monto: pagoCorte, pagado, fecha: d.fecha_pago ?? null, estimado } : null,
+        proximo: atras === 0 ? { monto: proximo, fecha: d.fecha_pago_siguiente ?? null } : null,
+        movimientos: filas.map((m) => {
+          const l = lineaMov(m, uid, nombres);
+          const entra = entraMov(m);
+          const etiq = m.movId ? `Mensualidad ${m.msiK} de ${m.meses_msi}`
+            : m.meses_msi && m.compra ? `${m.meses_msi} MSI · ${m.msiK >= 1 ? "1.ª en este corte" : "empieza el siguiente corte"}` : "";
+          const cat = m.categoria ? (m.categoria.padre ? `${m.categoria.padre.nombre} › ${m.categoria.nombre}` : m.categoria.nombre) : "";
+          return { fecha: m.fecha, concepto: l.titulo, detalle: [etiq, m.tipo !== "gasto" ? l.detalle : cat].filter(Boolean).join(" · "),
+            cargo: entra ? 0 : cargoDe(m), abono: entra ? Number(m.monto) : 0 };
+        }),
+        msi: (d.msi ?? []).map((x) => ({ descripcion: x.descripcion, meses: x.meses, facturadas: x.facturadas, restantes: x.restantes, mensualidad: n(x.mensualidad) })),
+        porvenir,
+        aplazados: (d.aplazados ?? []).map((x) => ({ fecha: x.fecha, descripcion: x.descripcion, monto: Number(x.monto) })),
+      });
+    } catch (e) {
+      setFallo(errorTexto(e));
+    } finally {
+      setGenerando(false);
+    }
+  }
+  const botonPdf = (
+    <button className="boton claro" onClick={pdf} disabled={generando || cargandoMovs}>
+      <FilePdf size={18} aria-hidden="true" /> {generando ? "Generando…" : "Estado de cuenta en PDF"}
+    </button>
+  );
+
+  const secciones: Record<IdSeccionTarjeta, () => ReactNode> = {
+    resumen: () => (
       <section className="tablero" aria-label="Resumen de la tarjeta">
         <div className="tablero-arriba">
           <div className="tablero-texto">
@@ -213,12 +275,9 @@ export default function Cuenta() {
           <div><div className="k">Próximo pago</div><div className="v">{fmt(proximo, false)}</div></div>
         </div>
       </section>
-      <div className="acciones mt-12">
-        <Link className="boton" to={`/nuevo?cuenta=${id}`}><Plus size={18} aria-hidden="true" /> Registrar gasto</Link>
-        <Link className="boton claro" to={`/nuevo?tipo=transferencia&destino=${id}`}><ArrowsLeftRight size={18} aria-hidden="true" /> Pagar tarjeta</Link>
-      </div>
-      <p className="texto-centro mt-10"><Link className="enlace-chico" to={`/cuenta/${id}/varios`}>Registrar varios gastos a la vez</Link></p>
+    ),
 
+    pago: () => (
       <Seccion titulo="Tu pago" ayuda={<>Estado de cuenta del {fechaCorta(d.ultimo_corte!)}</>} accion={<Link className="enlace-chico" to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar</Link>}>
       <div className={"tarjeta-pago" + (vencido ? " vencido" : falta === 0 ? " listo" : "")}>
         <div className="cifra-media">{falta === 0 ? "Pagado" : fmt(falta)}</div>
@@ -230,11 +289,13 @@ export default function Cuenta() {
         {estimado && <p className="nota mb-0">Es un estimado: registraste la tarjeta después de este corte. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link></p>}
         {d.pago_manual && <p className="nota mb-0">Tomado de tu estado de cuenta.</p>}
         {falta > 0 && (
-          <div className="acciones"><Link className="boton" to={`/nuevo?tipo=transferencia&destino=${id}`}>Registrar pago</Link></div>
+          <div className="acciones"><Link className="boton" to={aPagar}>Registrar pago</Link></div>
         )}
       </div>
       </Seccion>
+    ),
 
+    periodo: () => (
       <Seccion titulo="Periodo actual" ayuda={<>Del {fechaCorta(addDia(d.ultimo_corte!))} al {fechaCorta(d.proximo_corte!)} (corte) · se paga antes del {fechaCorta(d.fecha_pago_siguiente!)}</>}>
       <div className="lista">
         <div className="fila"><div className="cuerpo"><div className="titulo">Compras de contado</div></div><div className="monto">{fmt(contado)}</div></div>
@@ -248,41 +309,73 @@ export default function Cuenta() {
         )}
       </div>
       </Seccion>
+    ),
 
-      {(d.msi?.length ?? 0) > 0 && (
-        <Seccion titulo="Meses sin intereses" contador={d.msi!.length} ayuda={<>Por facturar: {fmt(d.msi_por_facturar)}</>} accion={<Link className="enlace-chico" to="/msi">Proyección</Link>}>
-          <div className="lista">
-            {d.msi!.map((x) => (
-              <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
-                <span className="ico" aria-hidden="true"><CalendarDots size={20} /></span>
-                <div className="cuerpo"><div className="titulo">{x.descripcion}</div>
-                  <div className="detalle">
-                    {(cobros[x.id] ?? []).map((e) => <EtiqPersona key={e.familiar_id} nombre={familiares.find((f) => f.id === e.familiar_id)?.nombre ?? "Otra persona"} e={e} />)}
-                    {x.facturadas} de {x.meses} cobradas · faltan {x.restantes}</div>
-                  <div className="barra"><span style={{ width: `${(x.facturadas / x.meses) * 100}%` }} /></div></div>
-                <div className="monto">{fmt(x.mensualidad)}<small>al mes</small></div>
-              </Link>
-            ))}
-          </div>
-        </Seccion>
-      )}
+    porvenir: () => porvenir.length > 0 && (
+      <Seccion titulo="Mensualidades por venir" ayuda={<>Te falta pagar a meses: {fmt(d.msi_por_facturar)}</>} accion={<Link className="enlace-chico" to="/msi">Proyección</Link>}>
+        <div className="lista">
+          {porvenir.map((p, k) => (
+            <div className="fila" key={p.mes}>
+              <div className="cuerpo"><div className="titulo">Corte de {nombreMes(p.mes)}</div>
+                {k === 0 && <div className="detalle">El corte que está abierto</div>}
+                <div className="barra"><span style={{ width: `${(p.monto / porvenir[0].monto) * 100}%` }} /></div></div>
+              <div className="monto">{fmt(p.monto)}</div>
+            </div>
+          ))}
+        </div>
+      </Seccion>
+    ),
 
-      {(d.aplazados?.length ?? 0) > 0 && (
-        <Seccion titulo="Cargos aplazados" contador={d.aplazados!.length} ayuda="Aún no suman a tu deuda: entran el día en que el banco los cobra">
-          <div className="lista">
-            {d.aplazados!.map((x) => (
-              <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
-                <span className="ico" aria-hidden="true"><Clock size={20} /></span>
-                <div className="cuerpo"><div className="titulo">{x.descripcion}</div>
-                  <div className="detalle">{x.meses ? <span className="etiq">{x.meses} MSI</span> : null}Se cobra el {fechaLarga(x.fecha)}{x.fecha_compra ? ` · compra del ${fechaCorta(x.fecha_compra)}` : ""}</div></div>
-                <div className="monto">{fmt(x.monto)}{x.meses ? <small>{fmt(Number(x.monto) / x.meses, false)} al mes</small> : null}</div>
-              </Link>
-            ))}
-          </div>
-          <p className="nota">Total: {fmt(d.aplazados!.reduce((a, x) => a + Number(x.monto), 0))}.</p>
-        </Seccion>
-      )}
+    categorias: () => (
+      <Seccion titulo="En qué se va" ayuda={<>Cargos {nombrePeriodo}</>}>
+        <div className="lista">
+          {porCategoria.length === 0 && <div className="vacio">{cargandoMovs ? "Cargando…" : "Sin cargos en este periodo."}</div>}
+          {porCategoria.map(([c, v]) => (
+            <div className="fila" key={c}>
+              <div className="cuerpo"><div className="titulo">{c}</div>
+                <div className="barra"><span style={{ width: `${(v / totalCat) * 100}%` }} /></div></div>
+              <div className="monto">{fmt(v)}<small>{Math.round((v / totalCat) * 100)}%</small></div>
+            </div>
+          ))}
+        </div>
+      </Seccion>
+    ),
 
+    msi: () => (d.msi?.length ?? 0) > 0 && (
+      <Seccion titulo="Meses sin intereses" contador={d.msi!.length} ayuda={<>Por facturar: {fmt(d.msi_por_facturar)}</>} accion={<Link className="enlace-chico" to="/msi">Proyección</Link>}>
+        <div className="lista">
+          {d.msi!.map((x) => (
+            <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
+              <span className="ico" aria-hidden="true"><CalendarDots size={20} /></span>
+              <div className="cuerpo"><div className="titulo">{x.descripcion}</div>
+                <div className="detalle">
+                  {(cobros[x.id] ?? []).map((e) => <EtiqPersona key={e.familiar_id} nombre={familiares.find((f) => f.id === e.familiar_id)?.nombre ?? "Otra persona"} e={e} />)}
+                  {x.facturadas} de {x.meses} cobradas · faltan {x.restantes}</div>
+                <div className="barra"><span style={{ width: `${(x.facturadas / x.meses) * 100}%` }} /></div></div>
+              <div className="monto">{fmt(x.mensualidad)}<small>al mes</small></div>
+            </Link>
+          ))}
+        </div>
+      </Seccion>
+    ),
+
+    aplazados: () => (d.aplazados?.length ?? 0) > 0 && (
+      <Seccion titulo="Cargos aplazados" contador={d.aplazados!.length} ayuda="Aún no suman a tu deuda: entran el día en que el banco los cobra">
+        <div className="lista">
+          {d.aplazados!.map((x) => (
+            <Link className="fila" key={x.id} to={`/editar/${x.id}`}>
+              <span className="ico" aria-hidden="true"><Clock size={20} /></span>
+              <div className="cuerpo"><div className="titulo">{x.descripcion}</div>
+                <div className="detalle">{x.meses ? <span className="etiq">{x.meses} MSI</span> : null}Se cobra el {fechaLarga(x.fecha)}{x.fecha_compra ? ` · compra del ${fechaCorta(x.fecha_compra)}` : ""}</div></div>
+              <div className="monto">{fmt(x.monto)}{x.meses ? <small>{fmt(Number(x.monto) / x.meses, false)} al mes</small> : null}</div>
+            </Link>
+          ))}
+        </div>
+        <p className="nota">Total: {fmt(d.aplazados!.reduce((a, x) => a + Number(x.monto), 0))}.</p>
+      </Seccion>
+    ),
+
+    movimientos: () => (
       <Seccion titulo="Movimientos">
       <div className="selector-mes">
         <button onClick={() => setAtras(atras + 1)} disabled={!d.dia_corte || atras >= 36} aria-label="Periodo de corte anterior">‹</button>
@@ -294,7 +387,7 @@ export default function Cuenta() {
           <p className="nota mt-n6 mb-8">Del {fechaCorta(masDias(pAtras.ini, 1))} al {fechaCorta(pAtras.fin)}. Incluye las mensualidades de compras a meses que factura ese corte. Los cargos suman cada mensualidad por su parte, como el estado de cuenta.</p>
           {!cargandoMovs && (
             <div className="trio mt-0 mb-14">
-              <div><div className="k">Cargos</div><div className="v">{fmt(filas.filter((m) => !entraMov(m)).reduce((a, m) => a + cargoDe(m), 0), false)}</div></div>
+              <div><div className="k">Cargos</div><div className="v">{fmt(cargos.reduce((a, m) => a + cargoDe(m), 0), false)}</div></div>
               <div><div className="k">Pagos y abonos</div><div className="v positivo">{fmt(filas.filter(entraMov).reduce((a, m) => a + Number(m.monto), 0), false)}</div></div>
               <div><div className="k">Movimientos</div><div className="v">{filas.length}</div></div>
             </div>
@@ -302,11 +395,41 @@ export default function Cuenta() {
         </>
       )}
       {lista}
+      <div className="acciones mt-12">{botonPdf}</div>
+      <p className="nota texto-centro">El PDF es del periodo que estás viendo: cámbialo con las flechas.</p>
       </Seccion>
+    ),
+  };
+  const orden = configTarjeta ?? configTarjetaInicial();
+  const conMovimientos = orden.some((c) => c.id === "movimientos" && c.visible);
+
+  return (
+    <>
+      <Cabeza titulo={d.nombre} volver accion={<Link to="/tarjetas/personalizar" className="boton-icono" aria-label="Personalizar tarjetas"><SquaresFour size={22} /></Link>} />
+      {orden.filter((c) => c.visible).map((c, i) => (
+        <Fragment key={c.id}>
+          {secciones[c.id]()}
+          {i === 0 && acciones()}
+        </Fragment>
+      ))}
+      {!orden.some((c) => c.visible) && acciones()}
+      {!conMovimientos && <div className="acciones mt-14">{botonPdf}</div>}
       {fallo && <p className="error" role="alert">{fallo}</p>}
-      <p className="nota mt-14">Corte día {d.dia_corte} · pago día {d.dia_pago}. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link> · <Link to="/ajustes/cuentas">Editar tarjeta</Link></p>
+      <p className="nota mt-14">Corte día {d.dia_corte} · pago día {d.dia_pago}. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link> · <Link to="/ajustes/cuentas">Editar tarjeta</Link> · <Link to="/tarjetas/personalizar">Personalizar esta pantalla</Link></p>
     </>
   );
+
+  function acciones() {
+    return (
+      <>
+        <div className="acciones mt-12">
+          <Link className="boton" to={`/nuevo?cuenta=${id}`}><Plus size={18} aria-hidden="true" /> Registrar gasto</Link>
+          <Link className="boton claro" to={aPagar}><ArrowsLeftRight size={18} aria-hidden="true" /> Pagar tarjeta</Link>
+        </div>
+        <p className="texto-centro mt-10"><Link className="enlace-chico" to={`/cuenta/${id}/varios`}>Registrar varios gastos a la vez</Link></p>
+      </>
+    );
+  }
 }
 
 function addDia(f: string) {

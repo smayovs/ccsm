@@ -33,7 +33,7 @@ export default function Formulario() {
   const [cargado, setCargado] = useState(!id);
   const [ajeno, setAjeno] = useState<any>(null); // gasto de mi pareja con una parte mía
   const [tipo, setTipo] = useState<Tipo>((qs.get("tipo") as Tipo) || "gasto");
-  const [monto, setMonto] = useState("");
+  const [monto, setMonto] = useState(limpiarMonto(qs.get("monto") ?? "")); // p. ej. el pago de una tarjeta, desde su detalle
   const [fecha, setFecha] = useState(hoyISO());
   const [cuenta, setCuenta] = useState(qs.get("cuenta") ?? (qs.get("destino")
     ? (activas.find((a) => a.id !== qs.get("destino") && !["credito", "prestamo"].includes(a.tipo)) ?? activas.find((a) => a.id !== qs.get("destino")))?.id
