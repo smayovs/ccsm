@@ -1,24 +1,51 @@
 import { sb } from "./supabase";
-import { fmt, sumarMes } from "./util";
-import { cobradoTras, mensualidadesMsi } from "./dinero";
+import { conDia, fmt, hoyISO, mesISO, sumarMes } from "./util";
+import { mensualidadesMsi } from "./dinero";
 import type { DetalleMsi } from "./msi";
 
-export type Cargo = { id: string; mov: string; fecha: string; texto: string; monto: number; pendiente: number; marcado?: boolean };
-export type Persona = { cargos: Cargo[]; marcados: Cargo[]; total: number; porVenir: number; proxima: number; pagado: number };
+// "mes": mes del estado de cuenta en que entra (tarjetas de crédito según su corte; lo demás, el mes de la fecha).
+// "futuro": aún no se cobra (mensualidad que el banco no ha facturado o cargo con fecha futura).
+export type Cargo = { id: string; mov: string; fecha: string; mes: string; texto: string; monto: number; pendiente: number; marcado?: boolean; futuro?: boolean };
+// cargos: lo que te debe hoy; venir: lo pendiente que aún no se cobra
+export type Persona = { cargos: Cargo[]; venir: Cargo[]; marcados: Cargo[]; total: number; porVenir: number; proxima: number; pagado: number };
 export type EstadoMov = { familiar_id: string; cobrado: number; pendiente: number; porVenir: number; completo: boolean };
 export type Cobros = { personas: Record<string, Persona>; movs: Record<string, EstadoMov[]> };
+
+// Periodo que se cobra: cortes de un mes (cada tarjeta con su día de corte), mes calendario, fechas o lo por venir
+export type Periodo = { tipo: "corte" | "mes"; mes: string } | { tipo: "rango"; desde: string; hasta: string } | { tipo: "venir" };
+
+// Mes del estado de cuenta de una compra: lo comprado después del corte entra al del mes siguiente
+export const mesDeCorte = (fecha: string, diaCorte: number | null) =>
+  diaCorte && fecha > conDia(mesISO(fecha), diaCorte) ? sumarMes(mesISO(fecha), 1) : mesISO(fecha);
+
+export function enPeriodo(c: Cargo, p: Periodo) {
+  if (p.tipo === "corte") return c.mes === p.mes;
+  if (p.tipo === "mes") return mesISO(c.fecha) === p.mes;
+  if (p.tipo === "rango") return c.fecha >= p.desde && c.fecha <= p.hasta;
+  return !!c.futuro;
+}
+// Pendiente de antes del periodo (para mostrarlo aparte)
+export function antesDe(c: Cargo, p: Periodo) {
+  if (p.tipo === "corte") return c.mes < p.mes;
+  if (p.tipo === "mes") return c.fecha < p.mes;
+  if (p.tipo === "rango") return c.fecha < p.desde;
+  return !c.futuro;
+}
 
 // Cargos de cada persona: compras de contado, compras a meses que se cobran completas,
 // y mensualidades MSI ya facturadas. Los pagos se aplican a lo más antiguo primero.
 // "msiDetalle": la respuesta de msi_detalle si ya se pidió (Inicio la comparte con cargarMsi)
 export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
-  const [c, pp, d, r, mk] = await Promise.all([
-    sb.from("movimientos").select("id, fecha, descripcion, comercio, monto, familiar_id, meses_msi, cobro_completo").eq("tipo", "gasto").not("familiar_id", "is", null),
-    sb.from("partes_personas").select("monto, familiar_id, movimiento:movimientos(id, fecha, descripcion, comercio, meses_msi, cobro_completo)"),
+  const hoy = hoyISO();
+  const [c, pp, d, r, mk, ct] = await Promise.all([
+    sb.from("movimientos").select("id, fecha, descripcion, comercio, monto, familiar_id, meses_msi, cobro_completo, cuenta_id").eq("tipo", "gasto").not("familiar_id", "is", null),
+    sb.from("partes_personas").select("monto, familiar_id, movimiento:movimientos(id, fecha, descripcion, comercio, meses_msi, cobro_completo, cuenta_id)"),
     msiDetalle ?? sb.rpc("msi_detalle"),
     sb.from("movimientos").select("monto, familiar_id").eq("tipo", "reembolso").not("familiar_id", "is", null),
     sb.from("cobros_marcados").select("clave"),
+    sb.from("cuentas").select("id, tipo, dia_corte"),
   ]);
+  const corteDe: Record<string, number | null> = Object.fromEntries(((ct.data ?? []) as any[]).map((x) => [x.id, x.tipo === "credito" ? x.dia_corte : null]));
   const marcados = new Set(((mk.data ?? []) as any[]).map((x) => x.clave as string));
   // Compras completas de una persona y partes de compras divididas, con el mismo formato
   const compras = [
@@ -32,33 +59,35 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
   const porPersona: Record<string, Cargo[]> = {};
   const movs: Record<string, EstadoMov[]> = {};
   const estado: Record<string, EstadoMov> = {};
-  const porVenir: Record<string, number> = {};
   const proxima: Record<string, number> = {};
   for (const m of compras) {
     const lista = (porPersona[m.familiar_id] ??= []);
     const texto = (m.descripcion || m.comercio || "Compra") + (m.parte ? " (su parte)" : "");
     const x = m.meses_msi ? detalle[m.mov] : null;
     const clave = `${m.mov}|${m.familiar_id}`;
+    const dia = corteDe[m.cuenta_id] ?? null;
     estado[clave] = { familiar_id: m.familiar_id, cobrado: 0, pendiente: 0, porVenir: 0, completo: !m.meses_msi || m.cobro_completo };
     (movs[m.mov] ??= []).push(estado[clave]);
     if (!m.meses_msi || m.cobro_completo || !x) {
-      lista.push({ id: clave, mov: m.mov, fecha: m.fecha, texto: m.meses_msi ? `${texto} (a ${m.meses_msi} meses, cobro completo)` : texto, monto: Number(m.monto), pendiente: Number(m.monto) });
+      lista.push({ id: clave, mov: m.mov, fecha: m.fecha, mes: mesDeCorte(m.fecha, dia), texto: m.meses_msi ? `${texto} (a ${m.meses_msi} meses, cobro completo)` : texto,
+        monto: Number(m.monto), pendiente: Number(m.monto), futuro: m.fecha > hoy });
     } else {
       // La primera mensualidad absorbe los centavos, igual que el banco y la base de datos (_msi_cobrado)
       const mens = mensualidadesMsi(Number(m.monto), x.meses);
-      for (let k = 1; k <= x.facturadas; k++) {
-        lista.push({ id: `${clave}|${k}`, mov: m.mov, fecha: sumarMes(x.primer_mes, k - 1), texto: `${texto} (MSI ${k} de ${x.meses})`, monto: mens[k - 1], pendiente: mens[k - 1] });
+      // Todas las mensualidades, con la fecha de su corte; las que el banco aún no factura quedan por venir
+      for (let k = 1; k <= x.meses; k++) {
+        const mes = sumarMes(x.primer_mes, k - 1);
+        lista.push({ id: `${clave}|${k}`, mov: m.mov, fecha: dia ? conDia(mes, dia) : mes, mes, texto: `${texto} (MSI ${k} de ${x.meses})`,
+          monto: mens[k - 1], pendiente: mens[k - 1], futuro: k > x.facturadas });
       }
-      const venir = Number(m.monto) - cobradoTras(Number(m.monto), x.meses, x.facturadas);
-      estado[clave].porVenir = venir;
-      porVenir[m.familiar_id] = (porVenir[m.familiar_id] ?? 0) + venir;
       if (x.restantes > 0) proxima[m.familiar_id] = (proxima[m.familiar_id] ?? 0) + mens[x.facturadas];
     }
   }
 
   const personas: Record<string, Persona> = {};
   for (const [fam, lista] of Object.entries(porPersona)) {
-    lista.sort((a, b) => a.fecha.localeCompare(b.fecha));
+    // Lo ya cobrado primero y luego lo que viene, cada parte de lo más antiguo a lo más nuevo
+    lista.sort((a, b) => Number(!!a.futuro) - Number(!!b.futuro) || a.fecha.localeCompare(b.fecha));
     // Los cargos que marcaste como pagados no esperan dinero: no se les aplican los pagos registrados
     for (const g of lista) if (marcados.has(g.id)) { g.marcado = true; g.pendiente = 0; }
     let resto = pagos[fam] ?? 0;
@@ -66,12 +95,16 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
       const usa = Math.min(resto, g.pendiente);
       g.pendiente = Math.round((g.pendiente - usa) * 100) / 100; resto -= usa;
       const e = estado[g.id.split("|").slice(0, 2).join("|")];
-      e.cobrado += g.monto; e.pendiente += g.pendiente;
+      if (g.futuro) e.porVenir += g.pendiente;
+      else { e.cobrado += g.monto; e.pendiente += g.pendiente; }
     }
-    const cargos = lista.filter((g) => g.pendiente > 0.004);
-    personas[fam] = { cargos, marcados: lista.filter((g) => g.marcado), total: cargos.reduce((s, g) => s + g.pendiente, 0), porVenir: porVenir[fam] ?? 0, proxima: proxima[fam] ?? 0, pagado: pagos[fam] ?? 0 };
+    // Lo pagado por adelantado cubre lo que viene, así que "por venir" es lo que falta de eso
+    const cargos = lista.filter((g) => g.pendiente > 0.004 && !g.futuro);
+    const venir = lista.filter((g) => g.pendiente > 0.004 && g.futuro);
+    personas[fam] = { cargos, venir, marcados: lista.filter((g) => g.marcado), total: cargos.reduce((s, g) => s + g.pendiente, 0),
+      porVenir: venir.reduce((s, g) => s + g.pendiente, 0), proxima: proxima[fam] ?? 0, pagado: pagos[fam] ?? 0 };
   }
-  for (const [fam, total] of Object.entries(pagos)) personas[fam] ??= { cargos: [], marcados: [], total: 0, porVenir: 0, proxima: 0, pagado: total };
+  for (const [fam, total] of Object.entries(pagos)) personas[fam] ??= { cargos: [], venir: [], marcados: [], total: 0, porVenir: 0, proxima: 0, pagado: total };
   return { personas, movs };
 }
 
