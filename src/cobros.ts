@@ -1,5 +1,5 @@
 import { sb } from "./supabase";
-import { conDia, fmt, hoyISO, mesISO, sumarMes } from "./util";
+import { cobroEnMes, conDia, fmt, hoyISO, mesISO, sumarMes } from "./util";
 import { mensualidadesMsi } from "./dinero";
 import type { DetalleMsi } from "./msi";
 
@@ -37,13 +37,14 @@ export function antesDe(c: Cargo, p: Periodo) {
 // "msiDetalle": la respuesta de msi_detalle si ya se pidió (Inicio la comparte con cargarMsi)
 export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
   const hoy = hoyISO();
-  const [c, pp, d, r, mk, ct] = await Promise.all([
+  const [c, pp, d, r, mk, ct, su] = await Promise.all([
     sb.from("movimientos").select("id, fecha, descripcion, comercio, monto, familiar_id, meses_msi, cobro_completo, cuenta_id").eq("tipo", "gasto").not("familiar_id", "is", null),
     sb.from("partes_personas").select("monto, familiar_id, movimiento:movimientos(id, fecha, descripcion, comercio, meses_msi, cobro_completo, cuenta_id)"),
     msiDetalle ?? sb.rpc("msi_detalle"),
     sb.from("movimientos").select("monto, familiar_id").eq("tipo", "reembolso").not("familiar_id", "is", null),
     sb.from("cobros_marcados").select("clave"),
     sb.from("cuentas").select("id, tipo, dia_corte"),
+    sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id, palabra_clave, cobros_desde, partes:suscripcion_partes(familiar_id, monto)").eq("activa", true),
   ]);
   const corteDe: Record<string, number | null> = Object.fromEntries(((ct.data ?? []) as any[]).map((x) => [x.id, x.tipo === "credito" ? x.dia_corte : null]));
   const marcados = new Set(((mk.data ?? []) as any[]).map((x) => x.clave as string));
@@ -52,6 +53,7 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
     ...((c.data ?? []) as any[]).map((m) => ({ ...m, mov: m.id, parte: false })),
     ...((pp.data ?? []) as any[]).filter((x) => x.movimiento).map((x) => ({ ...x.movimiento, mov: x.movimiento.id, monto: x.monto, familiar_id: x.familiar_id, parte: true })),
   ];
+  compras.push(...await comprasSuscripciones((su.data ?? []) as any[], compras, hoy));
   const detalle = Object.fromEntries(((d.data ?? []) as any[]).map((x) => [x.movimiento_id, x]));
   const pagos: Record<string, number> = {};
   for (const x of (r.data ?? []) as any[]) pagos[x.familiar_id] = (pagos[x.familiar_id] ?? 0) + Number(x.monto);
@@ -66,10 +68,11 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
     const x = m.meses_msi ? detalle[m.mov] : null;
     const clave = `${m.mov}|${m.familiar_id}`;
     const dia = corteDe[m.cuenta_id] ?? null;
+    const sus = String(m.mov).startsWith("sus:");
     estado[clave] = { familiar_id: m.familiar_id, cobrado: 0, pendiente: 0, porVenir: 0, completo: !m.meses_msi || m.cobro_completo };
-    (movs[m.mov] ??= []).push(estado[clave]);
+    if (!sus) (movs[m.mov] ??= []).push(estado[clave]);
     if (!m.meses_msi || m.cobro_completo || !x) {
-      lista.push({ id: clave, mov: m.mov, fecha: m.fecha, mes: mesDeCorte(m.fecha, dia), texto: m.meses_msi ? `${texto} (a ${m.meses_msi} meses, cobro completo)` : texto,
+      lista.push({ id: clave, mov: sus ? "" : m.mov, fecha: m.fecha, mes: mesDeCorte(m.fecha, dia), texto: m.meses_msi ? `${texto} (a ${m.meses_msi} meses, cobro completo)` : texto,
         monto: Number(m.monto), pendiente: Number(m.monto), futuro: m.fecha > hoy });
     } else {
       // La primera mensualidad absorbe los centavos, igual que el banco y la base de datos (_msi_cobrado)
@@ -106,6 +109,40 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
   }
   for (const [fam, total] of Object.entries(pagos)) personas[fam] ??= { cargos: [], venir: [], marcados: [], total: 0, porVenir: 0, proxima: 0, pagado: total };
   return { personas, movs };
+}
+
+// Cargos de suscripciones divididas con otras personas, como compras de cada persona (su parte):
+// - el cargo ya se registró pero sin dividir: su parte según la suscripción, en proporción al monto que llegó
+// - el cargo aún no se registra (desde "cobros_desde" hasta el próximo cobro): su parte del monto de la suscripción
+async function comprasSuscripciones(subs: any[], compras: any[], hoy: string) {
+  subs = subs.filter((s) => s.partes?.length && s.fecha_referencia);
+  if (!subs.length) return [];
+  const desde = subs.flatMap((s) => [s.fecha_referencia, s.cobros_desde]).sort()[0];
+  const { data } = await sb.from("movimientos").select("id, fecha, monto, descripcion, comercio, familiar_id, cuenta_id").eq("tipo", "gasto").gte("fecha", desde);
+  // Misma regla que Movimientos para saber si un gasto es el cargo de una suscripción
+  const esDe = (m: any, s: any) => {
+    const t = `${m.comercio ?? ""} ${m.descripcion ?? ""}`.toUpperCase();
+    return (s.palabra_clave && t.includes(String(s.palabra_clave).toUpperCase())) || (m.descripcion ?? "").trim().toLowerCase() === String(s.servicio).trim().toLowerCase();
+  };
+  const conPartes = new Set(compras.filter((x) => x.parte).map((x) => x.mov));
+  const r: any[] = [];
+  for (const s of subs) {
+    const registrados = ((data ?? []) as any[]).filter((m) => esDe(m, s) && m.fecha >= s.fecha_referencia);
+    const base = { descripcion: s.servicio, comercio: null, meses_msi: null, cobro_completo: false, cuenta_id: s.cuenta_id, parte: true };
+    for (const m of registrados) {
+      if (m.familiar_id || conPartes.has(m.id)) continue;
+      const f = Number(m.monto) / Number(s.monto);
+      for (const p of s.partes) r.push({ ...base, mov: m.id, fecha: m.fecha, cuenta_id: m.cuenta_id, monto: Math.round(Number(p.monto) * f * 100) / 100, familiar_id: p.familiar_id });
+    }
+    for (let k = 0, mes = mesISO(s.cobros_desde); k < 60; k++, mes = sumarMes(mes, 1)) {
+      const f = cobroEnMes(s.fecha_referencia, s.frecuencia_meses, mes);
+      if (!f || f < s.fecha_referencia) continue;
+      if (!registrados.some((m) => mesISO(m.fecha) === mes))
+        for (const p of s.partes) r.push({ ...base, mov: `sus:${s.id}:${f}`, fecha: f, monto: Number(p.monto), familiar_id: p.familiar_id });
+      if (f > hoy) break;
+    }
+  }
+  return r;
 }
 
 // Texto corto del estado de un cargo de otra persona

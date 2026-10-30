@@ -65,9 +65,9 @@ export default function Cobros() {
     <div className="fila" key={c.id}>
       <button type="button" className="check" role="checkbox" aria-checked={false} aria-label={`Marcar ${c.texto} como pagado`}
         onClick={() => marcar([c.id], true)} />
-      <Link className="fila-enlace" to={`/editar/${c.mov}`}>
+      <Link className="fila-enlace" to={c.mov ? `/editar/${c.mov}` : "/suscripciones"}>
         <div className="cuerpo"><div className="titulo">{c.texto}</div>
-          <div className="detalle">{cuando(c)}{c.futuro ? " · por venir" : ""}{c.pendiente < c.monto ? ` · abonado ${fmt(c.monto - c.pendiente)}` : ""}</div></div>
+          <div className="detalle">{cuando(c)}{c.futuro ? " · por venir" : ""}{c.mov ? "" : " · cargo aún no registrado"}{c.pendiente < c.monto ? ` · abonado ${fmt(c.monto - c.pendiente)}` : ""}</div></div>
         <div className="monto">{fmt(c.pendiente)}</div>
       </Link>
     </div>
