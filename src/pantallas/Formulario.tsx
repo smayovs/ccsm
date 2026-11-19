@@ -34,13 +34,13 @@ export default function Formulario() {
   const [ajeno, setAjeno] = useState<any>(null); // gasto de mi pareja con una parte mía
   const [tipo, setTipo] = useState<Tipo>((qs.get("tipo") as Tipo) || "gasto");
   const [monto, setMonto] = useState(limpiarMonto(qs.get("monto") ?? "")); // p. ej. el pago de una tarjeta, desde su detalle
-  const [fecha, setFecha] = useState(hoyISO());
+  const [fecha, setFecha] = useState(/^\d{4}-\d{2}-\d{2}$/.test(qs.get("fecha") ?? "") ? qs.get("fecha")! : hoyISO()); // p. ej. un cargo del estado de cuenta que faltaba
   const [cuenta, setCuenta] = useState(qs.get("cuenta") ?? (qs.get("destino")
     ? (activas.find((a) => a.id !== qs.get("destino") && !["credito", "prestamo"].includes(a.tipo)) ?? activas.find((a) => a.id !== qs.get("destino")))?.id
     : activas[0]?.id) ?? "");
   const [destino, setDestino] = useState(qs.get("destino") ?? "");
   const [categoria, setCategoria] = useState<string | null>(null);
-  const [descripcion, setDescripcion] = useState("");
+  const [descripcion, setDescripcion] = useState(qs.get("desc") ?? "");
   const [familiar, setFamiliar] = useState(qs.get("familiar") ?? "");
   const [meses, setMeses] = useState("");
   const [seleccion, setSeleccion] = useState<string[]>([]);
@@ -56,6 +56,9 @@ export default function Formulario() {
   // Cargo aplazado: compras hoy y el banco lo cobra en una fecha posterior
   const [aplazado, setAplazado] = useState(false);
   const [fechaCobro, setFechaCobro] = useState("");
+  // Gasto nuevo que también se da de alta como suscripción (se cobra cada mes o cada tantos meses)
+  const [esSuscripcion, setEsSuscripcion] = useState(false);
+  const [frecuencia, setFrecuencia] = useState(1);
   // Ingreso programado: todavía no llega; se guarda aparte y se confirma el día que llega
   const [programar, setProgramar] = useState(qs.get("programar") === "1");
   const [repetir, setRepetir] = useState<"no" | "catorcena" | "mes">("no");
@@ -123,7 +126,10 @@ export default function Formulario() {
   const sumaPartes = partes.reduce((a, x) => a + x.monto, 0);
   const cuentaSel = cuentas.find((c) => c.id === cuenta);
   const esAplazado = tipo === "gasto" && cuentaSel?.tipo === "credito" && aplazado && !!fechaCobro;
-  const msiPrevia = !esAplazado && tipo === "gasto" && Number(meses) > 1 && cuentaSel?.tipo === "credito" && !!cuentaSel.dia_corte && fecha < cuentaSel.fecha_saldo_inicial;
+  // Deuda calculada: la tarjeta se cuadró al corte fecha_saldo_inicial; lo de antes (o de ese día) ya venía en ese estado de cuenta
+  const calculada = !!cuentaSel?.saldo_calculado;
+  const antesDelInicio = !!cuentaSel && (calculada ? fecha <= cuentaSel.fecha_saldo_inicial : fecha < cuentaSel.fecha_saldo_inicial);
+  const msiPrevia = !esAplazado && tipo === "gasto" && Number(meses) > 1 && cuentaSel?.tipo === "credito" && !!cuentaSel.dia_corte && antesDelInicio;
   const nCalc = msiPrevia ? facturadas(fecha, cuentaSel!.dia_corte!, Number(meses)) : 0;
   const nEfectivo = nPago !== "" ? Math.min(Number(nPago), Number(meses)) : nCalc;
   const mensualidadPrev = Number(meses) > 0 ? Math.round((montoNum / Number(meses)) * 100) / 100 : 0;
@@ -136,7 +142,8 @@ export default function Formulario() {
   const { base, parte: parteOtro, tuParte } = parteDePareja(montoNum, dividir ? sumaPartes : 0, esConjunta ? "no" : comp, Number(valorComp || 0));
 
   const esProgramado = !id && tipo === "ingreso" && programar;
-  const opcionesActivas = !!familiar || Number(meses) > 1 || aplazado || msiPrevia;
+  const opcionesActivas = !!familiar || Number(meses) > 1 || aplazado || msiPrevia || esSuscripcion;
+  const conSuscripcion = !id && tipo === "gasto" && esSuscripcion && !(Number(meses) > 1);
   const verOpciones = masOpciones || opcionesActivas;
   // La categoría elegida se ve como botón aunque no esté entre las frecuentes
   const chipsCats = categoria && !frecuentes.includes(categoria) ? [categoria, ...frecuentes.slice(0, 7)] : frecuentes;
@@ -160,6 +167,7 @@ export default function Formulario() {
     if (tipo === "transferencia" && (!destino || destino === cuenta)) return setError("Elige una cuenta destino distinta.");
     if (tipo === "reembolso" && !familiar) return setError("Elige quién te pagó.");
     if (tipo === "gasto" && aplazado && cuentaSel?.tipo === "credito" && !(fechaCobro > fecha)) return setError("La fecha en que se cobra debe ser posterior a la fecha de compra.");
+    if (conSuscripcion && !descripcion.trim()) return setError("Escribe el nombre del servicio en la descripción (por ejemplo Netflix).");
     if (tipo === "gasto" && dividir) {
       if (!seleccion.length) return setError("Elige con quién se divide el gasto.");
       if (partes.some((x) => !(x.monto > 0))) return setError("Escribe la parte de cada persona.");
@@ -178,8 +186,9 @@ export default function Formulario() {
       cobro_completo: tipo === "gasto" && Number(meses) > 1 && (!!familiarReal || dividir) && cobroCompleto === "completo",
       revisar: false,
       // Al editar se respetan las banderas que ya tenía (cambiarlas movería la deuda de la tarjeta)
-      en_saldo_inicial: (!id && msiPrevia) || (enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial),
-      sumar_a_saldo: (id || !msiPrevia) && sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
+      // Con deuda calculada no hay banderas: lo que falta de una compra a meses de antes del corte se suma solo
+      en_saldo_inicial: !calculada && ((!id && msiPrevia) || (enSaldoInicial && !!cuentaSel && fecha <= cuentaSel.fecha_saldo_inicial)),
+      sumar_a_saldo: !calculada && (id || !msiPrevia) && sumarASaldo && !!cuentaSel && fecha < cuentaSel.fecha_saldo_inicial,
       fecha_compra: null,
     };
     // Cargo aplazado: el movimiento vive en la fecha en que el banco lo cobra; hasta entonces no suma a la deuda
@@ -192,15 +201,23 @@ export default function Formulario() {
     if (!id) fila.origen = "App";
     const reparto = otro && compEf !== "no" ? { user_id: otro.user_id, ...modoReparto(compEf, valorComp) } : null;
     // Compra a meses que no estaba en lo que debías al dar de alta: se suma a la deuda solo lo que falta pagar
-    const ajuste = !id && msiPrevia && msiIncluida === "no" ? (msiFalta !== "" ? Number(msiFalta) : faltaCalc) : null;
+    const ajuste = !id && !calculada && msiPrevia && msiIncluida === "no" ? (msiFalta !== "" ? Number(msiFalta) : faltaCalc) : null;
     // Todo en un solo paso en la base de datos: o se guarda completo o no se guarda nada
     const { error } = await sb.rpc("guardar_movimiento", {
       p_id: id ?? null, p_mov: fila, p_partes: conPartes ? partes : null, p_reparto: reparto, p_ajuste_saldo: ajuste,
     });
     if (error) { setOcupado(false); return setError(errorTexto(error)); }
+    if (conSuscripcion) {
+      // El gasto ya quedó; la suscripción usa su descripción como servicio, así los siguientes cargos se reconocen solos
+      const { error: e2 } = await sb.rpc("guardar_suscripcion", { p_id: null, p_partes: null, p_fila: {
+        servicio: descripcion.trim(), monto: montoNum, frecuencia_meses: frecuencia, cuenta_id: cuenta || null, categoria_id: categoria,
+        fecha_referencia: fila.fecha, palabra_clave: null, activa: true, propietario_id: uid,
+      } });
+      if (e2) { setOcupado(false); aviso("El gasto se guardó, pero no la suscripción"); return nav("/suscripciones"); }
+    }
     if (ajuste) await recargar();
     setOcupado(false);
-    aviso(id ? "Cambios guardados" : "Movimiento guardado");
+    aviso(id ? "Cambios guardados" : conSuscripcion ? "Gasto y suscripción guardados" : "Movimiento guardado");
     nav(-1);
   }
 
@@ -248,14 +265,26 @@ export default function Formulario() {
     );
   }
 
-  const tiposOp: { v: Tipo; t: string }[] = [{ v: "gasto", t: "Gasto" }, { v: "ingreso", t: "Ingreso" }, { v: "transferencia", t: "Transferencia" }, { v: "reembolso", t: "Reembolso" }];
+  // Los ingresos están ocultos: el formulario abre en Gasto y lo demás va en "Otro".
+  // Un ingreso que ya existía (o que llega de un ingreso programado) se sigue editando con todas las opciones.
+  const conIngreso = tipo === "ingreso";
+  const tiposOp: { v: Tipo; t: string }[] = [{ v: "gasto", t: "Gasto" }, { v: "ingreso", t: "Ingreso" }, { v: "transferencia", t: "Pago de tarjeta" }, { v: "reembolso", t: "Me pagaron" }];
+  const otrosOp: { v: Tipo; t: string }[] = [{ v: "transferencia", t: "Pago de tarjeta" }, { v: "reembolso", t: "Me pagaron" }];
+  const grupo: "gasto" | "otro" = tipo === "gasto" ? "gasto" : "otro";
 
   return (
     <>
       <Cabeza titulo={id ? "Editar movimiento" : "Nuevo movimiento"} volver />
       {revisar && <div className="aviso rojo mt-0 mb-14">Este movimiento entró sin clasificar. Revisa la cuenta y la categoría.</div>}
       <form onSubmit={guardar}>
-        <Segmentos etiqueta="Tipo" valor={tipo} onCambio={setTipo} opciones={tiposOp} />
+        {conIngreso ? <Segmentos etiqueta="Tipo" valor={tipo} onCambio={setTipo} opciones={tiposOp} /> : <>
+          <Segmentos etiqueta="Tipo" valor={grupo} onCambio={(g) => {
+            setTipo(g === "gasto" ? "gasto" : "transferencia");
+            // Un pago de tarjeta sale de tu débito o efectivo, no de otra tarjeta
+            if (g === "otro" && ["credito", "prestamo"].includes(cuentaSel?.tipo ?? "")) setCuenta(activas.find((c) => !["credito", "prestamo"].includes(c.tipo))?.id ?? cuenta);
+          }} opciones={[{ v: "gasto", t: "Gasto" }, { v: "otro", t: "Otro" }]} />
+          {grupo === "otro" && <Segmentos etiqueta="Qué registras" valor={tipo} onCambio={setTipo} opciones={otrosOp} />}
+        </>}
         <Campo etiqueta="Monto">
           <input className="monto-grande" inputMode="decimal" placeholder="$0" value={monto} onChange={(e) => setMonto(limpiarMonto(e.target.value))} autoFocus={!id} />
         </Campo>
@@ -270,7 +299,7 @@ export default function Formulario() {
             <Campo etiqueta="Hacia">
               <select value={destino} onChange={(e) => setDestino(e.target.value)}>
                 <option value="">Elige…</option>
-                {activas.filter((c) => c.id !== cuenta).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+                {activas.filter((c) => c.id !== cuenta).sort((x, y) => Number(y.tipo === "credito") - Number(x.tipo === "credito")).map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
               </select>
             </Campo>
           ) : (
@@ -322,13 +351,16 @@ export default function Formulario() {
           </>
         )}
 
-        {cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && !msiPrevia && !esAplazado && (
+        {calculada && antesDelInicio && !msiPrevia && !esAplazado && tipo !== "transferencia" && (
+          <p className="nota mt-n6 mb-8">Esta fecha es del corte del {new Date(cuentaSel!.fecha_saldo_inicial + "T12:00:00Z").toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" })} o antes, con el que cuadraste {cuentaSel!.nombre}: se guarda en tus gastos, pero no suma a la deuda porque ya venía en ese estado de cuenta.</p>
+        )}
+        {!calculada && cuentaSel && fecha < cuentaSel.fecha_saldo_inicial && !msiPrevia && !esAplazado && (
           <>
             <p className="nota mt-n6 mb-8">Esta fecha es anterior al alta de {cuentaSel.nombre} ({new Date(cuentaSel.fecha_saldo_inicial + "T12:00:00Z").toLocaleDateString("es-MX", { day: "numeric", month: "short", timeZone: "UTC" })}). Si la deuda o saldo que capturaste ese día ya lo incluía, déjalo así; si no, márcalo para sumarlo.</p>
             <label className="casilla"><input type="checkbox" checked={sumarASaldo} onChange={(e) => setSumarASaldo(e.target.checked)} /> No estaba incluido: súmalo al saldo de {cuentaSel.nombre}</label>
           </>
         )}
-        {cuentaSel && fecha === cuentaSel.fecha_saldo_inicial && tipo !== "transferencia" && !esAplazado && (
+        {!calculada && cuentaSel && fecha === cuentaSel.fecha_saldo_inicial && tipo !== "transferencia" && !esAplazado && (
           <label className="casilla"><input type="checkbox" checked={enSaldoInicial} onChange={(e) => setEnSaldoInicial(e.target.checked)} /> Ya estaba incluido en el saldo con que diste de alta {cuentaSel.nombre}</label>
         )}
         <Campo etiqueta="Descripción"><input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder={tipo === "gasto" ? "Comercio o nota" : ""} /></Campo>
@@ -369,7 +401,7 @@ export default function Formulario() {
             )}
             <button type="button" className="mas-opciones-boton" aria-expanded={verOpciones} disabled={opcionesActivas} onClick={() => setMasOpciones(!masOpciones)}>
               {verOpciones ? <CaretDown size={16} aria-hidden="true" /> : <CaretRight size={16} aria-hidden="true" />}
-              <span>Más opciones</span><span className="sub">Para quién, dividir, meses sin intereses{cuentaSel?.tipo === "credito" ? ", aplazado" : ""}</span>
+              <span>Más opciones</span><span className="sub">Para quién, dividir, meses sin intereses{cuentaSel?.tipo === "credito" ? ", aplazado" : ""}{id ? "" : ", suscripción"}</span>
             </button>
             {verOpciones && (
               <div className="mas-opciones">
@@ -400,14 +432,30 @@ export default function Formulario() {
                 )}
               </>
             )}
+            {!id && !(Number(meses) > 1) && (
+              <>
+                <label className="casilla"><input type="checkbox" checked={esSuscripcion} onChange={(e) => setEsSuscripcion(e.target.checked)} /> Es una suscripción (se repite)</label>
+                {esSuscripcion && (
+                  <>
+                    <Campo etiqueta="Se cobra">
+                      <select value={frecuencia} onChange={(e) => setFrecuencia(Number(e.target.value))}>
+                        {[[1, "Cada mes"], [2, "Cada 2 meses"], [3, "Cada 3 meses"], [6, "Cada 6 meses"], [12, "Cada año"]].map(([v, t]) => <option key={v} value={v}>{t}</option>)}
+                      </select>
+                    </Campo>
+                    <p className="nota mt-n6 mb-14">También se agrega a Suscripciones con la descripción como nombre del servicio. Ahí puedes dividirla o ponerle la palabra del cargo.</p>
+                  </>
+                )}
+              </>
+            )}
             {msiPrevia && (
               <div className="caja-dividir">
-                <div className="sub mb-8">Compra de antes de dar de alta {cuentaSel!.nombre}</div>
+                <div className="sub mb-8">{calculada ? "Compra de antes del corte con que cuadraste" : "Compra de antes de dar de alta"} {cuentaSel!.nombre}</div>
                 <p className="nota mt-0">Según tu día de corte ({cuentaSel!.dia_corte}), llevas <b>{nCalc} de {meses}</b> mensualidades cobradas. Si tu estado de cuenta dice otro número, corrígelo:</p>
                 <Campo etiqueta="Pago número en tu estado de cuenta">
                   <input inputMode="numeric" value={nPago === "" ? String(nCalc) : nPago} onChange={(e) => setNPago(e.target.value.replace(/\D/g, ""))} />
                 </Campo>
-                {!id && (
+                {calculada && <p className="nota mt-n6">A la deuda se suma solo lo que te falta pagar de ella.</p>}
+                {!id && !calculada && (
                   <>
                     <Segmentos etiqueta="¿Estaba en lo que debías?" valor={msiIncluida} onCambio={setMsiIncluida} opciones={[
                       { v: "si", t: "Ya estaba en mi deuda" }, { v: "no", t: "No, súmala" }]} />

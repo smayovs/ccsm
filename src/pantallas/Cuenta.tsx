@@ -7,9 +7,10 @@ import { conDia, diasEntre, errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, lim
 import { IconoMov, lineaMov, SELECT_MOV, type Mov } from "./Movimientos";
 import { Anillo } from "../graficas";
 import { DesgloseCategorias, type Cat } from "../desglose";
-import { ArrowsLeftRight, CalendarDots, Clock, FilePdf, Plus, SquaresFour } from "../phosphor";
+import { ArrowsLeftRight, CalendarDots, Clock, FilePdf, PencilSimple, Plus, SquaresFour } from "../phosphor";
 import { cargarConfigTarjeta, configTarjetaInicial, type ConfigTarjeta, type IdSeccionTarjeta } from "../inicio/secciones";
-import { cargarCobros, textoEstado, type EstadoMov } from "../cobros";
+import { textoRegla, type ReglaPago } from "../fechasPago";
+import { cargarCobros, cuentasDelCorte, textoEstado, type EstadoMov, type Persona } from "../cobros";
 
 type Detalle = {
   saldo: number; tipo: string; nombre: string; limite: number | null; dia_corte: number | null; dia_pago: number | null;
@@ -19,7 +20,11 @@ type Detalle = {
   periodo_contado?: number; periodo_msi_nuevas?: number; periodo_devoluciones?: number; mensualidades_proximo?: number;
   msi?: { id: string; descripcion: string; meses: number; mensualidad: number; facturadas: number; restantes: number }[];
   aplazados?: { id: string; fecha: string; fecha_compra: string | null; monto: number; meses: number | null; descripcion: string }[];
+  saldo_calculado?: boolean; fecha_saldo_inicial?: string; fecha_pago_fijada?: boolean;
+  pago_regla?: ReglaPago["pago_regla"]; pago_dias?: number | null; pago_habil?: ReglaPago["pago_habil"];
+  cuadre?: Cuadre | null; cuadre_corte?: Cuadre | null;
 };
+type Cuadre = { tipo: "saldo" | "estado"; created_at: string; corte: string | null; saldo_banco: number | null; saldo_app: number | null; pago_banco: number | null; pago_app: number | null };
 
 const n = (x: unknown) => Number(x ?? 0);
 
@@ -38,6 +43,11 @@ export default function Cuenta() {
   const [movs, setMovs] = useState<Mov[]>([]);
   const [fallo, setFallo] = useState("");
   const [cobros, setCobros] = useState<Record<string, EstadoMov[]>>({});
+  const [personas, setPersonas] = useState<Record<string, Persona>>({});
+  // Cuentas del corte: el corte que ya cerró (lo que pagas ahora) o el periodo abierto
+  const [corteVer, setCorteVer] = useState<"cerrado" | "abierto">("cerrado");
+  // Cambiar la fecha límite solo de este corte (cuando el estado de cuenta trae otra por un festivo)
+  const [cambiandoFecha, setCambiandoFecha] = useState<string | null>(null);
   // Tarjetas: cuántos periodos de corte hacia atrás se ven (0 = el periodo abierto, desde el último corte)
   const [atras, setAtras] = useState(0);
   // Tarjetas: qué movimientos se ven en la lista (solo gastos de contado, meses sin intereses o todos)
@@ -50,7 +60,7 @@ export default function Cuenta() {
   const [generando, setGenerando] = useState(false);
   useEffect(() => { cargarConfigTarjeta(uid).then(setConfigTarjeta); }, [uid]);
   // Al abrir otra tarjeta desde aquí, se empieza de cero: corte actual, todos los movimientos y sin datos de la anterior
-  useEffect(() => { setAtras(0); setVista("todos"); setD(null); setMovs([]); setComprasMsi([]); setFallo(""); }, [id]);
+  useEffect(() => { setAtras(0); setVista("todos"); setD(null); setMovs([]); setComprasMsi([]); setFallo(""); setCambiandoFecha(null); }, [id]);
   useEffect(() => {
     sb.from("movimientos").select(SELECT_MOV).eq("tipo", "gasto").eq("cuenta_id", id).not("meses_msi", "is", null)
       .then(({ data }) => setComprasMsi(data ?? []));
@@ -62,7 +72,7 @@ export default function Cuenta() {
     if (r.error) { setFallo(errorTexto(r.error)); return; }
     const det = r.data as Detalle;
     setD(det);
-    cargarCobros().then((c) => setCobros(c.movs));
+    cargarCobros().then((c) => { setCobros(c.movs); setPersonas(c.personas); });
   }, [id]);
 
   useEffect(() => { cargar(); }, [cargar]);
@@ -168,7 +178,7 @@ export default function Cuenta() {
           <Link className="boton claro" to={`/nuevo?cuenta=${id}`}>Intereses o cargo</Link>
         </div>
         <Seccion titulo="Movimientos del mes">{lista}</Seccion>
-        <p className="nota">Los pagos son transferencias desde tu cuenta a este préstamo. <Link to="/ajustes/cuentas">Editar cuenta</Link></p>
+        <p className="nota">Los pagos son transferencias desde tu cuenta a este préstamo. <Link to={`/cuenta/${id}/editar`}>Editar cuenta</Link></p>
       </>
     );
   }
@@ -193,7 +203,7 @@ export default function Cuenta() {
         </div>
         <p className="texto-centro mt-10"><Link className="enlace-chico" to={`/cuenta/${id}/varios`}>Registrar varios gastos a la vez</Link></p>
         <Seccion titulo="Movimientos del mes">{lista}</Seccion>
-        <p className="nota"><Link to="/ajustes/cuentas">Editar cuenta</Link></p>
+        <p className="nota"><Link to={`/cuenta/${id}/editar`}>Editar cuenta</Link></p>
       </>
     );
   }
@@ -223,6 +233,16 @@ export default function Cuenta() {
   }, {})).filter((c) => c.total > 0).sort((a, b) => b.total - a.total);
   const totalCat = porCategoria.reduce((a, c) => a + c.total, 0);
   const nombrePeriodo = atras === 0 ? `desde el corte del ${fechaCorta(d.ultimo_corte!)}` : `del corte del ${fechaCorta(pAtras!.fin)}`;
+
+  async function fijarFecha(f: string | null) {
+    const r = f ? await sb.from("fechas_corte").upsert({ cuenta_id: id, corte: d!.ultimo_corte, fecha_pago: f })
+      : await sb.from("fechas_corte").delete().eq("cuenta_id", id).eq("corte", d!.ultimo_corte!);
+    if (r.error) return setFallo(errorTexto(r.error));
+    setCambiandoFecha(null); aviso(f ? "Fecha de pago cambiada para este corte" : "Fecha de pago según la regla"); cargar();
+  }
+  // Lo que dice el estado de cuenta de este corte (si lo cuadraste) contra lo que calcula la app
+  const cc = d.cuadre_corte;
+  const difPago = cc?.pago_banco != null ? Math.round((Number(cc.pago_banco) - pagoCorte) * 100) / 100 : null;
 
   async function pdf() {
     if (!d || cargandoMovs) return;
@@ -305,7 +325,29 @@ export default function Cuenta() {
             : <>Para no generar intereses · paga antes del {fechaLarga(d.fecha_pago!)} ({cuando(d.fecha_pago!)})</>}
         </div>
         {pagado > 0 && falta > 0 && <div className="sub">Ya abonaste {fmt(pagado)} de {fmt(pagoCorte)}.</div>}
+        {difPago !== null && (Math.abs(difPago) < 0.5
+          ? <p className="nota mb-0"><span className="etiq verde">Cuadra</span> con tu estado de cuenta del {fechaCorta(d.ultimo_corte!)}.</p>
+          : <p className="nota mb-0"><span className="etiq roja">No cuadra</span> Tu estado de cuenta dice {fmt(cc!.pago_banco)}: {difPago > 0 ? `${fmt(difPago)} más` : `${fmt(-difPago)} menos`} que la app. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Revisar</Link></p>)}
+        {cambiandoFecha !== null ? (
+          <div className="mt-12">
+            <Campo etiqueta={`Fecha límite del corte del ${fechaCorta(d.ultimo_corte!)}`} ayuda="Solo para este corte; los siguientes usan la regla de la tarjeta.">
+              <input type="date" value={cambiandoFecha} min={d.ultimo_corte} onChange={(e) => setCambiandoFecha(e.target.value)} />
+            </Campo>
+            <div className="acciones mt-0">
+              <button className="boton claro chico" onClick={() => setCambiandoFecha(null)}>Cancelar</button>
+              {d.fecha_pago_fijada && <button className="boton claro chico" onClick={() => fijarFecha(null)}>Usar la regla</button>}
+              <button className="boton chico" disabled={!cambiandoFecha} onClick={() => fijarFecha(cambiandoFecha)}>Guardar fecha</button>
+            </div>
+          </div>
+        ) : (
+          <p className="nota mb-0">
+            {d.fecha_pago_fijada ? "Fecha tomada de tu estado de cuenta" : <>Pagas {textoRegla({ pago_regla: d.pago_regla ?? "fijo", dia_pago: d.dia_pago, pago_dias: d.pago_dias ?? null, pago_habil: d.pago_habil ?? "no", dia_corte: d.dia_corte })}</>}
+            {" · "}<button className="enlace-chico boton-texto" onClick={() => setCambiandoFecha(d.fecha_pago!)}>Cambiar fecha de este corte</button>
+            {" · "}<Link className="enlace-chico" to={`/cuenta/${id}/editar`}>Cambiar regla</Link>
+          </p>
+        )}
         {estimado && <p className="nota mb-0">Es un estimado: registraste la tarjeta después de este corte. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link></p>}
+        {!d.saldo_calculado && !estimado && <p className="nota mb-0">Esta tarjeta todavía usa la deuda que capturaste al darla de alta. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuádrala con tu estado de cuenta</Link> para que se calcule sola.</p>}
         {d.pago_manual && <p className="nota mb-0">Tomado de tu estado de cuenta.</p>}
         {falta > 0 && (
           <div className="acciones"><Link className="boton" to={aPagar}>Registrar pago</Link></div>
@@ -313,6 +355,45 @@ export default function Cuenta() {
       </div>
       </Seccion>
     ),
+
+    cierre: () => {
+      const cerrado = corteVer === "cerrado";
+      const fecha = cerrado ? d.ultimo_corte! : d.proximo_corte!;
+      const base = cerrado ? pagoCorte : proximo;
+      const lista = cuentasDelCorte(personas, id, mesISO(fecha));
+      const deOtros = lista.reduce((a, x) => a + x.total, 0);
+      const falta = lista.reduce((a, x) => a + x.falta, 0);
+      return (
+        <Seccion titulo="Cuentas del corte" accion={lista.length ? <Link className="enlace-chico" to="/cobros">Cobros</Link> : undefined}
+          ayuda={cerrado ? <>El corte del {fechaCorta(d.ultimo_corte!)}, que pagas antes del {fechaCorta(d.fecha_pago!)}</> : <>Corta el {fechaCorta(d.proximo_corte!)}; sube si compras antes</>}>
+          <Segmentos etiqueta="Qué corte ver" valor={corteVer} onCambio={setCorteVer} opciones={[{ v: "cerrado", t: "Corte cerrado" }, { v: "abierto", t: "Periodo abierto" }]} />
+          <div className="panel mt-0">
+            <div className="comp-total">
+              <div><div className="k">{cerrado ? "Pago del corte" : "Llevas"}</div><div className="v">{fmt(base, false)}</div></div>
+              <div><div className="k">De otros</div><div className="v positivo">{fmt(deOtros, false)}</div></div>
+              <div><div className="k">Tu parte</div><div className="v">{fmt(Math.max(0, base - deOtros), false)}</div></div>
+            </div>
+            {lista.length > 0 ? (
+              <div className="lista plana">
+                {lista.map((x) => (
+                  <Link key={x.id} className="fila" to="/cobros">
+                    <div className="cuerpo">
+                      <div className="titulo">{familiares.find((f) => f.id === x.id)?.nombre ?? "Otra persona"}</div>
+                      <div className="detalle">
+                        {x.falta < 0.005 ? <span className="etiq verde">Ya te pagó</span> : x.pagado > 0.004 ? <span className="etiq">Te pagó {fmt(x.pagado, false)}</span> : null}
+                        {x.cargos.map((c) => c.texto).join(" · ")}
+                      </div>
+                    </div>
+                    <div className={"monto" + (x.falta >= 0.005 ? " positivo" : "")}>{fmt(x.total)}<small>{x.falta >= 0.005 ? `falta ${fmt(x.falta, false)}` : "pagado"}</small></div>
+                  </Link>
+                ))}
+              </div>
+            ) : <div className="vacio p-8-0">Nadie más tiene cargos en este corte: todo es tuyo.</div>}
+            {lista.length > 0 && <p className="nota">{falta >= 0.005 ? <>Te falta cobrar <b>{fmt(falta, false)}</b> de este corte.</> : "Ya te pagaron todo lo de este corte."}</p>}
+          </div>
+        </Seccion>
+      );
+    },
 
     periodo: () => (
       <Seccion titulo="Periodo actual" ayuda={<>Del {fechaCorta(addDia(d.ultimo_corte!))} al {fechaCorta(d.proximo_corte!)} (corte) · se paga antes del {fechaCorta(d.fecha_pago_siguiente!)}</>}>
@@ -425,6 +506,7 @@ export default function Cuenta() {
       <Cabeza titulo={d.nombre} volver accion={
         <div className="flex gap-8">
           {botonPdf}
+          <Link to={`/cuenta/${id}/editar`} className="boton-icono" aria-label={`Editar ${d.nombre}`} title="Editar tarjeta"><PencilSimple size={22} /></Link>
           <Link to="/tarjetas/personalizar" className="boton-icono" aria-label="Personalizar tarjetas"><SquaresFour size={22} /></Link>
         </div>
       } />
@@ -436,7 +518,8 @@ export default function Cuenta() {
       ))}
       {!orden.some((c) => c.visible) && acciones()}
       {fallo && <p className="error" role="alert">{fallo}</p>}
-      <p className="nota mt-14">Corte día {d.dia_corte} · pago día {d.dia_pago}. <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link> · <Link to="/ajustes/cuentas">Editar tarjeta</Link> · <Link to="/tarjetas/personalizar">Personalizar esta pantalla</Link></p>
+      <p className="nota mt-14">Corte día {d.dia_corte} · pagas {textoRegla({ pago_regla: d.pago_regla ?? "fijo", dia_pago: d.dia_pago, pago_dias: d.pago_dias ?? null, pago_habil: d.pago_habil ?? "no", dia_corte: d.dia_corte })}.
+        {d.cuadre ? <> Último cuadre: {fechaCorta(d.cuadre.created_at.slice(0, 10))}{d.cuadre.tipo === "saldo" && d.cuadre.saldo_banco != null && d.cuadre.saldo_app != null && Math.abs(Number(d.cuadre.saldo_banco) - Number(d.cuadre.saldo_app)) >= 0.5 ? " (no cuadró)" : ""}.</> : null} <Link to={`/ajustes/tarjeta/${id}/cuadrar`}>Cuadrar con mi estado de cuenta</Link> · <Link to={`/cuenta/${id}/editar`}>Editar tarjeta</Link> · <Link to="/tarjetas/personalizar">Personalizar esta pantalla</Link></p>
     </>
   );
 

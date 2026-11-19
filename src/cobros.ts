@@ -5,9 +5,11 @@ import type { DetalleMsi } from "./msi";
 
 // "mes": mes del estado de cuenta en que entra (tarjetas de crédito según su corte; lo demás, el mes de la fecha).
 // "futuro": aún no se cobra (mensualidad que el banco no ha facturado o cargo con fecha futura).
-export type Cargo = { id: string; mov: string; fecha: string; mes: string; texto: string; monto: number; pendiente: number; marcado?: boolean; futuro?: boolean };
-// cargos: lo que te debe hoy; venir: lo pendiente que aún no se cobra
-export type Persona = { cargos: Cargo[]; venir: Cargo[]; marcados: Cargo[]; total: number; porVenir: number; proxima: number; pagado: number };
+// "origen": el módulo al que pertenece (gasto de contado, compra a meses o suscripción)
+export type Origen = "gasto" | "msi" | "suscripcion";
+export type Cargo = { id: string; mov: string; fecha: string; mes: string; texto: string; monto: number; pendiente: number; origen: Origen; cuenta: string | null; marcado?: boolean; futuro?: boolean };
+// cargos: lo que te debe hoy; venir: lo pendiente que aún no se cobra; todos: también lo ya pagado (para las cuentas de cada corte)
+export type Persona = { cargos: Cargo[]; venir: Cargo[]; marcados: Cargo[]; todos?: Cargo[]; total: number; porVenir: number; proxima: number; pagado: number };
 export type EstadoMov = { familiar_id: string; cobrado: number; pendiente: number; porVenir: number; completo: boolean };
 export type Cobros = { personas: Record<string, Persona>; movs: Record<string, EstadoMov[]> };
 
@@ -69,11 +71,12 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
     const clave = `${m.mov}|${m.familiar_id}`;
     const dia = corteDe[m.cuenta_id] ?? null;
     const sus = String(m.mov).startsWith("sus:");
+    const origen: Origen = m.sus ? "suscripcion" : m.meses_msi ? "msi" : "gasto";
     estado[clave] = { familiar_id: m.familiar_id, cobrado: 0, pendiente: 0, porVenir: 0, completo: !m.meses_msi || m.cobro_completo };
     if (!sus) (movs[m.mov] ??= []).push(estado[clave]);
     if (!m.meses_msi || m.cobro_completo || !x) {
       lista.push({ id: clave, mov: sus ? "" : m.mov, fecha: m.fecha, mes: mesDeCorte(m.fecha, dia), texto: m.meses_msi ? `${texto} (a ${m.meses_msi} meses, cobro completo)` : texto,
-        monto: Number(m.monto), pendiente: Number(m.monto), futuro: m.fecha > hoy });
+        monto: Number(m.monto), pendiente: Number(m.monto), origen, cuenta: m.cuenta_id ?? null, futuro: m.fecha > hoy });
     } else {
       // La primera mensualidad absorbe los centavos, igual que el banco y la base de datos (_msi_cobrado)
       const mens = mensualidadesMsi(Number(m.monto), x.meses);
@@ -81,7 +84,7 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
       for (let k = 1; k <= x.meses; k++) {
         const mes = sumarMes(x.primer_mes, k - 1);
         lista.push({ id: `${clave}|${k}`, mov: m.mov, fecha: dia ? conDia(mes, dia) : mes, mes, texto: `${texto} (MSI ${k} de ${x.meses})`,
-          monto: mens[k - 1], pendiente: mens[k - 1], futuro: k > x.facturadas });
+          monto: mens[k - 1], pendiente: mens[k - 1], origen, cuenta: m.cuenta_id ?? null, futuro: k > x.facturadas });
       }
       if (x.restantes > 0) proxima[m.familiar_id] = (proxima[m.familiar_id] ?? 0) + mens[x.facturadas];
     }
@@ -104,7 +107,7 @@ export async function cargarCobros(msiDetalle?: DetalleMsi): Promise<Cobros> {
     // Lo pagado por adelantado cubre lo que viene, así que "por venir" es lo que falta de eso
     const cargos = lista.filter((g) => g.pendiente > 0.004 && !g.futuro);
     const venir = lista.filter((g) => g.pendiente > 0.004 && g.futuro);
-    personas[fam] = { cargos, venir, marcados: lista.filter((g) => g.marcado), total: cargos.reduce((s, g) => s + g.pendiente, 0),
+    personas[fam] = { cargos, venir, marcados: lista.filter((g) => g.marcado), todos: lista, total: cargos.reduce((s, g) => s + g.pendiente, 0),
       porVenir: venir.reduce((s, g) => s + g.pendiente, 0), proxima: proxima[fam] ?? 0, pagado: pagos[fam] ?? 0 };
   }
   for (const [fam, total] of Object.entries(pagos)) personas[fam] ??= { cargos: [], venir: [], marcados: [], total: 0, porVenir: 0, proxima: 0, pagado: total };
@@ -128,7 +131,7 @@ async function comprasSuscripciones(subs: any[], compras: any[], hoy: string) {
   const r: any[] = [];
   for (const s of subs) {
     const registrados = ((data ?? []) as any[]).filter((m) => esDe(m, s) && m.fecha >= s.fecha_referencia);
-    const base = { descripcion: s.servicio, comercio: null, meses_msi: null, cobro_completo: false, cuenta_id: s.cuenta_id, parte: true };
+    const base = { descripcion: s.servicio, comercio: null, meses_msi: null, cobro_completo: false, cuenta_id: s.cuenta_id, parte: true, sus: true };
     for (const m of registrados) {
       if (m.familiar_id || conPartes.has(m.id)) continue;
       const f = Number(m.monto) / Number(s.monto);
@@ -143,6 +146,23 @@ async function comprasSuscripciones(subs: any[], compras: any[], hoy: string) {
     }
   }
   return r;
+}
+
+// Lo que te debe cada persona de un módulo (o de todo, sin origen): hoy y lo que aún no se cobra
+export function deudasDe(personas: Record<string, Persona>, origen?: Origen) {
+  const suma = (l: Cargo[]) => l.filter((c) => !origen || c.origen === origen).reduce((a, c) => a + c.pendiente, 0);
+  return Object.entries(personas).map(([id, p]) => ({ id, hoy: origen ? suma(p.cargos) : p.total, despues: origen ? suma(p.venir) : p.porVenir }))
+    .filter((x) => x.hoy > 0.5 || x.despues > 0.5);
+}
+
+// Lo de cada persona en un corte de una tarjeta ("mes": el mes de ese corte): cuánto le tocó, cuánto ya pagó y cuánto falta
+export function cuentasDelCorte(personas: Record<string, Persona>, cuenta: string, mes: string) {
+  return Object.entries(personas).flatMap(([id, p]) => {
+    const l = (p.todos ?? []).filter((c) => c.cuenta === cuenta && c.mes === mes);
+    const total = l.reduce((a, c) => a + c.monto, 0);
+    const falta = l.reduce((a, c) => a + c.pendiente, 0);
+    return total > 0.004 ? [{ id, total, falta, pagado: total - falta, cargos: l }] : [];
+  }).sort((a, b) => b.total - a.total);
 }
 
 // Texto corto del estado de un cargo de otra persona

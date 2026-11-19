@@ -271,7 +271,7 @@ export default function Movimientos() {
         </>
       ) : <SelectorMes mes={mes} onCambio={setMes} />}
       <div className="filtros-desliza"><Segmentos etiqueta="Filtrar" valor={filtro} onCambio={setFiltro} opciones={[
-        { v: "todo", t: "Todo" }, { v: "gasto", t: "Gastos" }, { v: "mensualidad", t: "Mensualidades" }, { v: "suscripcion", t: "Suscripciones" }, { v: "ingreso", t: "Ingresos" },
+        { v: "todo", t: "Todo" }, { v: "gasto", t: "Gastos" }, { v: "mensualidad", t: "Mensualidades" }, { v: "suscripcion", t: "Suscripciones" }, { v: "ingreso", t: "Me pagaron" },
         ...(otros.length ? [{ v: "compartido" as const, t: "Compartidos" }] : []), { v: "otros", t: "Transferencias" },
       ]} /></div>
       {enCorte && !cargando && (

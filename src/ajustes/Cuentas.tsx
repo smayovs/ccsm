@@ -1,17 +1,21 @@
 import { useEffect, useState } from "react";
 import { IconoCuenta } from "../iconos";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, type Cuenta } from "../contexto";
-import { Cabeza, Campo, ConfirmarBorrar, useUnaVez, Seccion } from "../ui";
+import { Cabeza, Campo, Cargando, ConfirmarBorrar, useUnaVez, Seccion } from "../ui";
 import { CaretRight, Plus } from "../phosphor";
+import { errorRegla, reglaDe, reglaFila, ReglaPagoCampos, type ReglaEdit } from "./ReglaPagoCampos";
 import { errorTexto, hoyISO, TIPOS_CUENTA, VISIBILIDAD, limpiarMonto } from "../util";
 
 type Edit = Omit<Cuenta, "saldo_inicial" | "dia_corte" | "dia_pago" | "limite_credito" | "pago_mensual"> & {
   saldo_inicial: string; dia_corte: string; dia_pago: string; limite_credito: string; pago_mensual: string; conjunta: boolean;
+  regla: ReglaEdit;
 };
 
+// Con /cuenta/:id/editar abre directo la edición de esa cuenta y al terminar regresa a su página
 export default function Cuentas() {
+  const { id: editarId } = useParams();
   const { uid, otros, recargar, aviso } = useApp();
   const [todas, setTodas] = useState<Cuenta[]>([]);
   const [edit, setEdit] = useState<Edit | null>(null);
@@ -22,9 +26,15 @@ export default function Cuentas() {
   const nav = useNavigate();
   const cargar = () => sb.from("cuentas").select("*").order("orden").order("nombre").then(({ data }) => setTodas((data ?? []) as Cuenta[]));
   useEffect(() => { cargar(); }, []);
+  const aEdit = (c: Cuenta): Edit => ({ ...c, saldo_inicial: String(c.tipo === "credito" || c.tipo === "prestamo" ? Math.abs(Number(c.saldo_inicial)) : c.saldo_inicial), pago_mensual: String(c.pago_mensual ?? ""), dia_corte: String(c.dia_corte ?? ""),
+    dia_pago: String(c.dia_pago ?? ""), limite_credito: String(c.limite_credito ?? ""), conjunta: c.propietario_id === null, regla: reglaDe(c) });
+  useEffect(() => { const c = editarId && todas.find((x) => x.id === editarId); if (c && !edit) setEdit(aEdit(c)); }, [editarId, todas]);
+  // Al terminar: desde la página de la cuenta se regresa a ella; aquí, a la lista
+  const cerrar = () => { if (editarId) nav(-1); else setEdit(null); };
 
   const nueva = (tipo = "debito"): Edit => ({ id: "", nombre: "", tipo, pago_mensual: "", propietario_id: uid, saldo_inicial: "", fecha_saldo_inicial: hoyISO(),
-    dia_corte: "", dia_pago: "", limite_credito: "", nombre_wallet: "", visibilidad: "privada", activa: true, orden: todas.length, conjunta: false });
+    dia_corte: "", dia_pago: "", limite_credito: "", nombre_wallet: "", visibilidad: "privada", activa: true, orden: todas.length, conjunta: false,
+    regla: reglaDe({ dia_pago: null }) });
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault(); if (!edit) return; setError("");
@@ -39,28 +49,36 @@ export default function Cuentas() {
       limite_credito: edit.tipo === "credito" && edit.limite_credito ? Number(edit.limite_credito) : null,
       nombre_wallet: edit.nombre_wallet?.trim() || null, visibilidad: edit.visibilidad, activa: edit.activa, orden: edit.orden,
     };
+    // Tarjetas: la deuda sale de lo que registras (o de su deuda inicial anterior, que no se toca aquí) y la fecha de pago de su regla
+    if (edit.tipo === "credito" && edit.id) {
+      delete fila.saldo_inicial; delete fila.fecha_saldo_inicial;
+      const er = errorRegla(edit.regla);
+      if (er) return setError(er);
+      Object.assign(fila, reglaFila(edit.regla));
+    }
     if (!fila.nombre) return setError("Escribe el nombre de la cuenta.");
     if (fila.dia_pago !== null && !(fila.dia_pago >= 1 && fila.dia_pago <= 31)) return setError("El día de pago va de 1 a 31.");
     const r = edit.id
       ? await sb.from("cuentas").update(fila).eq("id", edit.id)
       : await sb.from("cuentas").insert({ ...fila, propietario_id: edit.conjunta ? null : uid });
     if (r.error) return setError(errorTexto(r.error));
-    aviso("Cuenta guardada"); setEdit(null); cargar(); recargar();
+    aviso("Cuenta guardada"); recargar(); if (editarId) return nav(-1); setEdit(null); cargar();
   }
   async function borrar() {
     if (!edit?.id) return;
     const { error } = await sb.from("cuentas").delete().eq("id", edit.id);
     if (error) return setError(errorTexto(error));
-    aviso("Cuenta borrada"); setEdit(null); cargar(); recargar();
+    aviso("Cuenta borrada"); recargar(); if (editarId) return nav("/tarjetas", { replace: true }); setEdit(null); cargar();
   }
 
+  if (editarId && !edit) return <><Cabeza titulo="Editar tarjeta" volver /><Cargando /></>;
   if (edit) {
     const credito = edit.tipo === "credito";
     const prestamo = edit.tipo === "prestamo";
     const deOtro = edit.id && edit.propietario_id && edit.propietario_id !== uid;
     return (
       <>
-        <Cabeza titulo={edit.id ? "Editar cuenta" : "Nueva cuenta"} />
+        <Cabeza titulo={edit.id ? (credito ? "Editar tarjeta" : "Editar cuenta") : "Nueva cuenta"} volver={!!editarId} />
         {deOtro ? <p>Esta cuenta es de tu pareja; solo ella puede editarla.</p> : (
           <form onSubmit={(e) => { e.preventDefault(); unaVez(guardar)(e); }}>
             <section className="panel mt-0">
@@ -71,23 +89,27 @@ export default function Cuentas() {
                 {Object.entries(TIPOS_CUENTA).filter(([v]) => (edit.id || v !== "credito") && (v !== "credito" || credito) && (v !== "prestamo" || prestamo || !edit.id)).map(([v, t]) => <option key={v} value={v}>{t}</option>)}
               </select>
             </Campo>
-            <div className="dos">
+            {credito && edit.id ? (
+              edit.saldo_calculado
+                ? <p className="nota mt-0">La deuda se calcula con lo que registras desde el corte del {edit.fecha_saldo_inicial.split("-").reverse().join("/")}. Para compararla con tu banco, <Link to={`/ajustes/tarjeta/${edit.id}/cuadrar`}>cuádrala</Link>.</p>
+                : <p className="nota mt-0">Esta tarjeta todavía usa la deuda que capturaste al darla de alta. <Link to={`/ajustes/tarjeta/${edit.id}/cuadrar`}>Cuádrala con tu estado de cuenta</Link> para que la deuda salga solo de lo que registras.</p>
+            ) : <div className="dos">
               <Campo etiqueta={credito ? "Deuda total al darla de alta" : prestamo ? "Cuánto debes" : "Saldo"}
-                ayuda={credito ? "Saldo actual + saldo de MSI, en positivo. Las compras a meses se registran aparte en Más › Compras a meses." : prestamo ? "Lo que te falta por pagar (el saldo que te da el banco o la persona)." : undefined}>
+                ayuda={credito ? "Saldo actual + saldo de MSI, en positivo. Las compras a meses se ven aparte en la pestaña Meses." : prestamo ? "Lo que te falta por pagar (el saldo que te da el banco o la persona)." : undefined}>
                 <input inputMode="decimal" value={edit.saldo_inicial}
                   onChange={(e) => setEdit({ ...edit, saldo_inicial: credito || prestamo ? limpiarMonto(e.target.value) : (e.target.value.trim().startsWith("-") ? "-" : "") + limpiarMonto(e.target.value) })} />
               </Campo>
               <Campo etiqueta="Al día" ayuda="Solo cuentan movimientos desde esta fecha."><input type="date" value={edit.fecha_saldo_inicial} onChange={(e) => setEdit({ ...edit, fecha_saldo_inicial: e.target.value })} /></Campo>
-            </div>
+            </div>}
             </section>
             {credito && (
               <section className="panel">
                 <div className="panel-titulo">Tarjeta</div>
                 <div className="dos">
                   <Campo etiqueta="Día de corte"><input inputMode="numeric" value={edit.dia_corte} onChange={(e) => setEdit({ ...edit, dia_corte: e.target.value.replace(/\D/g, "") })} placeholder="10" /></Campo>
-                  <Campo etiqueta="Día límite de pago"><input inputMode="numeric" value={edit.dia_pago} onChange={(e) => setEdit({ ...edit, dia_pago: e.target.value.replace(/\D/g, "") })} placeholder="30" /></Campo>
+                  <Campo etiqueta="Límite de crédito"><input inputMode="decimal" value={edit.limite_credito} onChange={(e) => setEdit({ ...edit, limite_credito: limpiarMonto(e.target.value) })} /></Campo>
                 </div>
-                <Campo etiqueta="Límite de crédito"><input inputMode="decimal" value={edit.limite_credito} onChange={(e) => setEdit({ ...edit, limite_credito: limpiarMonto(e.target.value) })} /></Campo>
+                <ReglaPagoCampos r={edit.regla} onCambio={(regla) => setEdit({ ...edit, regla })} diaCorte={Number(edit.dia_corte) || null} />
               </section>
             )}
             {prestamo && (
@@ -133,7 +155,7 @@ export default function Cuentas() {
               </label>
             </div>
             <div className="acciones">
-              <button type="button" className="boton claro" onClick={() => setEdit(null)}>Cancelar</button>
+              <button type="button" className="boton claro" onClick={cerrar}>Cancelar</button>
               <button className="boton">Guardar</button>
             </div>
             {edit.id && <div className="acciones"><ConfirmarBorrar etiqueta="Borrar cuenta" pregunta={`¿Borrar ${edit.nombre}? Si tiene movimientos, mejor apaga «Activa».`} onConfirmar={borrar} /></div>}
@@ -187,8 +209,7 @@ export default function Cuentas() {
                 <button className="boton chico claro" aria-label={`Bajar ${c.nombre}`} disabled={i === l.length - 1} onClick={() => mover(l, i, 1)}>↓</button>
               </div>
             ) : (
-              <button className="fila" key={c.id} onClick={() => setEdit({ ...c, saldo_inicial: String(c.tipo === "credito" || c.tipo === "prestamo" ? Math.abs(Number(c.saldo_inicial)) : c.saldo_inicial), pago_mensual: String(c.pago_mensual ?? ""), dia_corte: String(c.dia_corte ?? ""),
-                dia_pago: String(c.dia_pago ?? ""), limite_credito: String(c.limite_credito ?? ""), conjunta: c.propietario_id === null })}>
+              <button className="fila" key={c.id} onClick={() => setEdit(aEdit(c))}>
                 <IconoCuenta tipo={c.tipo} conjunta={c.propietario_id === null} />
                 <div className="cuerpo">
                   <div className="titulo">{c.nombre}</div>

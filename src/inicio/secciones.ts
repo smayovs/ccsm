@@ -2,27 +2,20 @@ import { sb } from "../supabase";
 import { cargarPreferencias, olvidarPreferencias } from "../preferencias";
 import { diasEntre, hoyISO, masDias, mesISO, sumarMes } from "../util";
 
-// Catálogo de secciones de Inicio, en el orden inicial (el resumen primero). "filtrable": responde a los filtros de periodo, cuenta y categoría.
+// Catálogo de secciones de la pestaña Gastos, en el orden inicial (el resumen primero). "filtrable": responde a los filtros de periodo, cuenta y categoría.
+// Inicio ya no se personaliza: muestra un resumen fijo de cada módulo. Lo que dependía de ingresos (Tu dinero, Cuentas, Ingresos vs. gastos) quedó oculto.
 export type IdSeccion =
-  | "proximos" | "avisos" | "resumen" | "dinero" | "tarjetas" | "mensualidades" | "ritmo" | "categorias" | "cuentas"
-  | "quien" | "comparativo" | "ultimos" | "flujo" | "buscar" | "suscripciones" | "comercios" | "porcuenta";
+  | "resumen" | "tarjetas" | "ritmo" | "categorias" | "quien" | "comparativo" | "ultimos" | "buscar" | "comercios" | "porcuenta";
 
 export const SECCIONES: { id: IdSeccion; nombre: string; detalle: string; filtrable: boolean; inicial: boolean }[] = [
-  { id: "resumen", nombre: "Resumen", detalle: "Cuánto llevas gastado, ingresos y ahorro", filtrable: true, inicial: true },
-  { id: "avisos", nombre: "Avisos", detalle: "Pendientes y saldo con tu pareja; con Esta semana activa, van dentro de ella", filtrable: false, inicial: true },
-  { id: "proximos", nombre: "Esta semana", detalle: "Próximos pagos y avisos en tarjetas que se deslizan", filtrable: false, inicial: true },
-  { id: "dinero", nombre: "Tu dinero este mes", detalle: "Lo que tienes contra lo que debes pagar", filtrable: false, inicial: false },
-  { id: "tarjetas", nombre: "Tarjetas", detalle: "Deuda, pago y disponible de cada tarjeta", filtrable: false, inicial: true },
-  { id: "mensualidades", nombre: "Mensualidades", detalle: "Compras a meses: este mes y lo que viene", filtrable: false, inicial: false },
-  { id: "ritmo", nombre: "Ritmo de gasto", detalle: "Gasto acumulado del mes y proyección", filtrable: true, inicial: false },
+  { id: "resumen", nombre: "Resumen", detalle: "Cuánto llevas gastado y cuánto es de suscripciones y compras a meses", filtrable: true, inicial: true },
+  { id: "tarjetas", nombre: "Tarjetas", detalle: "Deuda, pago y disponible de cada tarjeta (también en la pestaña Tarjetas)", filtrable: false, inicial: false },
   { id: "categorias", nombre: "En qué se va", detalle: "Gasto por categoría y subcategoría", filtrable: true, inicial: true },
-  { id: "cuentas", nombre: "Cuentas", detalle: "Saldos de débito, ahorro, inversión y préstamos", filtrable: false, inicial: false },
-  { id: "quien", nombre: "Quién te debe", detalle: "Cobros pendientes por persona", filtrable: false, inicial: false },
+  { id: "ritmo", nombre: "Ritmo de gasto", detalle: "Gasto acumulado del mes y proyección", filtrable: true, inicial: false },
+  { id: "quien", nombre: "Quién te debe", detalle: "Lo que te deben de tus gastos de contado", filtrable: false, inicial: true },
+  { id: "ultimos", nombre: "Últimos gastos", detalle: "Los gastos más recientes", filtrable: true, inicial: true },
   { id: "comparativo", nombre: "Comparativo", detalle: "Gasto por categoría contra el periodo anterior", filtrable: true, inicial: false },
-  { id: "ultimos", nombre: "Últimos gastos", detalle: "Los gastos más recientes", filtrable: true, inicial: false },
-  { id: "flujo", nombre: "Ingresos vs. gastos", detalle: "Los últimos 6 meses y lo que ahorraste", filtrable: true, inicial: false },
   { id: "buscar", nombre: "Buscar por categoría", detalle: "Elige una categoría o subcategoría y ve sus gastos", filtrable: true, inicial: false },
-  { id: "suscripciones", nombre: "Suscripciones del mes", detalle: "Qué se cobra este mes y cuándo", filtrable: false, inicial: false },
   { id: "comercios", nombre: "Dónde más gastas", detalle: "Los comercios con más gasto", filtrable: true, inicial: false },
   { id: "porcuenta", nombre: "Gasto por cuenta", detalle: "Cuánto has gastado con cada tarjeta o cuenta", filtrable: true, inicial: false },
 ];
@@ -42,25 +35,27 @@ export const normalizar = (guardado: unknown): ConfigInicio => normalizarCon(SEC
 // Usa las preferencias que ya pidió el arranque (preferencias.ts) en lugar de pedirlas otra vez
 export async function cargarConfig(uid: string): Promise<ConfigInicio> {
   const p = await cargarPreferencias(uid);
-  return normalizar(p?.inicio?.secciones);
+  // Se guarda aparte de las secciones del Inicio anterior ("secciones") para que Gastos empiece con su orden nuevo
+  return normalizar(p?.inicio?.gastos);
 }
 
 // Lo de Inicio se guarda junto (secciones y meta): cada cambio conserva lo demás que ya estaba guardado
-async function guardarInicio(uid: string, cambio: { secciones?: ConfigInicio; meta?: number; metaModo?: ModoMeta; ciclo?: Ciclo; tarjeta?: ConfigTarjeta }) {
+async function guardarInicio(uid: string, cambio: { gastos?: ConfigInicio; meta?: number; metaModo?: ModoMeta; ciclo?: Ciclo; tarjeta?: ConfigTarjeta }) {
   const actual = (await cargarPreferencias(uid))?.inicio ?? {};
   const r = await sb.from("preferencias").upsert({ user_id: uid, inicio: { ...actual, ...cambio }, updated_at: new Date().toISOString() });
   olvidarPreferencias();
   return r;
 }
 
-export const guardarConfig = (uid: string, secciones: ConfigInicio) => guardarInicio(uid, { secciones });
+export const guardarConfig = (uid: string, gastos: ConfigInicio) => guardarInicio(uid, { gastos });
 
 // ---------- Detalle de tarjeta ----------
 // Qué secciones se ven en el detalle de una tarjeta de crédito y en qué orden (igual para todas tus tarjetas)
-export type IdSeccionTarjeta = "resumen" | "pago" | "periodo" | "porvenir" | "categorias" | "msi" | "aplazados" | "movimientos";
+export type IdSeccionTarjeta = "resumen" | "pago" | "cierre" | "periodo" | "porvenir" | "categorias" | "msi" | "aplazados" | "movimientos";
 export const SECCIONES_TARJETA: { id: IdSeccionTarjeta; nombre: string; detalle: string; inicial: boolean }[] = [
   { id: "resumen", nombre: "Resumen", detalle: "Lo que debes en total, disponible y límite", inicial: true },
   { id: "pago", nombre: "Tu pago", detalle: "El pago para no generar intereses y su fecha", inicial: true },
+  { id: "cierre", nombre: "Cuentas del corte", detalle: "Cuánto es tuyo y cuánto te deben otras personas en cada corte", inicial: true },
   { id: "periodo", nombre: "Periodo actual", detalle: "Compras de contado y mensualidades de este corte", inicial: true },
   { id: "porvenir", nombre: "Mensualidades por venir", detalle: "Lo que suman tus compras a meses en los próximos cortes", inicial: false },
   { id: "categorias", nombre: "En qué se va", detalle: "Cargos del corte que estás viendo por categoría", inicial: false },
@@ -72,7 +67,15 @@ export type ConfigTarjeta = { id: IdSeccionTarjeta; visible: boolean }[];
 export const configTarjetaInicial = (): ConfigTarjeta => SECCIONES_TARJETA.map((s) => ({ id: s.id, visible: s.inicial }));
 export async function cargarConfigTarjeta(uid: string): Promise<ConfigTarjeta> {
   const p = await cargarPreferencias(uid);
-  return normalizarCon(SECCIONES_TARJETA, p?.inicio?.tarjeta);
+  const config = normalizarCon(SECCIONES_TARJETA, p?.inicio?.tarjeta);
+  // "Cuentas del corte" es nueva: si no estaba guardada, va justo después de "Tu pago" en lugar de al final
+  const guardado = Array.isArray(p?.inicio?.tarjeta) ? (p!.inicio!.tarjeta as { id: string }[]) : [];
+  if (guardado.length && !guardado.some((x) => x?.id === "cierre")) {
+    const nueva = config.filter((c) => c.id !== "cierre");
+    nueva.splice(nueva.findIndex((c) => c.id === "pago") + 1, 0, { id: "cierre", visible: true });
+    return nueva;
+  }
+  return config;
 }
 export const guardarConfigTarjeta = (uid: string, tarjeta: ConfigTarjeta) => guardarInicio(uid, { tarjeta });
 
@@ -83,7 +86,8 @@ export async function cargarMeta(uid: string): Promise<Meta> {
   const inicio = (await cargarPreferencias(uid))?.inicio;
   const m = Number(inicio?.meta);
   const monto = Number.isFinite(m) && m > 0 ? m : 0;
-  if (inicio?.metaModo === "ingresos") return { modo: "ingresos", monto };
+  // Los ingresos están ocultos: un límite por ingresos guardado antes se toma como sin límite (no se borra)
+  if (inicio?.metaModo === "ingresos") return { modo: "ninguna", monto: 0 };
   return { modo: monto ? "fija" : "ninguna", monto };
 }
 export const guardarMeta = (uid: string, meta: Meta) =>

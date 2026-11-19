@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp, nombreCategoria } from "../contexto";
 import { Cabeza, Campo, ConfirmarBorrar, Interruptor, SelectorCategoria, Seccion, useUnaVez } from "../ui";
-import { CaretRight, Plus, Repeat } from "../phosphor";
+import { CaretRight, Handshake, Plus, Repeat } from "../phosphor";
+import { cargarCobros, deudasDe } from "../cobros";
 import { diasEntre, errorTexto, fechaCorta, fmt, hoyISO, proximoCobro, limpiarMonto } from "../util";
 import { divisionVacia, partesDe, SelectorDivision, type Division } from "../division";
 
@@ -16,6 +18,10 @@ export default function Suscripciones() {
   const unaVez = useUnaVez();
   const [lista, setLista] = useState<any[]>([]);
   const [edit, setEdit] = useState<typeof vacia | null>(null);
+  // Lo que te deben de suscripciones divididas (solo se pide si alguna está dividida)
+  const [deben, setDeben] = useState<{ id: string; hoy: number; despues: number }[]>([]);
+  const conPartes = Object.keys(partes).length > 0;
+  useEffect(() => { if (conPartes) cargarCobros().then((c) => setDeben(deudasDe(c.personas, "suscripcion")), () => {}); }, [conPartes]);
   const [error, setError] = useState("");
   const cargar = () => {
     sb.from("suscripciones").select("*").order("servicio").then(({ data }) => setLista(data ?? []));
@@ -135,12 +141,48 @@ export default function Suscripciones() {
 
   return (
     <>
-      <Cabeza titulo="Suscripciones" volver accion={<button className="boton-icono acento" aria-label="Agregar suscripción" onClick={() => abrir({ ...vacia })}><Plus size={22} /></button>} />
+      <Cabeza titulo="Suscripciones" accion={<button className="boton-icono acento" aria-label="Agregar suscripción" onClick={() => abrir({ ...vacia })}><Plus size={22} /></button>} />
       <section className="tablero" aria-label="Resumen de suscripciones">
         <div className="etiqueta">{miAlMes < alMes - 0.5 ? "Tu parte al mes" : "Pagas al mes"}</div>
         <div className="cifra">{fmt(miAlMes, false)}</div>
         <div className="sub"><b>{fmt(miAlMes * 12, false)}</b> al año · {activas.length} {activas.length === 1 ? "servicio activo" : "servicios activos"}{miAlMes < alMes - 0.5 ? ` · total de los servicios ${fmt(alMes, false)} al mes` : ""}</div>
       </section>
+      {(() => {
+        // Lo que se cobra en los próximos 7 días
+        const prox = activas.flatMap((x) => { const f = proximoCobro(x.fecha_referencia, x.frecuencia_meses); return f && diasEntre(hoyISO(), f) <= 7 ? [{ ...x, f }] : []; })
+          .sort((a, b) => a.f.localeCompare(b.f));
+        return prox.length > 0 && (
+          <Seccion titulo="Esta semana" ayuda={<>Se cobran {fmt(prox.reduce((a, x) => a + Number(x.monto), 0), false)}</>}>
+            <div className="lista">
+              {prox.map((x) => {
+                const d = diasEntre(hoyISO(), x.f);
+                return (
+                  <div className="fila" key={x.id}>
+                    <span className="ico" aria-hidden="true"><Repeat size={20} /></span>
+                    <div className="cuerpo"><div className="titulo">{x.servicio}</div>
+                      <div className="detalle">{d <= 0 ? "Hoy" : d === 1 ? "Mañana" : `En ${d} días`} · {fechaCorta(x.f)}{x.cuenta_id ? ` · ${cuentas.find((c) => c.id === x.cuenta_id)?.nombre ?? ""}` : ""}</div></div>
+                    <div className="monto">{fmt(x.monto)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </Seccion>
+        );
+      })()}
+      {deben.length > 0 && (
+        <Seccion titulo="Quién te debe" contador={deben.length} ayuda="Su parte de las suscripciones divididas; marca lo pagado en Cobros">
+          <div className="lista">
+            {deben.map((x) => (
+              <Link key={x.id} className="fila" to="/cobros">
+                <span className="ico cuenta-ahorro" aria-hidden="true"><Handshake size={20} /></span>
+                <div className="cuerpo"><div className="titulo">{familiares.find((f) => f.id === x.id)?.nombre ?? "Otra persona"}</div>
+                  {x.despues > 0.5 && <div className="detalle">Más {fmt(x.despues, false)} del próximo cobro</div>}</div>
+                <div className="monto positivo">{fmt(x.hoy)}<small>hoy</small></div>
+              </Link>
+            ))}
+          </div>
+        </Seccion>
+      )}
       <Seccion titulo="Servicios" contador={lista.length}>
         <div className="lista">
           {lista.length === 0 && <div className="vacio">Agrega tus servicios recurrentes: streaming, gimnasio, apps, seguros.</div>}

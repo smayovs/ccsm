@@ -8,7 +8,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as P from "@phosphor-icons/react/dist/ssr";
 
 // Grosores extra (además de "regular") que pide cada ícono
-const EXTRA = { House: ["fill"], UsersThree: ["fill"], DotsThreeOutline: ["fill"], ListBullets: ["bold"], Plus: ["bold"] };
+const EXTRA = { House: ["fill"], CreditCard: ["fill"], Repeat: ["fill"], CalendarDots: ["fill"], Plus: ["bold"] };
 
 const archivos = (d) => readdirSync(d).flatMap((f) => { const p = join(d, f); return statSync(p).isDirectory() ? archivos(p) : /\.tsx?$/.test(f) ? [p] : []; });
 const usados = new Set();

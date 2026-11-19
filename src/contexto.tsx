@@ -10,6 +10,9 @@ export type Cuenta = {
   id: string; nombre: string; tipo: string; propietario_id: string | null; saldo_inicial: number;
   fecha_saldo_inicial: string; dia_corte: number | null; dia_pago: number | null; limite_credito: number | null;
   nombre_wallet: string | null; visibilidad: string; activa: boolean; orden: number; pago_mensual?: number | null;
+  // Tarjetas: deuda calculada desde el corte fecha_saldo_inicial y regla de la fecha límite de pago
+  saldo_calculado?: boolean; pago_regla?: "fijo" | "dias" | "corte"; pago_dias?: number | null; pago_habil?: "no" | "antes" | "despues";
+  banco_incluye_msi?: boolean;
 };
 export type Categoria = {
   id: string; nombre: string; tipo: "gasto" | "ingreso"; padre_id: string | null; propietario_id: string | null;

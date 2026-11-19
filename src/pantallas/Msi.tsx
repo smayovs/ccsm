@@ -27,7 +27,7 @@ export default function Msi() {
   const ultimo = [...proy].reverse().find((p) => p.total > 0.004);
   return (
     <>
-      <Cabeza titulo="Mensualidades" volver />
+      <Cabeza titulo="Meses sin intereses" />
       <section className="tablero" aria-label="Resumen de compras a meses">
         <div className="etiqueta">Debes en compras a meses</div>
         <div className="cifra">{fmt(debes, false)}</div>
@@ -77,7 +77,7 @@ export default function Msi() {
       <Seccion titulo="Compras" contador={visibles.length} accion={lista.length > activas.length
         ? <button className="enlace-chico boton-texto" onClick={() => setVerLiquidadas(!verLiquidadas)}>{verLiquidadas ? "Solo activas" : "Ver liquidadas"}</button> : undefined}>
         <div className="lista">
-          {listo && visibles.length === 0 && <div className="vacio">Sin compras a meses. Al registrar un gasto, abre «Más opciones» y elige los meses.</div>}
+          {listo && visibles.length === 0 && <div className="vacio">Sin compras a meses. Al registrar un gasto con ＋, abre «Más opciones» y elige los meses.</div>}
           {visibles.map((x) => (
             <Link className="fila" key={x.movimiento_id} to={`/editar/${x.movimiento_id}`}>
               <span className="ico" aria-hidden="true"><CalendarDots size={20} /></span>

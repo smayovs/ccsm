@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
 import { Cabeza } from "../ui";
-import { BellRinging, CalendarDots, CaretRight, ChartBar, DeviceMobile, DownloadSimple, HandCoins, MagicWand, Palette, Repeat, Tag, Tray, Users, Wallet, type Icon } from "../phosphor";
+import { BellRinging, CaretRight, ChartBar, DeviceMobile, DownloadSimple, HandCoins, MagicWand, Palette, Tag, Tray, Users, UsersThree, Wallet, type Icon } from "../phosphor";
 import { descargar } from "../util";
 import { SELECT_MOV, textoCategoria } from "./Movimientos";
 
@@ -16,11 +16,10 @@ const grupos = (pendientes: number): { t: string; gris?: boolean; items: Opcion[
   ] },
   { t: "Pagos y cobros", items: [
     { to: "/cobros", t: "Cobros", d: "Lo que te deben familia y amigos", I: HandCoins },
-    { to: "/msi", t: "Compras a meses", d: "Mensualidades y lo que falta por facturar", I: CalendarDots },
-    { to: "/suscripciones", t: "Suscripciones", d: "Cargos recurrentes y próximos cobros", I: Repeat },
+    { to: "/hogar", t: "Hogar", d: "Gastos compartidos con tu pareja", I: UsersThree },
   ] },
   { t: "Organizar", gris: true, items: [
-    { to: "/ajustes/cuentas", t: "Cuentas", d: "Saldos, tarjetas y cuenta conjunta", I: Wallet },
+    { to: "/ajustes/cuentas", t: "Tarjetas y cuentas", d: "Tus tarjetas, su corte y saldo", I: Wallet },
     { to: "/ajustes/categorias", t: "Categorías", d: "Subcategorías, iconos y las del hogar", I: Tag },
     { to: "/ajustes/familiares", t: "Personas", d: "A quién le compras o prestas", I: Users },
   ] },
@@ -53,7 +52,7 @@ export default function Mas({ pendientes = 0 }: { pendientes?: number }) {
   );
   return (
     <>
-      <Cabeza titulo="Más" />
+      <Cabeza titulo="Más" volver />
       <Link className="perfil-tarjeta" to="/ajustes/perfil">
         <span className={"avatar r-" + (yo?.color ?? "gris")} aria-hidden="true">{(yo?.nombre ?? "?").trim().charAt(0).toUpperCase()}</span>
         <div className="cuerpo">
@@ -74,7 +73,7 @@ export default function Mas({ pendientes = 0 }: { pendientes?: number }) {
         <h2>App</h2>
         <div className="lista">
           <Link className="fila" to="/ajustes/apariencia">{fila({ to: "", t: "Apariencia", d: "Colores, modo oscuro y tamaño de letra", I: Palette }, true)}</Link>
-          <Link className="fila" to="/ajustes/notificaciones">{fila({ to: "", t: "Notificaciones", d: "Recordatorios de pagos e ingresos", I: BellRinging }, true)}</Link>
+          <Link className="fila" to="/ajustes/notificaciones">{fila({ to: "", t: "Notificaciones", d: "Recordatorios de pagos", I: BellRinging }, true)}</Link>
           <button className="fila" onClick={exportar}>{fila({ to: "", t: "Descargar mis movimientos", d: "Archivo CSV para Excel o Google Sheets", I: DownloadSimple }, true)}</button>
         </div>
       </section>

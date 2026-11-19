@@ -2,7 +2,7 @@ import { Suspense, useEffect, useState } from "react";
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { useApp } from "./contexto";
 import { sb } from "./supabase";
-import { DotsThreeOutline, House, ListBullets, Plus, UsersThree } from "./phosphor";
+import { CalendarDots, CreditCard, House, Plus, Repeat } from "./phosphor";
 import { Bienvenido, Cargando } from "./ui";
 import { perezoso } from "./perezoso";
 // Lo primero que ves al abrir va en la descarga inicial; el resto se descarga al abrir cada pantalla
@@ -23,6 +23,7 @@ const VariosGastos = perezoso(() => import("./pantallas/VariosGastos"));
 const Analisis = perezoso(() => import("./pantallas/Analisis"));
 const Cobros = perezoso(() => import("./pantallas/Cobros"));
 const Msi = perezoso(() => import("./pantallas/Msi"));
+const Tarjetas = perezoso(() => import("./pantallas/Tarjetas"));
 const Suscripciones = perezoso(() => import("./pantallas/Suscripciones"));
 const IngresoProgramado = perezoso(() => import("./pantallas/IngresoProgramado"));
 const Notificaciones = perezoso(() => import("./ajustes/Notificaciones"));
@@ -70,7 +71,9 @@ export default function App() {
       <main className="app">
         <Suspense fallback={<Cargando />}>
         <Routes>
-          <Route path="/" element={<Inicio onPendientes={setPendientes} />} />
+          <Route path="/" element={<Inicio vista="inicio" onPendientes={setPendientes} />} />
+          <Route path="/gastos" element={<Inicio vista="gastos" onPendientes={setPendientes} />} />
+          <Route path="/tarjetas" element={<Tarjetas />} />
           <Route path="/inicio/personalizar" element={<PersonalizarInicio />} />
           <Route path="/movimientos" element={<Movimientos />} />
           <Route path="/nuevo" element={<FormularioNuevo />} />
@@ -80,6 +83,7 @@ export default function App() {
           <Route path="/mas" element={<Mas pendientes={pendientes} />} />
           <Route path="/cuenta/:id" element={<Cuenta />} />
           <Route path="/tarjetas/personalizar" element={<PersonalizarTarjeta />} />
+          <Route path="/cuenta/:id/editar" element={<Cuentas />} />
           <Route path="/cuenta/:id/varios" element={<VariosGastos />} />
           <Route path="/analisis" element={<Analisis />} />
           <Route path="/cobros" element={<Cobros />} />
@@ -96,17 +100,17 @@ export default function App() {
           <Route path="/ajustes/notificaciones" element={<Notificaciones />} />
           <Route path="/ajustes/tarjeta/:id/cuadrar" element={<CuadrarTarjeta />} />
           <Route path="/ajustes/tarjeta-nueva" element={<NuevaTarjeta />} />
-          <Route path="*" element={<Inicio onPendientes={setPendientes} />} />
+          <Route path="*" element={<Inicio vista="inicio" onPendientes={setPendientes} />} />
         </Routes>
         </Suspense>
       </main>
       <nav className="nav" aria-label="Principal">
         <div className="dentro">
           <NavLink to="/" end>{({ isActive }) => <><House weight={isActive ? "fill" : "regular"} />Inicio</>}</NavLink>
-          <NavLink to="/movimientos">{({ isActive }) => <><ListBullets weight={isActive ? "bold" : "regular"} />Movimientos</>}</NavLink>
+          <NavLink to="/tarjetas">{({ isActive }) => <><CreditCard weight={isActive ? "fill" : "regular"} />Tarjetas</>}</NavLink>
           <NavLink to="/nuevo" className="mas-grande" aria-label="Agregar movimiento"><span className="circulo"><Plus size={26} weight="bold" /></span></NavLink>
-          <NavLink to="/hogar">{({ isActive }) => <><UsersThree weight={isActive ? "fill" : "regular"} />Hogar</>}</NavLink>
-          <NavLink to="/mas">{({ isActive }) => <><DotsThreeOutline weight={isActive ? "fill" : "regular"} />Más{pendientes > 0 && <><span className="punto" aria-hidden="true" /><span className="solo-lector">, {pendientes} pendientes</span></>}</>}</NavLink>
+          <NavLink to="/suscripciones">{({ isActive }) => <><Repeat weight={isActive ? "fill" : "regular"} />Suscripciones</>}</NavLink>
+          <NavLink to="/msi">{({ isActive }) => <><CalendarDots weight={isActive ? "fill" : "regular"} />Meses</>}</NavLink>
         </div>
       </nav>
     </>

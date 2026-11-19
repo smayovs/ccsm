@@ -58,6 +58,17 @@ export default function Llaves() {
       </div>
       </Seccion>
 
+      <Seccion titulo="Gasto para alguien más" ayuda="Para que el atajo de Apple Pay pregunte de quién es la compra">
+        <div className="panel mt-0">
+          <ol className="pasos-lista">
+            <li>En tu atajo, después de pedir el catálogo a la dirección (la petición GET), agrega <b>Obtener valor del diccionario</b> con la clave <code>paraQuien</code>.</li>
+            <li>Agrega <b>Elegir de la lista</b> con ese resultado. La lista trae «Para mí» y tus personas de Más › Personas.</li>
+            <li>En el diccionario que envías (la petición POST), agrega la clave <code>porCuentaDe</code> con el elemento elegido.</li>
+          </ol>
+          <p className="nota">Si eliges «Para mí», el gasto es tuyo como siempre. Si eliges a alguien, el gasto se carga a tu tarjeta, no cuenta en tus gastos y se va a Cobros a su nombre; el aviso del iPhone te dice cuánto le llevas este mes. Para dividir una compra entre varias personas, regístrala como tuya y divídela después en la app.</p>
+        </div>
+      </Seccion>
+
       <Seccion titulo="Llaves" contador={lista.length}>
       <div className="lista">
         {lista.length === 0 && <div className="vacio">Aún no tienes llaves.</div>}

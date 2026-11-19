@@ -5,12 +5,12 @@ import { errorTexto, fechaCorta, fechaLarga, fmt, hoyISO, limpiarMonto, masDias 
 import { OrdenSecciones } from "../inicio/OrdenSecciones";
 import { cargarCiclo, cargarConfig, cargarMeta, ConfigInicio, configInicial, guardarCiclo, guardarConfig, guardarMeta, inicioCatorcena, type ModoMeta, SECCIONES } from "../inicio/secciones";
 
-// Elegir qué secciones se ven en Inicio y en qué orden (se guarda en tu cuenta)
+// Elegir qué secciones se ven en la pestaña Gastos y en qué orden (se guarda en tu cuenta)
 export default function PersonalizarInicio() {
   const { uid, aviso } = useApp();
   const [config, setConfig] = useState<ConfigInicio | null>(null);
   const [error, setError] = useState("");
-  const [modo, setModo] = useState<ModoMeta>("ninguna");
+  const [modo, setModo] = useState<ModoMeta>("ninguna"); // "ingresos" ya no se ofrece: los ingresos están ocultos
   const [meta, setMeta] = useState("");
   const [guardada, setGuardada] = useState({ modo: "ninguna" as ModoMeta, monto: 0 });
   const unaVez = useUnaVez();
@@ -36,7 +36,7 @@ export default function PersonalizarInicio() {
     const { error } = await guardarCiclo(uid, cicloNuevo === "mes" ? { tipo: "mes" } : { tipo: "catorcena", ref: cicloNuevo });
     if (error) return setError(errorTexto(error));
     setCicloGuardado(cicloNuevo);
-    aviso(cicloNuevo === "mes" ? "Inicio usa el mes calendario" : "Inicio usa tu catorcena");
+    aviso(cicloNuevo === "mes" ? "Gastos usa el mes calendario" : "Gastos usa tu catorcena");
   }
   const monto = Number(meta) || 0;
   // Un monto fijo vacío equivale a no tener meta
@@ -48,7 +48,7 @@ export default function PersonalizarInicio() {
     const { error } = await guardarMeta(uid, nueva);
     if (error) return setError(errorTexto(error));
     setGuardada(nueva);
-    aviso(nueva.modo === "fija" ? `Meta de ${fmt(monto, false)} al mes` : nueva.modo === "ingresos" ? "Tu límite son tus ingresos del mes" : "Meta quitada");
+    aviso(nueva.modo === "fija" ? `Meta de ${fmt(monto, false)} al mes` : "Meta quitada");
   }
 
   async function cambiar(nueva: ConfigInicio) {
@@ -57,25 +57,23 @@ export default function PersonalizarInicio() {
     if (error) setError(errorTexto(error));
   }
 
-  if (!config) return <><Cabeza titulo="Personalizar Inicio" volver /><Cargando /></>;
+  if (!config) return <><Cabeza titulo="Personalizar Gastos" volver /><Cargando /></>;
   const activas = config.filter((c) => c.visible).length;
 
   return (
     <>
-      <Cabeza titulo="Personalizar Inicio" volver />
+      <Cabeza titulo="Personalizar Gastos" volver />
       <section className="panel mt-0">
         <div className="campo"><span>Límite de gasto del mes</span></div>
         <Segmentos etiqueta="Límite de gasto del mes" valor={modo} onCambio={setModo} opciones={[
-          { v: "ninguna", t: "Sin límite" }, { v: "ingresos", t: "Mis ingresos" }, { v: "fija", t: "Monto fijo" },
+          { v: "ninguna", t: "Sin límite" }, { v: "fija", t: "Monto fijo" },
         ]} />
         {modo === "fija" && (
           <Campo etiqueta="Monto por periodo (mes o catorcena)">
             <input inputMode="decimal" placeholder="Por ejemplo 35000" value={meta} onChange={(e) => setMeta(limpiarMonto(e.target.value))} />
           </Campo>
         )}
-        <p className="nota mt-n4 mb-14">{modo === "ingresos"
-          ? "Tu límite es lo que entra en el periodo: sueldo, bonos y cualquier ingreso que registres, también los que tengan fecha más adelante. El resumen muestra cuánto te queda por gastar."
-          : modo === "fija" ? "El resumen muestra cuánto llevas de la meta y cuánto te queda por día."
+        <p className="nota mt-n4 mb-14">{modo === "fija" ? "El resumen muestra cuánto llevas de la meta y cuánto te queda por día."
           : "El resumen solo muestra cuánto llevas gastado y a qué ritmo."}</p>
         <button className="boton chico" disabled={sinCambios} onClick={unaVez(guardarLaMeta)}>Guardar</button>
       </section>
@@ -94,12 +92,12 @@ export default function PersonalizarInicio() {
         <button className="boton chico" disabled={cicloNuevo === cicloGuardado} onClick={unaVez(guardarElCiclo)}>Guardar</button>
       </section>
       <h2>Secciones</h2>
-      <p className="nota mt-n4">Activa las secciones que quieres ver y ordénalas con las flechas. Se guarda en tu cuenta, así que se ve igual en todos tus dispositivos. Las marcadas con <span className="etiq">Filtros</span> responden al periodo, cuentas y categoría que elijas arriba en Inicio.</p>
+      <p className="nota mt-n4">Activa las secciones que quieres ver y ordénalas con las flechas. Se guarda en tu cuenta, así que se ve igual en todos tus dispositivos. Las marcadas con <span className="etiq">Filtros</span> responden al periodo, cuentas y categoría que elijas arriba en Gastos.</p>
       <OrdenSecciones config={config} catalogo={SECCIONES} onCambio={cambiar} />
       <p className="nota">{activas} de {config.length} secciones activas.</p>
       {error && <p className="error" role="alert">{error}</p>}
       <div className="acciones">
-        <button className="boton claro" onClick={() => { cambiar(configInicial()); aviso("Inicio restablecido"); }}>Restablecer</button>
+        <button className="boton claro" onClick={() => { cambiar(configInicial()); aviso("Gastos restablecido"); }}>Restablecer</button>
       </div>
     </>
   );

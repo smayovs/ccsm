@@ -1,15 +1,14 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, CalendarDots, CaretRight, CreditCard, Eye, EyeSlash, HandCoins, Handshake, Repeat, SquaresFour, Tray, Wallet } from "../phosphor";
-import { cargarProgramados, fechasEn, type IngresoProgramado } from "../ingresos";
+import { ArrowDownRight, ArrowUpRight, CalendarDots, CaretRight, CreditCard, Eye, EyeSlash, GearSix, Handshake, Receipt, Repeat, SquaresFour, Tray, UsersThree } from "../phosphor";
 import { sb } from "../supabase";
 import { useApp } from "../contexto";
-import { cobroEnMes, diasEntre, fechaCorta, fmt, hoyISO, masDias, mesISO, nombreMes, proximoCobro, sumarMes, TIPOS_CUENTA } from "../util";
+import { diasEntre, fechaCorta, fmt, hoyISO, masDias, mesCorto, mesISO, nombreMes, proximoCobro } from "../util";
 import { IconoCategoria, IconoCuenta } from "../iconos";
-import { Anillo, BarrasDobles, BarrasFlujo, BarrasMes, RitmoGasto } from "../graficas";
+import { Anillo, RitmoGasto } from "../graficas";
 import { agruparCategorias, DesgloseCategorias } from "../desglose";
 import { cargarMsi, CompraMsi, proyeccionMsi } from "../msi";
-import { cargarCobros, Persona } from "../cobros";
+import { cargarCobros, deudasDe, type Origen, Persona } from "../cobros";
 import { cargarCiclo, cargarConfig, cargarMeta, ConfigInicio, filtrosElegidos, fijarCatorcena, type Meta, configInicial, Filtros, Gasto, IdSeccion, leerFiltros, pasaFiltro, rango, recordarFiltros, SECCIONES } from "../inicio/secciones";
 import { BarraFiltros, textoPeriodo } from "../inicio/Filtros";
 import { guardarCache, leerCache } from "../cache";
@@ -17,16 +16,19 @@ import { guardarCache, leerCache } from "../cache";
 type Saldo = { id: string; nombre: string; tipo: string; mia: boolean; conjunta: boolean; propietario_nombre: string | null;
   saldo: number; limite_credito: number | null; proximo_pago: string | null; dia_pago: number | null; msi_por_facturar: number; activa: boolean };
 type Tarjeta = { id: string; falta: number; fecha_pago: string | null; pagado_mes: number; estimado: boolean };
-type Sub = { id: string; servicio: string; monto: number; frecuencia_meses: number; fecha_referencia: string | null; cuenta_id: string | null };
-type Ingreso = { fecha: string; monto: number; cuenta_id: string };
+type Sub = { id: string; servicio: string; monto: number; frecuencia_meses: number; fecha_referencia: string | null; cuenta_id: string | null; palabra_clave: string | null };
 type Balance = { nombre: string; me_debe: number };
 type Parte = { user_id: string; nombre: string; color: "rosa" | "gris" | null; es_yo: boolean; parte: number };
-type Tablero = { saldos: Saldo[]; porRevisar: number; abonosPrestamo: Record<string, number>; tarjetas: Record<string, Tarjeta>;
-  balance: Balance[]; subs: Sub[]; msi: CompraMsi[]; personas: Record<string, Persona>; cuando: number; programados: IngresoProgramado[] };
+type Tablero = { saldos: Saldo[]; porRevisar: number; tarjetas: Record<string, Tarjeta>;
+  balance: Balance[]; subs: Sub[]; msi: CompraMsi[]; msiIds: string[]; personas: Record<string, Persona>; cuando: number };
 
 const n = (x: unknown) => Number(x ?? 0);
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
-const mesCap = (m: string) => cap(nombreMes(m).split(" ")[0]);
+// Misma regla que Movimientos y Cobros para saber si un gasto es el cargo de una suscripción
+const esDeSub = (texto: string, s: Sub) => {
+  const t = texto.toUpperCase();
+  return (!!s.palabra_clave && t.includes(s.palabra_clave.toUpperCase())) || texto.trim().toLowerCase() === s.servicio.trim().toLowerCase();
+};
 // "Actualizado hace 3 min" a partir de la hora de la última carga completa
 const haceCuanto = (t: number) => {
   const min = Math.floor((Date.now() - t) / 60000);
@@ -41,8 +43,12 @@ const tarjetaDesde = (id: string, d: any): Tarjeta => ({
   pagado_mes: n(d.mes_entradas) + n(d.mes_ingresos), estimado: d.ultimo_corte ? !d.corte_conocido && !d.pago_manual : false,
 });
 
-// onPendientes: el aviso de "Más" usa el mismo resumen del mes que Inicio, sin pedirlo otra vez
-export default function Inicio({ onPendientes }: { onPendientes?: (n: number) => void }) {
+// Una sola pantalla con dos vistas que comparten los datos:
+// - "inicio": resumen fijo de cada módulo (Gastos, Suscripciones, Meses), Esta semana, Quién te debe y Hogar
+// - "gastos": la pestaña Gastos, con filtros y secciones que se personalizan
+// onPendientes: el aviso de pendientes usa el mismo resumen del mes, sin pedirlo otra vez
+export default function Inicio({ vista, onPendientes }: { vista: "inicio" | "gastos"; onPendientes?: (n: number) => void }) {
+  const enInicio = vista === "inicio";
   const { uid, yo, otros, cuentas, categorias, familiares, oculto, setOculto } = useApp();
   const mes = mesISO();
   const hoy = hoyISO();
@@ -56,18 +62,14 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const [porRevisar, setPorRevisar] = useState(guardado?.porRevisar ?? 0);
   // Solo al abrir: el aviso de "Más" muestra lo guardado mientras llega el resumen nuevo
   useEffect(() => { if (guardado) onPendientes?.(guardado.porRevisar); }, []);
-  const [abonosPrestamo, setAbonosPrestamo] = useState<Record<string, number>>(guardado?.abonosPrestamo ?? {});
   const [tarjetas, setTarjetas] = useState<Record<string, Tarjeta>>(guardado?.tarjetas ?? {});
   const [balance, setBalance] = useState<Balance[]>(guardado?.balance ?? []);
   const [subs, setSubs] = useState<Sub[]>(guardado?.subs ?? []);
   const [msi, setMsi] = useState<CompraMsi[]>(guardado?.msi ?? []);
+  // Todas las compras a meses (también las liquidadas), para separarlas en el resumen de Gastos
+  const [msiIds, setMsiIds] = useState<string[]>(guardado?.msiIds ?? []);
   const [personas, setPersonas] = useState<Record<string, Persona>>(guardado?.personas ?? {});
-  // Ingresos programados (aún no llegan): se ven en Esta semana y cuentan aparte en el límite por ingresos
-  const [programados, setProgramados] = useState<IngresoProgramado[]>(guardado?.programados ?? []);
   const [listo, setListo] = useState(!!guardado?.saldos);
-  // El círculo de "Más" cuenta lo por revisar y los ingresos programados cuya fecha ya llegó
-  const vencidos = programados.filter((p) => p.fecha <= hoy).length;
-  useEffect(() => { if (listo) onPendientes?.(porRevisar + vencidos); }, [porRevisar, vencidos, listo]);
   // Si falla la conexión se avisa en lugar de mostrar ceros; "intento" vuelve a cargar todo
   const [fallo, setFallo] = useState(false);
   const [falloG, setFalloG] = useState(false);
@@ -95,16 +97,12 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const [filtros, setFiltrosEstado] = useState<Filtros>(leerFiltros());
   const setFiltros = (f: Filtros) => { recordarFiltros(f); setFiltrosEstado(f); };
   const [gastos, setGastos] = useState<Gasto[]>([]);
-  const [ingresos, setIngresos] = useState<Ingreso[]>([]);
   const [cargandoG, setCargandoG] = useState(true);
   const [todasCats, setTodasCats] = useState(false);
   const [busca, setBusca] = useState({ cat: "", sub: "" });
 
   const r = rango(filtros);
-  // Los 6 meses que terminan en el último mes del periodo (para Ingresos vs. gastos)
-  const ultimoDia = masDias(r.hasta, -1);
-  const flujoDesde = sumarMes(mesISO(ultimoDia), -5);
-  const desdeFetch = [r.antDesde, flujoDesde].sort()[0];
+  const desdeFetch = r.antDesde;
 
   useEffect(() => {
     cargarConfig(uid).then(setConfig);
@@ -119,7 +117,6 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     const detalleMsi = Promise.resolve(sb.rpc("msi_detalle"));
     // Cobros (5 consultas) va aparte: el resto de Inicio no lo espera
     cargarCobros(detalleMsi).then((co) => { setPersonas(co.personas); recordar({ personas: co.personas }); }, () => {});
-    cargarProgramados().then((p) => { setProgramados(p); recordar({ programados: p }); }, () => {});
     // El detalle de todas tus tarjetas en una sola consulta, al mismo tiempo que lo demás
     sb.rpc("detalle_tarjetas").then(({ data, error }) => {
       if (error || !data) return; // se quedan las tarjetas que ya se veían
@@ -129,21 +126,18 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     }, () => {});
     Promise.all([
       sb.rpc("saldos_cuentas"), sb.rpc("resumen_mes", { p_mes: mes }), sb.rpc("balance_hogar"),
-      sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id").eq("activa", true),
+      sb.from("suscripciones").select("id, servicio, monto, frecuencia_meses, fecha_referencia, cuenta_id, palabra_clave").eq("activa", true),
       cargarMsi(detalleMsi),
-      sb.from("movimientos").select("cuenta_destino_id, monto, cuenta_destino:cuentas!movimientos_cuenta_destino_id_fkey(tipo)")
-        .in("tipo", ["transferencia", "liquidacion"]).gte("fecha", mes).not("cuenta_destino_id", "is", null),
-    ]).then(([s, rm, b, su, md, ab]) => {
-      const error = !!(s.error || rm.error || b.error || su.error || ab.error);
+    ]).then(([s, rm, b, su, md]) => {
+      const error = !!(s.error || rm.error || b.error || su.error);
       setFallo(error);
       // Sin conexión se queda lo que ya se veía (lo guardado) en lugar de ceros
       setActualizando(false);
       if (error) { setListo(true); return; }
       const msiActivas = md.filter((x) => x.estado === "Activa");
       setMsi(msiActivas);
-      const abonos: Record<string, number> = {};
-      for (const x of (ab.data ?? []) as any[]) if (x.cuenta_destino?.tipo === "prestamo") abonos[x.cuenta_destino_id] = (abonos[x.cuenta_destino_id] ?? 0) + n(x.monto);
-      setAbonosPrestamo(abonos);
+      const ids = md.map((x) => x.movimiento_id);
+      setMsiIds(ids);
       const lista = (s.data ?? []) as Saldo[];
       setSaldos(lista);
       const revisar = n(((rm.data ?? [])[0] as any)?.por_revisar);
@@ -156,7 +150,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       setListo(true);
       const cuando = Date.now();
       setActualizado(cuando);
-      recordar({ saldos: lista, porRevisar: revisar, abonosPrestamo: abonos, balance: bal, subs: suscripciones, msi: msiActivas, cuando });
+      recordar({ saldos: lista, porRevisar: revisar, balance: bal, subs: suscripciones, msi: msiActivas, msiIds: ids, cuando });
     }).catch(() => { setFallo(true); setListo(true); setActualizando(false); });
   }, [mes, intento]);
 
@@ -164,22 +158,16 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     // Si cambias los filtros antes de que llegue la respuesta, la vieja se descarta
     let vigente = true;
     const clave = `gastos-${desdeFetch}-${r.hasta}`;
-    const previo = leerCache<{ gastos: Gasto[]; ingresos: Ingreso[] }>(uid, clave);
-    if (previo) { setGastos(previo.gastos); setIngresos(previo.ingresos); setCargandoG(false); } else setCargandoG(true);
-    Promise.all([
-      sb.rpc("gastos_lista", { p_desde: desdeFetch, p_hasta: r.hasta }),
-      sb.from("movimientos").select("fecha, monto, cuenta_id, cuenta:cuentas!movimientos_cuenta_id_fkey(propietario_id)")
-        .eq("tipo", "ingreso").eq("creado_por", uid).gte("fecha", desdeFetch).lt("fecha", r.hasta),
-    ]).then(([g, i]) => {
+    const previo = leerCache<{ gastos: Gasto[] }>(uid, clave);
+    if (previo) { setGastos(previo.gastos); setCargandoG(false); } else setCargandoG(true);
+    Promise.resolve(sb.rpc("gastos_lista", { p_desde: desdeFetch, p_hasta: r.hasta })).then((g) => {
       if (!vigente) return;
-      const error = !!(g.error || i.error);
-      setFalloG(error);
+      setFalloG(!!g.error);
       setCargandoG(false);
-      if (error) return;
+      if (g.error) return;
       const gs = ((g.data ?? []) as any[]).map((x) => ({ ...x, monto: n(x.monto) }));
-      const is = ((i.data ?? []) as any[]).filter((x) => x.cuenta?.propietario_id).map((x) => ({ fecha: x.fecha, monto: n(x.monto), cuenta_id: x.cuenta_id }));
-      setGastos(gs); setIngresos(is);
-      guardarCache(uid, clave, { gastos: gs, ingresos: is });
+      setGastos(gs);
+      guardarCache(uid, clave, { gastos: gs });
     }).catch(() => { if (vigente) { setFalloG(true); setCargandoG(false); } });
     sb.rpc("reparto_compartido", { p_desde: r.desde, p_hasta: r.hasta }).then(({ data, error }) => {
       if (vigente && !error) setReparto(((data ?? []) as any[]).map((x) => ({ ...x, parte: n(x.parte) })));
@@ -191,11 +179,12 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const filtrados = useMemo(() => gastos.filter((g) => pasaFiltro(g, filtros)), [gastos, filtros]);
   const actuales = filtrados.filter((g) => g.fecha >= r.desde && g.fecha < r.hasta);
   const anteriores = filtrados.filter((g) => g.fecha >= r.antDesde && g.fecha < r.antHasta);
-  const ingFiltrados = ingresos.filter((x) => !filtros.cuentas.length || filtros.cuentas.includes(x.cuenta_id));
   const gastado = actuales.reduce((a, g) => a + g.monto, 0);
   const gastadoAnt = anteriores.reduce((a, g) => a + g.monto, 0);
-  const ingresado = ingFiltrados.filter((x) => x.fecha >= r.desde && x.fecha < r.hasta).reduce((a, x) => a + x.monto, 0);
-  const conCategoria = !!filtros.categoria;
+  // De lo gastado, cuánto es de suscripciones y cuánto de compras a meses (la compra completa, en su fecha)
+  const idsMsi = new Set(msiIds);
+  const deMsi = actuales.filter((g) => idsMsi.has(g.movimiento_id)).reduce((a, g) => a + g.monto, 0);
+  const deSubs = actuales.filter((g) => !idsMsi.has(g.movimiento_id) && subs.some((x) => esDeSub(g.texto, x))).reduce((a, g) => a + g.monto, 0);  const conCategoria = !!filtros.categoria;
   const periodo = textoPeriodo(filtros);
   // Periodo en curso: este mes o esta catorcena (la meta, la proyección y "por día" se calculan sobre él)
   const esCatorcena = filtros.periodo === "catorcena" || filtros.periodo === "catorcena_pasada";
@@ -208,11 +197,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   if (r.unMes) for (const g of actuales) diario[Number(g.fecha.slice(8, 10))] = (diario[Number(g.fecha.slice(8, 10))] ?? 0) + g.monto;
   const grupos = agruparCategorias(actuales.map((g) => ({ ...g })));
   // La meta es del mes completo: se compara solo con el mes actual y sin filtros de cuenta o categoría
-  const porIngresos = metaConfig?.modo === "ingresos";
-  // Lo que se espera que entre en el periodo y aún no se confirma (sin filtro de categoría; con filtro de cuentas, solo esas)
-  const esperado = conCategoria ? 0 : programados.filter((p) => !filtros.cuentas.length || (p.cuenta_id && filtros.cuentas.includes(p.cuenta_id)))
-    .reduce((a, p) => a + fechasEn(p, r.desde, r.hasta).length * p.monto, 0);
-  const meta = metaConfig?.modo === "fija" ? metaConfig.monto : porIngresos ? ingresado + esperado : 0;
+  const meta = metaConfig?.modo === "fija" ? metaConfig.monto : 0;
   const metaAplica = esMesActual && !filtros.cuentas.length && !conCategoria;
   const conMeta = !!meta && metaAplica;
   const quedaMeta = conMeta ? meta - gastado : 0;
@@ -222,8 +207,6 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     .sort((a, b) => Number(a.color !== "rosa") - Number(b.color !== "rosa"));
   const totalCompartido = partes.reduce((a, p) => a + p.parte, 0);
   const visiblesInicio = config.filter((c) => c.visible);
-  const conSemana = visiblesInicio.some((c) => c.id === "proximos");
-  const conAvisos = visiblesInicio.some((c) => c.id === "avisos");
   // Movimientos con el mismo periodo y filtros del resumen
   const verMovimientos = (() => {
     const q = new URLSearchParams({ filtro: "gasto" });
@@ -237,34 +220,17 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   const enFiltroCta = (id: string) => !filtros.cuentas.length || filtros.cuentas.includes(id);
   const visibles = saldos.filter((s) => s.activa);
   const creditos = visibles.filter((s) => s.tipo === "credito" && (s.mia || s.conjunta));
-  const prestamos = visibles.filter((s) => s.tipo === "prestamo" && (s.mia || s.conjunta));
-  const pagoMensual = Object.fromEntries(cuentas.map((c) => [c.id, n(c.pago_mensual)]));
-  const faltaPrestamo = (id: string) => Math.max(0, Math.min(pagoMensual[id], -n(saldos.find((x) => x.id === id)?.saldo)) - (abonosPrestamo[id] ?? 0));
-  const ordenTipo = ["debito", "ahorro", "efectivo", "inversion", "prestamo", "credito"];
-  const otrasCuentas = visibles.filter((s) => !creditos.includes(s))
-    .sort((a, b) => Number(!(a.mia || a.conjunta)) - Number(!(b.mia || b.conjunta)) || ordenTipo.indexOf(a.tipo) - ordenTipo.indexOf(b.tipo));
-  const tienes = visibles.filter((s) => (s.mia || s.conjunta) && ["debito", "efectivo", "ahorro"].includes(s.tipo)).reduce((a, s) => a + Math.max(0, n(s.saldo)), 0);
-  const porPagarTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.falta, 0);
-  const pagadoTarjetas = Object.values(tarjetas).reduce((a, t) => a + t.pagado_mes, 0);
-  const porPagarPrestamos = prestamos.reduce((a, p) => a + faltaPrestamo(p.id), 0);
-  const sobra = tienes - porPagarTarjetas - porPagarPrestamos;
   const subsProx = subs.flatMap((x) => { const f = proximoCobro(x.fecha_referencia, x.frecuencia_meses); return f && diasEntre(hoy, f) <= 7 ? [{ t: x.servicio, f, m: x.monto }] : []; });
   const proximos = [
     ...subsProx.map((x) => ({ ...x, id: "", tipo: "sub" as const })),
     ...creditos.filter((c) => tarjetas[c.id]?.falta > 0 && tarjetas[c.id].fecha_pago && diasEntre(hoy, tarjetas[c.id].fecha_pago!) <= 10)
       .map((c) => ({ id: c.id, t: `Pago ${c.nombre}`, f: tarjetas[c.id].fecha_pago!, m: tarjetas[c.id].falta, tipo: "tarjeta" as const })),
-    ...prestamos.filter((p) => faltaPrestamo(p.id) > 0 && p.proximo_pago && diasEntre(hoy, p.proximo_pago) <= 10)
-      .map((p) => ({ id: p.id, t: `Pago ${p.nombre}`, f: p.proximo_pago!, m: faltaPrestamo(p.id), tipo: "prestamo" as const })),
   ].sort((a, b) => a.f.localeCompare(b.f));
-  const proyMsi = proyeccionMsi(msi, mes, 12).map((p) => ({ ...p, etiqueta: mesCap(p.mes), monto: p.total }));
-  const msiHoy = proyMsi[0]?.monto ?? 0;
-  const deOtros = proyMsi[0]?.otros ?? 0;
+  const proyMsi = proyeccionMsi(msi, mes, 12);
+  const msiHoy = proyMsi[0]?.total ?? 0;
   const debesMsi = msi.reduce((a, x) => a + x.por_facturar, 0);
-  const teDebenMsi = msi.reduce((a, x) => a + x.por_facturar * x.fraccionOtros, 0);
-  const baja = proyMsi.find((p) => p.monto < msiHoy - 0.5);
-  const porTarjeta = Object.entries(msi.filter((x) => x.primer_mes <= mes && x.ultimo_mes >= mes)
-    .reduce((acc: Record<string, number>, x) => { acc[x.cuenta ?? "Sin tarjeta"] = (acc[x.cuenta ?? "Sin tarjeta"] ?? 0) + n(x.mensualidad); return acc; }, {}))
-    .sort((a, b) => b[1] - a[1]);
+  const terminaPronto = [...msi].sort((a, b) => a.ultimo_mes.localeCompare(b.ultimo_mes))[0];
+  const subsAlMes = subs.reduce((a, x) => a + x.monto / x.frecuencia_meses, 0);
 
   // ---------- Secciones ----------
   // Todas las secciones llevan el mismo encabezado (título, periodo si responde a filtros y enlace) fuera de la tarjeta
@@ -282,23 +248,17 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
   );
   const vacioFiltro = <div className="vacio p-8-0">{cargandoG ? "Cargando…" : "Sin gastos con estos filtros."}</div>;
 
-  const secciones: Record<IdSeccion, () => ReactNode> = {
-    // Esta semana: pagos próximos y, si Avisos está activa, los avisos; en tarjetas que se deslizan de lado
-    proximos: () => {
+  // ---------- Inicio ----------
+  // Esta semana: pagos próximos y avisos, en tarjetas que se deslizan de lado
+  const semana = () => {
       const tarjetasSemana = [
-        ...(conAvisos && porRevisar > 0 ? [{ k: "rev", to: "/pendientes", I: Tray, t: `${porRevisar} por revisar`, d: "Sin clasificar o sin categoría", m: "", tono: "urgente" }] : []),
+        ...(porRevisar > 0 ? [{ k: "rev", to: "/pendientes", I: Tray, t: `${porRevisar} por revisar`, d: "Sin clasificar o sin categoría", m: "", tono: "urgente" }] : []),
         ...proximos.map((p, i) => {
           const d = diasEntre(hoy, p.f);
-          return { k: "p" + i, to: p.tipo === "sub" ? "/suscripciones" : `/cuenta/${p.id}`, I: p.tipo === "sub" ? Repeat : p.tipo === "prestamo" ? HandCoins : CreditCard, t: p.t,
+          return { k: "p" + i, to: p.tipo === "sub" ? "/suscripciones" : `/cuenta/${p.id}`, I: p.tipo === "sub" ? Repeat : CreditCard, t: p.t,
             d: `${d === 0 ? "Hoy" : d === 1 ? "Mañana" : d < 0 ? `Venció hace ${-d} ${d === -1 ? "día" : "días"}` : `En ${d} días`} · ${fechaCorta(p.f)}`, m: fmt(p.m), tono: d <= 3 ? "urgente" : "" };
         }),
-        ...programados.filter((p) => diasEntre(hoy, p.fecha) <= 7).map((p) => {
-          const d = diasEntre(hoy, p.fecha);
-          return { k: "ip" + p.id, to: `/ingreso-programado/${p.id}`, I: Wallet, t: d <= 0 ? `Confirma: ${p.descripcion}` : p.descripcion,
-            d: d < 0 ? `Esperado hace ${-d} ${d === -1 ? "día" : "días"}` : d === 0 ? "Esperado hoy" : d === 1 ? "Mañana" : `En ${d} días · ${fechaCorta(p.fecha)}`,
-            m: "~" + fmt(p.monto), tono: "verde" };
-        }),
-        ...(conAvisos && otros.length ? balance.filter((b) => Math.abs(b.me_debe) >= 0.5).map((b) => ({ k: "b" + b.nombre, to: "/hogar", I: Handshake,
+        ...(otros.length ? balance.filter((b) => Math.abs(b.me_debe) >= 0.5).map((b) => ({ k: "b" + b.nombre, to: "/hogar", I: Handshake,
           t: b.me_debe > 0 ? `${b.nombre} te debe` : `Le debes a ${b.nombre}`, d: "Gastos compartidos", m: fmt(Math.abs(b.me_debe)), tono: b.me_debe > 0 ? "verde" : "" })) : []),
       ];
       return tarjetasSemana.length > 0 ? (
@@ -316,20 +276,75 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           </div>
         </section>
       ) : listo ? <p className="nota flex gap-6 centrar-v mt-14"><CalendarDots size={16} /> Sin pagos ni avisos en los próximos días.</p> : null;
-    },
+  };
 
-    // Con Esta semana activa, los avisos van dentro de ella
-    avisos: () => conSemana ? null : (
-      <>
-        {porRevisar > 0 && <Link className="aviso rojo" to="/pendientes"><span><strong>{porRevisar} por revisar:</strong> movimientos sin clasificar o partes compartidas sin categoría.</span></Link>}
-        {otros.length > 0 && balance.map((b) => Math.abs(b.me_debe) >= 0.5 && (
-          <Link key={b.nombre} className={"aviso " + (b.me_debe > 0 ? "verde" : "")} to="/hogar">
-            <span>{b.me_debe > 0 ? <><strong>{b.nombre} te debe {fmt(b.me_debe)}</strong> de gastos compartidos.</> : <><strong>Le debes {fmt(-b.me_debe)} a {b.nombre}</strong> de gastos compartidos.</>}</span>
+  // Quién te debe: en Inicio, todo; en Gastos, solo lo de gastos de contado. El saldo con tu pareja va en los dos.
+  const quien = (origen?: Origen) => {
+    const lista = [
+      ...deudasDe(personas, origen).map((x) => ({ ...x, nombre: familiares.find((f) => f.id === x.id)?.nombre ?? "Otra persona", to: "/cobros" })),
+      ...balance.filter((b) => b.me_debe > 0.5).map((b) => ({ id: b.nombre, nombre: b.nombre, hoy: b.me_debe, despues: 0, to: "/hogar" })),
+    ].sort((a, b) => b.hoy + b.despues - (a.hoy + a.despues));
+    const total = lista.reduce((a, x) => a + x.hoy, 0);
+    return panel("Quién te debe", lista.length ? <>
+      <div className="lista plana">
+        {lista.map((x) => (
+          <Link key={x.id} className="fila" to={x.to}>
+            <div className="cuerpo"><div className="titulo">{x.nombre}</div>
+              {x.despues > 0.5 && <div className="detalle">Más {fmt(x.despues, false)} {origen ? "por venir" : "en cargos por venir"}</div>}</div>
+            <div className="monto positivo">{fmt(x.hoy, false)}<small>hoy</small></div>
           </Link>
         ))}
-      </>
-    ),
+      </div>
+      <p className="nota">Te deben hoy <b>{fmt(total, false)}</b>{origen ? " de tus gastos" : ""}.</p>
+    </> : <div className="vacio p-8-0">Nadie te debe nada.</div>, ["/cobros", "Cobros"]);
+  };
 
+  // Tarjeta de resumen de un módulo: lleva a su pestaña
+  const modulo = (to: string, I: typeof Receipt, titulo: string, etiqueta: string, cifra: number, detalle: ReactNode) => (
+    <Link className="panel modulo" to={to}>
+      <div className="modulo-cabeza"><span className="ico" aria-hidden="true"><I size={18} /></span><span>{titulo}</span><CaretRight size={16} className="flecha" aria-hidden="true" /></div>
+      <div className="etiqueta">{etiqueta}</div>
+      <div className="cifra num">{fmt(cifra, false)}</div>
+      <div className="detalle">{detalle}</div>
+    </Link>
+  );
+
+  const vistaInicio = () => {
+    const top = grupos.slice(0, 3);
+    const subsSemana = subsProx.reduce((a, x) => a + x.m, 0);
+    return <>
+      {semana()}
+      <section className="seccion">
+        {cabeza("Tus módulos")}
+        <div className="modulos">
+          {modulo("/gastos", Receipt, "Gastos", `Llevas gastado · ${periodo}${filtros.cuentas.length || conCategoria ? " (con filtros)" : ""}`, gastado,
+            top.length ? top.map((c) => `${c.nombre} ${fmt(c.total, false)}`).join(" · ") : cargandoG ? "Cargando…" : "Sin gastos en el periodo.")}
+          {modulo("/suscripciones", Repeat, "Suscripciones", "Pagas al mes", subsAlMes,
+            subsProx.length ? <>Esta semana: {subsProx.length} {subsProx.length === 1 ? "cobro" : "cobros"} por <b>{fmt(subsSemana, false)}</b></>
+              : `${subs.length} ${subs.length === 1 ? "servicio activo" : "servicios activos"} · nada esta semana`)}
+          {modulo("/msi", CalendarDots, "Meses sin intereses", "Pagas este mes", msiHoy,
+            msi.length ? <>Te falta <b>{fmt(debesMsi, false)}</b>{terminaPronto ? <> · {terminaPronto.descripcion || "Una compra"} termina en {mesCorto(terminaPronto.ultimo_mes)}</> : null}</> : "Sin compras a meses activas.")}
+        </div>
+      </section>
+      {quien()}
+      <section className="seccion">
+        {cabeza("Hogar")}
+        <div className="lista"><Link className="fila" to="/hogar">
+          <span className="ico" aria-hidden="true"><UsersThree size={20} /></span>
+          <div className="cuerpo">
+            <div className="titulo">{otros.length ? `Con ${otros.map((o) => o.nombre).join(" y ")}` : "Gastos compartidos"}</div>
+            <div className="detalle">{otros.length
+              ? balance.filter((b) => Math.abs(b.me_debe) >= 0.5).map((b) => b.me_debe > 0 ? `${b.nombre} te debe ${fmt(b.me_debe, false)}` : `Le debes ${fmt(-b.me_debe, false)} a ${b.nombre}`).join(" · ") || "Están a mano"
+              : "Invita a tu pareja para dividir los gastos del hogar"}</div>
+          </div>
+          <CaretRight size={16} className="flecha" aria-hidden="true" />
+        </Link></div>
+      </section>
+    </>;
+  };
+
+  // ---------- Gastos ----------
+  const secciones: Record<IdSeccion, () => ReactNode> = {
     resumen: () => (
       <section className="tablero" aria-label="Resumen">
         <div className="tablero-arriba">
@@ -340,12 +355,11 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
             </Link>
             {conMeta ? (
               quedaMeta >= 0
-                ? <div className="sub">{porIngresos ? <>De tus ingresos de {elPeriodo} ({fmt(meta, false)})</> : <>De tu meta de {fmt(meta, false)}</>} te quedan <b>{fmt(quedaMeta, false)}</b> por gastar{porIngresos && esperado > 0 ? <>, de ellos <b>{fmt(Math.min(esperado, quedaMeta), false)}</b> aún esperados</> : null}, unos <b>{fmt(quedaMeta / diasRestantes, false)}</b> por día.</div>
-                : <div className="sub">Gastaste <b>{fmt(-quedaMeta, false)}</b> más {porIngresos ? <>de lo que entró en {elPeriodo} ({fmt(meta, false)})</> : <>de tu meta de {fmt(meta, false)}</>}.</div>
+                ? <div className="sub">De tu meta de {fmt(meta, false)} te quedan <b>{fmt(quedaMeta, false)}</b> por gastar, unos <b>{fmt(quedaMeta / diasRestantes, false)}</b> por día.</div>
+                : <div className="sub">Gastaste <b>{fmt(-quedaMeta, false)}</b> más de tu meta de {fmt(meta, false)}.</div>
             ) : <>
               {proyCierre !== null && <div className="sub">A este ritmo cerrarías {elPeriodo} en <b>{fmt(proyCierre, false)}</b>.</div>}
               {proyCierre === null && gastadoAnt > 0 && <div className="sub">Periodo anterior: <b>{fmt(gastadoAnt, false)}</b> ({gastado >= gastadoAnt ? "+" : "−"}{Math.round(Math.abs(gastado / gastadoAnt - 1) * 100)}%)</div>}
-              {porIngresos && metaAplica && <div className="sub">Aún no hay ingresos registrados en {elPeriodo} para calcular cuánto te queda.</div>}
               {metaConfig?.modo === "ninguna" && esMesActual && <Link to="/inicio/personalizar" className="tablero-meta">Ponerte un límite de gasto</Link>}
             </>}
           </div>
@@ -360,9 +374,9 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
             </>
           ) : (
             <>
-              <div><div className="k">Ingresos</div><div className="v pos">{fmt(ingresado, false)}</div></div>
-              <div><div className="k">Gastos</div><div className="v">{fmt(gastado, false)}</div></div>
-              <div><div className="k">Ahorro</div><div className={"v " + (ingresado - gastado < 0 ? "neg" : "")}>{fmt(ingresado - gastado, false)}</div></div>
+              <div><div className="k">Suscripciones</div><div className="v">{fmt(deSubs, false)}</div></div>
+              <div><div className="k">Compras a meses</div><div className="v">{fmt(deMsi, false)}</div></div>
+              <div><div className="k">Lo demás</div><div className="v">{fmt(gastado - deSubs - deMsi, false)}</div></div>
             </>
           )}
         </div>
@@ -381,15 +395,6 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
         )}
       </section>
     ),
-
-    dinero: () => listo ? panel("Tu dinero este mes", <>
-      <div className={"veredicto " + (sobra >= 0 ? "pos" : "neg")}>
-        <div className="k">{sobra >= 0 ? "Te sobra al cubrir todo" : "Te falta para cubrir todo"}</div>
-        <div className="v">{fmt(Math.abs(sobra), false)}</div>
-      </div>
-      <BarrasFlujo tienes={tienes} tarjetas={porPagarTarjetas} porGastar={porPagarPrestamos} />
-      {pagadoTarjetas > 0 && <p className="nota">Este mes ya pagaste <b>{fmt(pagadoTarjetas, false)}</b> a tus tarjetas.</p>}
-    </>) : null,
 
     tarjetas: () => {
       const lista = creditos.filter((c) => enFiltroCta(c.id));
@@ -423,20 +428,6 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       ) : null;
     },
 
-    mensualidades: () => msi.length > 0 ? panel("Mensualidades", <>
-      <div className="stats sin-borde-arriba mt-0 pt-0 mb-10">
-        <div><div className="k">Este mes</div><div className="v">{fmt(msiHoy, false)}</div></div>
-        <div><div className="k">Debes en total</div><div className="v">{fmt(debesMsi, false)}</div></div>
-        <div><div className="k">De eso te deben</div><div className="v positivo">{fmt(teDebenMsi, false)}</div></div>
-      </div>
-      <BarrasMes datos={proyMsi} promedio={0} proyeccion serie="Mensualidades" />
-      <div className="msi-tarjetas">{porTarjeta.map(([t, v]) => <span key={t}><b>{t}</b> {fmt(v, false)}</span>)}</div>
-      <p className="nota">
-        {baja ? <>En {baja.etiqueta.toLowerCase()} bajan a <b>{fmt(baja.monto, false)}</b> al terminar algunas compras.</> : "Sin cambios en los próximos 12 meses."}
-        {deOtros > 0.5 && <> De este mes, <b>{fmt(deOtros, false)}</b> son la parte de otras personas.</>}
-      </p>
-    </>, ["/msi", "Ver detalle"]) : null,
-
     ritmo: () => r.unMes && gastado > 0 ? panel("Ritmo de gasto",
       <RitmoGasto diario={diario} dias={totalDias} hoy={diaHoy} presupuesto={conMeta ? meta : 0} mesTxt={nombreMes(r.desde).split(" ")[0]} />,
       ["/movimientos", "Ver movimientos"], true) : null,
@@ -446,54 +437,7 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       {grupos.length > 6 && <button className="boton claro chico ancho mt-12" onClick={() => setTodasCats(!todasCats)}>{todasCats ? "Ver menos" : `Ver las ${grupos.length} categorías`}</button>}
     </> : vacioFiltro, ["/analisis", "Análisis"], true),
 
-    cuentas: () => {
-      const lista = otrasCuentas.filter((s) => enFiltroCta(s.id));
-      return (
-        <section className="seccion">
-          {cabeza("Cuentas", ["/ajustes/cuentas", "Administrar"])}
-          <div className="lista">
-            {lista.length === 0 && <div className="vacio">Sin otras cuentas. <Link to="/ajustes/cuentas">Agregar</Link></div>}
-            {lista.map((s, i) => {
-              const nuevoGrupo = i === 0 || lista[i - 1].tipo !== s.tipo || lista[i - 1].mia !== s.mia;
-              const dueno = s.conjunta ? "Conjunta" : s.mia ? TIPOS_CUENTA[s.tipo] : `De ${s.propietario_nombre}`;
-              const Fila: any = s.mia || s.conjunta ? Link : "div";
-              return (
-                <Fragment key={s.id}>
-                  {nuevoGrupo && <div className="subgrupo">{s.mia || s.conjunta ? ({ debito: "Débito", ahorro: "Ahorro", efectivo: "Efectivo", inversion: "Inversión", prestamo: "Deudas y préstamos", credito: "Crédito" } as Record<string, string>)[s.tipo] ?? "Otras" : "De tu pareja"}</div>}
-                  <Fila className="fila" to={`/cuenta/${s.id}`}>
-                    <IconoCuenta tipo={s.tipo} conjunta={s.conjunta} />
-                    <div className="cuerpo"><div className="titulo">{s.nombre}</div><div className="detalle">
-                      {s.tipo === "prestamo" && pagoMensual[s.id] > 0 ? (faltaPrestamo(s.id) > 0 ? `Pago ${fmt(faltaPrestamo(s.id), false)}${s.proximo_pago ? ` · ${fechaCorta(s.proximo_pago)}` : ""}` : "Pago del mes cubierto") : dueno}</div></div>
-                    {s.tipo === "prestamo" ? <div className="monto">{fmt(Math.max(0, -n(s.saldo)), false)}<small>debes</small></div>
-                      : <div className={"monto " + (n(s.saldo) < 0 ? "negativo" : "")}>{fmt(s.saldo)}</div>}
-                  </Fila>
-                </Fragment>
-              );
-            })}
-          </div>
-        </section>
-      );
-    },
-
-    quien: () => {
-      const lista = [
-        ...Object.entries(personas).map(([id, p]) => ({ id, nombre: familiares.find((f) => f.id === id)?.nombre ?? "Otra persona", hoy: p.total, despues: p.porVenir, to: "/cobros" })),
-        ...balance.filter((b) => b.me_debe > 0.5).map((b) => ({ id: b.nombre, nombre: b.nombre, hoy: b.me_debe, despues: 0, to: "/hogar" })),
-      ].filter((x) => x.hoy > 0.5 || x.despues > 0.5).sort((a, b) => b.hoy + b.despues - (a.hoy + a.despues));
-      const total = lista.reduce((a, x) => a + x.hoy, 0);
-      return panel("Quién te debe", lista.length ? <>
-        <div className="lista plana">
-          {lista.map((x) => (
-            <Link key={x.id} className="fila" to={x.to}>
-              <div className="cuerpo"><div className="titulo">{x.nombre}</div>
-                {x.despues > 0.5 && <div className="detalle">Más {fmt(x.despues, false)} en mensualidades por venir</div>}</div>
-              <div className="monto positivo">{fmt(x.hoy, false)}<small>hoy</small></div>
-            </Link>
-          ))}
-        </div>
-        <p className="nota">Te deben hoy <b>{fmt(total, false)}</b>.</p>
-      </> : <div className="vacio p-8-0">Nadie te debe nada.</div>, ["/cobros", "Cobros"]);
-    },
+    quien: () => quien("gasto"),
 
     comparativo: () => {
       const act = agruparCategorias(actuales), ant = agruparCategorias(anteriores);
@@ -546,22 +490,6 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
       ) : vacioFiltro, ["/movimientos", "Ver todos"], true);
     },
 
-    flujo: () => {
-      const meses = Array.from({ length: 6 }, (_, k) => sumarMes(flujoDesde, k));
-      const datos = meses.map((m) => {
-        const fin = sumarMes(m, 1);
-        return { mes: m, etiqueta: mesCap(m),
-          ingresos: conCategoria ? 0 : ingFiltrados.filter((x) => x.fecha >= m && x.fecha < fin).reduce((a, x) => a + x.monto, 0),
-          gastos: filtrados.filter((g) => g.fecha >= m && g.fecha < fin).reduce((a, g) => a + g.monto, 0) };
-      });
-      const ahorro = datos.reduce((a, d) => a + d.ingresos - d.gastos, 0);
-      return panel("Ingresos vs. gastos", <>
-        <BarrasDobles datos={datos} />
-        {!conCategoria && <p className="nota">En estos 6 meses {ahorro >= 0 ? <>ahorraste <b>{fmt(ahorro, false)}</b></> : <>gastaste <b>{fmt(-ahorro, false)}</b> más de lo que entró</>}. Toca un mes para ver el detalle.</p>}
-        {conCategoria && <p className="nota">Con una categoría elegida solo se muestran los gastos de esa categoría.</p>}
-      </>);
-    },
-
     buscar: () => {
       const padres = categorias.filter((c) => c.tipo === "gasto" && !c.padre_id && !c.archivada && (c.propietario_id === uid || c.propietario_id === null))
         .sort((a, b) => Number(a.propietario_id === null) - Number(b.propietario_id === null) || a.orden - b.orden);
@@ -608,25 +536,6 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
           </>
         )}
       </>, undefined, true);
-    },
-
-    suscripciones: () => {
-      const lista = subs.flatMap((s) => { const f = cobroEnMes(s.fecha_referencia, s.frecuencia_meses, mes); return f ? [{ ...s, f }] : []; })
-        .filter((s) => !s.cuenta_id || enFiltroCta(s.cuenta_id)).sort((a, b) => a.f.localeCompare(b.f));
-      const total = lista.reduce((a, s) => a + s.monto, 0);
-      return panel("Suscripciones del mes", lista.length ? <>
-        <div className="lista plana">
-          {lista.map((s) => (
-            <Link key={s.id} className="fila" to="/suscripciones">
-              <span className="ico" aria-hidden="true"><Repeat size={20} /></span>
-              <div className="cuerpo"><div className="titulo">{s.servicio}</div>
-                <div className="detalle">{s.f < hoy ? "Ya se cobró" : s.f === hoy ? "Se cobra hoy" : "Se cobra"} · {fechaCorta(s.f)}{s.cuenta_id ? ` · ${cuentas.find((c) => c.id === s.cuenta_id)?.nombre ?? ""}` : ""}</div></div>
-              <div className="monto">{fmt(s.monto)}</div>
-            </Link>
-          ))}
-        </div>
-        <p className="nota">Total del mes: <b>{fmt(total, false)}</b>.</p>
-      </> : <div className="vacio p-8-0">Sin suscripciones este mes.</div>, ["/suscripciones", "Suscripciones"]);
     },
 
     comercios: () => {
@@ -680,15 +589,19 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
     <>
       <header className="cabeza">
         <div>
-          <div className="sub">Hola, {yo?.nombre}</div>
-          <h1>{cap(nombreMes(mes).replace(" de ", " "))}</h1>
+          {enInicio ? <>
+            <div className="sub">Hola, {yo?.nombre}</div>
+            <h1>{cap(nombreMes(mes).replace(" de ", " "))}</h1>
+          </> : <><Link to="/" className="volver">‹ Inicio</Link><h1>Gastos</h1></>}
           <div className="actualizado" aria-live="polite">{actualizando ? "Actualizando…" : actualizado ? haceCuanto(actualizado) : ""}</div>
         </div>
         <div className="flex gap-8">
           <button className="boton-icono" onClick={() => setOculto(!oculto)} aria-label={oculto ? "Mostrar montos" : "Ocultar montos"} aria-pressed={oculto}>
             {oculto ? <EyeSlash size={22} /> : <Eye size={22} />}
           </button>
-          <Link to="/inicio/personalizar" className="boton-icono" aria-label="Personalizar inicio"><SquaresFour size={22} /></Link>
+          {enInicio
+            ? <Link to="/mas" className="boton-icono con-punto" aria-label={porRevisar > 0 ? `Más y ajustes, ${porRevisar} pendientes` : "Más y ajustes"}><GearSix size={22} />{porRevisar > 0 && <span className="punto" aria-hidden="true" />}</Link>
+            : <Link to="/inicio/personalizar" className="boton-icono" aria-label="Personalizar Gastos"><SquaresFour size={22} /></Link>}
         </div>
       </header>
       {(fallo || falloG) && (
@@ -698,16 +611,22 @@ export default function Inicio({ onPendientes }: { onPendientes?: (n: number) =>
         </div>
       )}
       {cuentas.length === 0 && (
-        <Link className="aviso" to="/ajustes/cuentas"><span><strong>Empieza agregando tus cuentas</strong> con su saldo de hoy: débito, tarjetas y ahorro.</span></Link>
+        <Link className="aviso" to="/ajustes/cuentas"><span><strong>Empieza agregando tus tarjetas</strong> con su saldo de hoy.</span></Link>
       )}
-      {visiblesInicio.map((c) => (
-        <Fragment key={c.id}>
-          {c.id === primeraFiltrable && <BarraFiltros f={filtros} onCambio={setFiltros} />}
-          {secciones[c.id]()}
-        </Fragment>
-      ))}
-      {!primeraFiltrable && <BarraFiltros f={filtros} onCambio={setFiltros} />}
-      <p className="texto-centro mt-24"><Link to="/inicio/personalizar" className="enlace-chico">Personalizar esta pantalla</Link></p>
+      {enInicio ? vistaInicio() : <>
+        {visiblesInicio.map((c) => (
+          <Fragment key={c.id}>
+            {c.id === primeraFiltrable && <BarraFiltros f={filtros} onCambio={setFiltros} />}
+            {secciones[c.id]()}
+          </Fragment>
+        ))}
+        {!primeraFiltrable && <BarraFiltros f={filtros} onCambio={setFiltros} />}
+        <div className="acciones mt-24">
+          <Link to={verMovimientos} className="boton claro">Ver todos los movimientos</Link>
+          <Link to="/analisis" className="boton claro">Análisis</Link>
+        </div>
+        <p className="texto-centro mt-14"><Link to="/inicio/personalizar" className="enlace-chico">Personalizar esta pantalla</Link></p>
+      </>}
     </>
   );
 }
